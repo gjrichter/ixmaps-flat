@@ -19,6 +19,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 (function () {
 
     ixmaps.legend.legendA = [];
+    ixmaps.legend.scrollPositions = {};  // Store scroll positions by theme ID
 
     var szControls = "small";
     var szSvgLegendFlag = "nolegend";
@@ -1030,10 +1031,6 @@ window.ixmaps.legend = window.ixmaps.legend || {};
     ixmaps.legend.loadExternalLegend = function (szUrl) {
 		
         var szHtml = '<div id="map-legend-body" class="map-legend-body" style="margin-top:-1em"></div>';
-		if (0){
-			szHtml += '<div id="map-legend-delete" style="position:absolute;top:0.2em;right:-1em;border:solid 1px;padding:0.9em 1.2em 1.2em 1.2em;border-radius:2em">';
-			szHtml += '<b><a href="javascript:ixmaps.legend.removeExternalLegend(\'' + szUrl + '\')" style="text-decoration:none">...</a></b></div>';
-		}
         $("#map-legend").html(szHtml);
         $("#map-legend-body").load(szUrl);
         $("#map-legend-body").css("pointer-events","all");
@@ -1044,10 +1041,6 @@ window.ixmaps.legend = window.ixmaps.legend || {};
     ixmaps.legend.setExternalLegend = function (szLegend) {
 		
         var szHtml = '<div id="map-legend-body" class="map-legend-body" style="margin-top:-1em">'+szLegend+'</div>';
-		if (0){
-			szHtml += '<div id="map-legend-delete" style="position:absolute;top:0.2em;right:-1em;border:solid 1px;padding:0.9em 1.2em 1.2em 1.2em;border-radius:2em">';
-			szHtml += '<b><a href="javascript:ixmaps.legend.removeExternalLegend(\'' + "" + '\')" style="text-decoration:none">...</a></b></div>';
-		}
         $("#map-legend").html(szHtml);
         $("#map-legend").css("pointer-events","none");
         $("#map-legend-body").css("pointer-events","none");
@@ -1139,14 +1132,14 @@ window.ixmaps.legend = window.ixmaps.legend || {};
         //ixmaps.htmlgui_setMapTypeBG(ixmaps.getMapTypeId());
 		
         if (ixmaps.legend.url && ( (ixmaps.legend.url.substr(0,4) == "http") || (ixmaps.legend.url.substr(0,6) == "../../") ) ) {
-            if ( 1 || !ixmaps.legend.externalLegend) {
+            if ( !ixmaps.legend.externalLegend) {
                 ixmaps.legend.loadExternalLegend(ixmaps.legend.url);
                 ixmaps.legend.externalLegend = true;
             }
 			return;
         }else
         if (ixmaps.legend.url && ixmaps.legend.url.length ) {
-            if ( 1 || !ixmaps.legend.externalLegend) {
+            if ( !ixmaps.legend.externalLegend) {
                 ixmaps.legend.setExternalLegend(ixmaps.legend.url);
                 ixmaps.legend.externalLegend = true;
             }
@@ -1159,8 +1152,11 @@ window.ixmaps.legend = window.ixmaps.legend || {};
             var allThemes = ixmaps.getThemes();
             var szHtml = "";
             
-            // Clear the legend first
-            $("#map-legend").html("");
+            // Save current scroll position before updating
+            var scrollContainer = $("#map-legend-body > div")[0];
+            if (scrollContainer && szId) {
+                ixmaps.legend.scrollPositions[szId] = scrollContainer.scrollTop;
+            }
             
             for (var i = 0; i < allThemes.length; i++) {
                 var theme = allThemes[i];
@@ -1189,7 +1185,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 }
                 
                 // Add theme title
-                szHtml += "<h3 style='pointer-events:all;margin-top:" + (i > 0 ? "1.5em" : "0") + "'>" + (themeObj.szTitle || "Color Legend") + "</h3>";
+                szHtml += "<h3 style='pointer-events:all;margin-top:0.5em'>" + (themeObj.szTitle || "Color Legend") + "</h3>";
                 
                 // Add theme snippet if available
                 if (themeObj.szSnippet) {
@@ -1198,12 +1194,12 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 
                 // Add legend body
                 var szStyle = (ixmaps.legendAlign=="center")?"pointer-events:all;width:fit-content;margin:auto":"pointer-events:none";
-                szHtml += "<div class='map-legend-body' style='"+szStyle+"'>";
+                szHtml += "<div id='map-legend-body' class='map-legend-body' style='"+szStyle+"'>";
                 
                 if ( $("#map-legend").attr("data-align") == "left" ){
                     szHtml += "<div style='max-height:"+window.innerHeight+"px;overflow:hidden;margin-right:24px;padding-right:1em;pointer-events:none'>";
                 }else{
-                    szHtml += "<div style='max-height:300px;overflow:auto;margin-right:24px;padding-right:1em;pointer-events:all'>";
+                    szHtml += "<div style='max-height:300px;overflow:auto;margin:1em 24px 0 0;padding-right:1em;pointer-events:all'>";
                 }
                 
                 // Add color legend if not TEXTLEGEND
@@ -1250,6 +1246,14 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 $("#map-legend").html(szLegendPane);
             }
             
+            // Restore scroll position after updating
+            requestAnimationFrame(function() {
+                var scrollContainer = $("#map-legend-body > div")[0];
+                if (scrollContainer && szId && typeof ixmaps.legend.scrollPositions[szId] !== 'undefined') {
+                    scrollContainer.scrollTop = ixmaps.legend.scrollPositions[szId];
+                }
+            });
+            
             __actualThemeId = szId;
             __switchLegendPanes();
             ixmaps.legendType = "theme";
@@ -1286,7 +1290,11 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 			return;
 		}
 
-		$("#map-legend").html("");
+		// Save current scroll position before updating
+		var scrollContainer = $("#map-legend-body > div")[0];
+		if (scrollContainer && szId) {
+			ixmaps.legend.scrollPositions[szId] = scrollContainer.scrollTop;
+		}
 		
         // in case szId is not giveb, set it from themeObj
         szId = szId || themeObj.szId;
@@ -1310,7 +1318,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
  		if ( $("#map-legend").attr("data-align") == "left" ){
         	szHtml += "<div style='max-height:"+window.innerHeight+"px;overflow:hidden;margin-right:24px;padding-right:1em;pointer-events:none'>";
 		}else{
-        	szHtml += "<div style='max-height:300px;overflow:auto;margin-right:24px;padding-right:1em;pointer-events:all'>";
+        	szHtml += "<div style='max-height:300px;overflow:auto;margin:0.5em 24px 0 0;padding-right:1em;pointer-events:all'>";
 		}	
         
         if (!themeObj.szFlag.match(/\bTEXTLEGEND\b/)) {
@@ -1460,6 +1468,14 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		}else{
        		$("#map-legend").html(szLegendPane);
 		}
+
+		// Restore scroll position after updating
+		requestAnimationFrame(function() {
+			var scrollContainer = $("#map-legend-body > div")[0];
+			if (scrollContainer && szId && typeof ixmaps.legend.scrollPositions[szId] !== 'undefined') {
+				scrollContainer.scrollTop = ixmaps.legend.scrollPositions[szId];
+			}
+		});
 
 		// ---------------------------------------------------------------
 		// init the slider if created
