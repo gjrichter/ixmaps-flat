@@ -15035,6 +15035,11 @@ $Log: maptheme.js,v $
 		// GR 26.12.2020 define FEATURE style outside loop
 		//
 		if (this.szFlag.match(/FEATURE/)) {
+			// GR 21.10.2025 if fRedraw, clear existing FEATURE elements
+			if (this.fRedraw && this.chartGroup) {	
+				map.Dom.clearGroup(this.chartGroup);
+			}
+
 			this.chartGroup.style.setProperty("fill", this.chart.szColor || "white");
 			this.chartGroup.style.setProperty("fill-opacity", (this.fillOpacity || 0.7));
 			this.chartGroup.style.setProperty("stroke", this.szLineColor || "red");
