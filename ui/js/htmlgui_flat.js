@@ -265,7 +265,7 @@ $Log: htmlgui_api.js,v $
         // ---------------------
         
         {
-            url: '../data.min.js/data.js',
+            url: '../data.js/data.min.js',
             type: 'js'
         },
         {
