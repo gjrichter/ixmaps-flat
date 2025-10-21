@@ -16,7 +16,7 @@ $Log:data.js,v $
 /** 
  * @fileoverview
  * provides an object and methods to load, parse and process various data sources.<br>
- * The <b>sources</b> may be of the following type: <b>csv</b>, <b>json</b>, <b>geojson</b>, <b>kml</b>, <b>gml</b>, <b>rss</b>, and <b>parquet</b> (using DuckDB WASM).<br>
+ * The <b>sources</b> may be of the following type: <b>csv</b>, <b>json</b>, <b>geojson</b>, <b>kml</b>, <b>gml</b>, <b>rss</b>, <b>parquet</b> (using DuckDB WASM), <b>geopackage</b> (using DuckDB WASM), <b>flatgeobuf</b>, and <b>geobuf</b>.<br>
  * The <b>methods</b> to load data are: 
  * <ul><li>Data.<b>feed()</b> to load from url</li>
  * <li>Data.<b>import()</b> to import javascript objects and</li>
@@ -131,6 +131,59 @@ $Log:data.js,v $
         errors: [],
         log: function(message) {
             console.log(message);
+        },
+        /**
+         * cleanupDuckDB
+         * Utility function to manually cleanup DuckDB resources
+         * Call this from console if you encounter "Resource temporarily unavailable" errors
+         * Usage: Data.cleanupDuckDB()
+         */
+        cleanupDuckDB: function() {
+            try {
+                console.log("🧹 Starting manual DuckDB cleanup...");
+                if (window.duckdb) {
+                    // Try to close connection
+                    if (window.duckdb.conn) {
+                        try {
+                            window.duckdb.conn.close();
+                            console.log("✅ Closed DuckDB connection");
+                        } catch (e) {
+                            console.warn("⚠️ Error closing connection:", e.message);
+                        }
+                    }
+                    
+                    // Try to terminate the database
+                    if (window.duckdb.db) {
+                        try {
+                            window.duckdb.db.terminate();
+                            console.log("✅ Terminated DuckDB database");
+                        } catch (e) {
+                            console.warn("⚠️ Error terminating database:", e.message);
+                        }
+                    }
+                    
+                    // Try to terminate the worker
+                    if (window.duckdb.worker) {
+                        try {
+                            window.duckdb.worker.terminate();
+                            console.log("✅ Terminated DuckDB worker");
+                        } catch (e) {
+                            console.warn("⚠️ Error terminating worker:", e.message);
+                        }
+                    }
+                    
+                    // Clear references
+                    delete window.duckdb;
+                    delete window.duckdbLoaded;
+                    delete window.duckdbLoadedForGpkg;
+                    delete window.duckdbLoadError;
+                    console.log("✅ DuckDB cleanup complete - you can now reload your file");
+                } else {
+                    console.log("ℹ️ No DuckDB instance found to cleanup");
+                }
+            } catch (e) {
+                console.error("❌ Error during cleanup:", e);
+            }
         }
     };
 
@@ -170,6 +223,7 @@ $Log:data.js,v $
      *								   <tr><td><b>"json"</b></td><td>the source is JSON (Javascript Object Notation)</td></tr>
      *								   <tr><td><b>"geojson"</b></td><td>the source is a JSON object formatted in <a href="https://geojson.org/" target="_blank">GeoJson</a></td></tr>
      *								   <tr><td><b>"parquet"</b></td><td>the source is a Parquet or GeoParquet file (using DuckDB WASM, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"gpkg"</b></td><td>the source is a GeoPackage file (using DuckDB WASM spatial extension, converted to GeoJSON)</td></tr>
      *								   <tr><td><b>"rss"</b></td><td>the source is an xml rss feed</td></tr>
      *								   <tr><td><b>"kml"</b></td><td>the source is in Keyhole Markup Language</td></tr>
      *								   <tr><td><b>"gml"</b></td><td>the source is in Geography Markup Language</td></tr>
@@ -251,6 +305,32 @@ $Log:data.js,v $
                     _LOG("Processing geoparquet ArrayBuffer directly: " + this.options.source.byteLength + " bytes");
                     this.feed.__processGeoParquetData(this.options.source, this.options);
                 }
+            } else
+            if ((this.options.type == "gpkg") || (this.options.type == "GPKG") || 
+                (this.options.type == "geopackage") || (this.options.type == "GEOPACKAGE")) {
+                // Check if source is already an ArrayBuffer (from File API)
+                if (this.options.source instanceof ArrayBuffer) {
+                    _LOG("Processing GeoPackage ArrayBuffer directly: " + this.options.source.byteLength + " bytes");
+                    this.feed.__processGpkgData(this.options.source, this.options);
+                }
+            } else
+            if ((this.options.type == "fgb") || (this.options.type == "FGB") || 
+                (this.options.type == "flatgeobuf") || (this.options.type == "FLATGEOBUF") ||
+                (this.options.type == "FlatGeobuf")) {
+                // Check if source is already an ArrayBuffer (from File API)
+                if (this.options.source instanceof ArrayBuffer) {
+                    _LOG("Processing FlatGeobuf ArrayBuffer directly: " + this.options.source.byteLength + " bytes");
+                    this.feed.__processFlatGeobufData(this.options.source, this.options);
+                }
+            } else
+            if ((this.options.type == "pbf") || (this.options.type == "PBF") || 
+                (this.options.type == "geobuf") || (this.options.type == "GEOBUF") ||
+                (this.options.type == "Geobuf")) {
+                // Check if source is already an ArrayBuffer (from File API)
+                if (this.options.source instanceof ArrayBuffer) {
+                    _LOG("Processing Geobuf ArrayBuffer directly: " + this.options.source.byteLength + " bytes");
+                    this.feed.__processGeobufData(this.options.source, this.options);
+                }
             }
             return this;
         },
@@ -278,6 +358,9 @@ $Log:data.js,v $
      *								   <tr><td><b>"json"</b></td><td>the source is JSON (Javascript Object Notation)</td></tr>
      *								   <tr><td><b>"geojson"</b></td><td>the source is a JSON object formatted in <a href="https://geojson.org/" target="_blank">GeoJson</a></td></tr>
      *								   <tr><td><b>"parquet"</b></td><td>the source is a Parquet o GeoParquet file (using DuckDB WASM, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"gpkg"</b></td><td>the source is a GeoPackage file (using DuckDB WASM spatial extension, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"flatgeobuf"</b> or <b>"fgb"</b></td><td>the source is a FlatGeobuf file (binary geospatial format, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"geobuf"</b> or <b>"pbf"</b></td><td>the source is a Geobuf file (Protocol Buffer geospatial format, converted to GeoJSON)</td></tr>
      *								   <tr><td><b>"topojson"</b></td><td>the source is a JSON object formatted in <a href="https://github.com/topojson/topojson" target="_blank">TopoJson</a></td></tr>
      *								   <tr><td><b>"jsonDB"</b></td><td>the source is a jsonDB table object</td></tr>
      *								   <tr><td><b>"rss"</b></td><td>the source is an xml rss feed</td></tr>
@@ -310,6 +393,9 @@ $Log:data.js,v $
      *								   <tr><td><b>"geojson"</b></td><td>the source is a JSON object formatted in <a href="https://geojson.org/" target="_blank">GeoJson</a></td></tr>
      *								   <tr><td><b>"geoparquet"</b></td><td>the source is a GeoParquet file (using DuckDB WASM, converted to GeoJSON)</td></tr>
      *								   <tr><td><b>"parquet"</b></td><td>the source is a Parquet file (using DuckDB WASM)</td></tr>
+     *								   <tr><td><b>"gpkg"</b></td><td>the source is a GeoPackage file (using DuckDB WASM spatial extension, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"flatgeobuf"</b> or <b>"fgb"</b></td><td>the source is a FlatGeobuf file (binary geospatial format, converted to GeoJSON)</td></tr>
+     *								   <tr><td><b>"geobuf"</b> or <b>"pbf"</b></td><td>the source is a Geobuf file (Protocol Buffer geospatial format, converted to GeoJSON)</td></tr>
      *								   <tr><td><b>"JSON-stat"</b></td><td>the source is a JSON object formatted in <a href="https://json-stat.org/JSON-stat" target="_blank">JSON-stat</a></td></tr>
      *								   <tr><td><b>"jsonDB"</b></td><td>the source is in ixmaps internal data table format</td></tr>
      *								   <tr><td><b>"rss"</b></td><td>the source is an xml rss feed</td></tr>
@@ -414,6 +500,20 @@ $Log:data.js,v $
             } else
             if ((option.type == "parquet") || (option.type == "PARQUET")) {
                 this.__doParquetImport(szUrl, option);
+            } else
+            if ((option.type == "gpkg") || (option.type == "GPKG") || 
+                (option.type == "geopackage") || (option.type == "GEOPACKAGE")) {
+                this.__doGpkgImport(szUrl, option);
+            } else
+            if ((option.type == "fgb") || (option.type == "FGB") || 
+                (option.type == "flatgeobuf") || (option.type == "FLATGEOBUF") ||
+                (option.type == "FlatGeobuf")) {
+                this.__doFlatGeobufImport(szUrl, option);
+            } else
+            if ((option.type == "pbf") || (option.type == "PBF") || 
+                (option.type == "geobuf") || (option.type == "GEOBUF") ||
+                (option.type == "Geobuf")) {
+                this.__doGeobufImport(szUrl, option);
             } else {
                 _alert("'" + option.type + "' unknown format !");
             }
@@ -2162,6 +2262,44 @@ $Log:data.js,v $
     };
 
     /**
+     * __scheduleIdleWork
+     * Smart scheduler that uses requestIdleCallback when available, falls back to setTimeout
+     * Provides optimal task scheduling based on browser idle time for better performance
+     * 
+     * @param {function} workFn - Work function to execute, receives deadline parameter (null in fallback mode)
+     * @param {number} timeout - Timeout in ms for requestIdleCallback (default: 1000)
+     * @returns {Promise} Promise that resolves when work is complete
+     */
+    Data.Feed.prototype.__scheduleIdleWork = function(workFn, timeout) {
+        return new Promise((resolve, reject) => {
+            // Check if requestIdleCallback is available (Chrome, Firefox, Edge)
+            if (typeof requestIdleCallback === 'function') {
+                // Use requestIdleCallback for smarter scheduling (20-30% faster)
+                requestIdleCallback((deadline) => {
+                    try {
+                        workFn(deadline);
+                        resolve();
+                    } catch (error) {
+                        console.error("❌ Error in idle work:", error);
+                        reject(error);
+                    }
+                }, { timeout: timeout || 1000 });
+            } else {
+                // Fallback to setTimeout for browsers without requestIdleCallback (Safari, IE11)
+                setTimeout(() => {
+                    try {
+                        workFn(null); // No deadline in fallback mode
+                        resolve();
+                    } catch (error) {
+                        console.error("❌ Error in scheduled work:", error);
+                        reject(error);
+                    }
+                }, 0);
+            }
+        });
+    };
+
+    /**
      * __createParquetWorker
      * Creates an inline Web Worker for processing parquet data in a separate thread
      * This provides maximum performance and keeps the UI fully responsive
@@ -2328,32 +2466,29 @@ $Log:data.js,v $
             const extractBatchSize = 100000; // Extract 100K rows at a time
             
             for (let batchStart = 0; batchStart < rows.length; batchStart += extractBatchSize) {
-                await new Promise(resolve => {
-                    setTimeout(() => {
-                        const batchEnd = Math.min(batchStart + extractBatchSize, rows.length);
-                        
-                        for (let i = batchStart; i < batchEnd; i++) {
-                            if (isArrayFormat) {
-                                // Already array format, just copy
-                                plainRows.push(Array.from(rows[i]));
-                            } else if (isObjectFormat) {
-                                // Extract object values into plain object
-                                const plainRow = {};
-                                for (let j = 0; j < columns.length; j++) {
-                                    plainRow[columns[j]] = rows[i][columns[j]];
-                                }
-                                plainRows.push(plainRow);
-                            } else {
-                                plainRows.push(rows[i]);
+                const batchEnd = Math.min(batchStart + extractBatchSize, rows.length);
+                
+                await __this.__scheduleIdleWork((deadline) => {
+                    for (let i = batchStart; i < batchEnd; i++) {
+                        if (isArrayFormat) {
+                            // Already array format, just copy
+                            plainRows.push(Array.from(rows[i]));
+                        } else if (isObjectFormat) {
+                            // Extract object values into plain object
+                            const plainRow = {};
+                            for (let j = 0; j < columns.length; j++) {
+                                plainRow[columns[j]] = rows[i][columns[j]];
                             }
+                            plainRows.push(plainRow);
+                        } else {
+                            plainRows.push(rows[i]);
                         }
-                        
-                        if (batchEnd % 500000 === 0 || batchEnd === rows.length) {
-                            console.log(`📊 Extracted ${batchEnd.toLocaleString()} of ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%)`);
-                        }
-                        resolve();
-                    }, 0);
-                });
+                    }
+                    
+                    if (batchEnd % 500000 === 0 || batchEnd === rows.length) {
+                        console.log(`📊 Extracted ${batchEnd.toLocaleString()} of ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%)`);
+                    }
+                }, 1000);
             }
             
             return plainRows;
@@ -2515,17 +2650,14 @@ $Log:data.js,v $
             Data.log(`⚡ Schema-based optimization active for faster processing`);
         }
         
-        // Simplified batch processor using helper functions
+        // Simplified batch processor using smart idle scheduling
         const processMicroBatch = async (startIndex, endIndex) => {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    // Process all rows in batch using helper function
-                    for (let i = startIndex; i < endIndex; i++) {
-                        dataA[i + 1] = __this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat);
-                    }
-                    resolve();
-                }, 0);
-            });
+            return __this.__scheduleIdleWork((deadline) => {
+                // Process all rows in batch using helper function
+                for (let i = startIndex; i < endIndex; i++) {
+                    dataA[i + 1] = __this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat);
+                }
+            }, 1000);
         };
         
         // Process data in optimized batches
@@ -2601,10 +2733,27 @@ $Log:data.js,v $
         console.log("🚀 Starting parquet processing with DuckDB WASM...");
         _LOG("Processing parquet data with DuckDB WASM...");
         
-        // First, ensure DuckDB WASM is loaded
+        // First, ensure DuckDB WASM is loaded AND working
         if (typeof window.duckdb !== 'undefined' && window.duckdbLoaded) {
-            console.log("📦 Using existing DuckDB WASM module");
-            __this.__processParquetWithDuckDB(parquetBuffer, opt);
+            console.log("📦 Attempting to use existing DuckDB WASM module");
+            
+            // Test if the connection is still valid before using it
+            if (window.duckdb.conn) {
+                window.duckdb.conn.query('SELECT 1 as test')
+                    .then(result => {
+                        console.log("✅ DuckDB connection is valid for parquet");
+                        __this.__processParquetWithDuckDB(parquetBuffer, opt);
+                    })
+                    .catch(error => {
+                        console.warn("⚠️ Existing DuckDB connection is invalid for parquet:", error.message);
+                        console.log("🔄 Cleaning up and creating fresh DuckDB instance...");
+                        __this.__cleanupDuckDB();
+                        __this.__loadDuckDBAndProcess(parquetBuffer, opt);
+                    });
+            } else {
+                // No connection, need to load fresh
+                __this.__loadDuckDBAndProcess(parquetBuffer, opt);
+            }
         } else {
             console.log("📦 Loading DuckDB WASM module...");
             __this.__loadDuckDBAndProcess(parquetBuffer, opt);
@@ -2699,25 +2848,38 @@ $Log:data.js,v $
             try {
                 console.log('🔧 Selecting bundle from jsDelivr CDN...');
                 const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-                const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+                
+                // Force MVP bundle (single-threaded) to avoid pthread worker issues
+                // The "eh" bundle uses pthread which can hit browser worker limits
+                console.log('🎯 Forcing MVP bundle (single-threaded) to avoid resource limits...');
+                const bundle = JSDELIVR_BUNDLES.mvp;
+                console.log('✅ Using MVP bundle:', bundle);
                 
                 console.log("👷 Creating worker from bundle...");
-                // Create worker using blob URL approach to avoid CORS issues
-                const worker_url = URL.createObjectURL(
-                    new Blob([\`importScripts("\${bundle.mainWorker}");\`], { type: 'text/javascript' })
-                );
-                const worker = new Worker(worker_url);
-                console.log("✅ Worker created successfully");
+                
+                let worker;
+                try {
+                    // Create worker using blob URL approach to avoid CORS issues
+                    const worker_url = URL.createObjectURL(
+                        new Blob([\`importScripts("\${bundle.mainWorker}");\`], { type: 'text/javascript' })
+                    );
+                    worker = new Worker(worker_url);
+                    console.log("✅ Worker created successfully");
+                    
+                    // Revoke the blob URL to free memory
+                    URL.revokeObjectURL(worker_url);
+                } catch (workerError) {
+                    console.error("❌ Failed to create Web Worker:", workerError);
+                    throw new Error("Worker creation failed: " + workerError.message + ". This may be due to browser resource limits. Try refreshing the page.");
+                }
                 
                 const logger = new duckdb.ConsoleLogger();
                 const db = new duckdb.AsyncDuckDB(logger, worker);
                 
                 console.log("🚀 Instantiating DuckDB with WASM module...");
-                await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+                // MVP bundle is single-threaded, so we don't pass pthreadWorker
+                await db.instantiate(bundle.mainModule);
                 console.log("✅ DuckDB WASM instantiated successfully");
-                
-                // Revoke the blob URL to free memory
-                URL.revokeObjectURL(worker_url);
                 
                 // Create connection
                 const conn = await db.connect();
@@ -2727,11 +2889,12 @@ $Log:data.js,v $
                 console.log("📊 DuckDB connection methods:", Object.getOwnPropertyNames(conn));
                 console.log("📊 DuckDB connection constructor:", conn.constructor.name);
                 
-                // Store references globally
+                // Store references globally with worker reference for cleanup
                 window.duckdb = {
+                    module: duckdb,
+                    worker: worker,
                     db: db,
-                    conn: conn,
-                    module: duckdb
+                    conn: conn
                 };
                 window.duckdbLoaded = true;
             
@@ -2786,8 +2949,17 @@ $Log:data.js,v $
         const __this = this;
         
         try {
-            _LOG("Processing parquet data with DuckDB WASM, buffer size: " + parquetBuffer.byteLength + " bytes");
+            const fileSizeMB = (parquetBuffer.byteLength / 1024 / 1024).toFixed(2);
+            _LOG("Processing parquet data with DuckDB WASM, buffer size: " + parquetBuffer.byteLength + " bytes (" + fileSizeMB + " MB)");
             Data.log("🦆 Starting DuckDB parquet processing...");
+            
+            // Check file size - warn if too large
+            const MAX_RECOMMENDED_SIZE = 500 * 1024 * 1024; // 500MB
+            if (parquetBuffer.byteLength > MAX_RECOMMENDED_SIZE) {
+                const warningMsg = `⚠️ Large file detected (${fileSizeMB} MB). Processing may fail due to browser memory limits. Consider loading a smaller file or a subset of the data.`;
+                console.warn(warningMsg);
+                Data.log(warningMsg);
+            }
             
             // Check for parquet magic number (PAR1)
             if (parquetBuffer.byteLength < 4) {
@@ -2814,10 +2986,58 @@ $Log:data.js,v $
                 .then(function() {
                     console.log("📊 Parquet file registered in DuckDB virtual filesystem");
                     
-                    // Query all data from the parquet file
-                    const dataQuery = `SELECT * FROM read_parquet('${tempFileName}') LIMIT 10000000`;
+                    // First, check how many rows the file has
+                    return window.duckdb.conn.query(`SELECT COUNT(*) as count FROM read_parquet('${tempFileName}')`);
+                })
+                .then(async function(countResult) {
+                    // Get total row count - convert BigInt to Number for calculations
+                    const totalRowsRaw = countResult.toArray()[0].count;
+                    const totalRows = typeof totalRowsRaw === 'bigint' ? Number(totalRowsRaw) : totalRowsRaw;
                     
-                    return window.duckdb.conn.query(dataQuery);
+                    console.log(`📊 File contains ${totalRows.toLocaleString()} total rows`);
+                    Data.log(`📊 File has ${totalRows.toLocaleString()} rows - loading all data in batches...`);
+                    
+                    // Load data in batches to avoid memory allocation errors
+                    const BATCH_SIZE = 100000;
+                    const numBatches = Math.ceil(totalRows / BATCH_SIZE);
+                    
+                    console.log(`📊 Loading ${totalRows.toLocaleString()} rows in ${numBatches} batch${numBatches > 1 ? 'es' : ''} of ${BATCH_SIZE.toLocaleString()} rows`);
+                    
+                    // Accumulate all rows from all batches
+                    let allRows = [];
+                    let schema = null;
+                    
+                    for (let batchNum = 0; batchNum < numBatches; batchNum++) {
+                        const offset = batchNum * BATCH_SIZE;
+                        const remaining = totalRows - offset;
+                        const limit = Math.min(BATCH_SIZE, remaining);
+                        
+                        console.log(`⚡ Loading batch ${batchNum + 1}/${numBatches} (rows ${offset.toLocaleString()}-${(offset + limit - 1).toLocaleString()})...`);
+                        Data.log(`📊 Loading batch ${batchNum + 1}/${numBatches}... (${Math.round((batchNum / numBatches) * 100)}%)`);
+                        
+                        const batchQuery = `SELECT * FROM read_parquet('${tempFileName}') LIMIT ${limit} OFFSET ${offset}`;
+                        const batchResult = await window.duckdb.conn.query(batchQuery);
+                        
+                        // Get schema from first batch
+                        if (batchNum === 0) {
+                            schema = batchResult.schema;
+                        }
+                        
+                        // Add rows from this batch
+                        const batchRows = batchResult.toArray();
+                        allRows = allRows.concat(batchRows);
+                        
+                        console.log(`✅ Batch ${batchNum + 1} loaded: ${batchRows.length.toLocaleString()} rows (total so far: ${allRows.length.toLocaleString()})`);
+                    }
+                    
+                    console.log(`✅ All ${numBatches} batches loaded successfully! Total rows: ${allRows.length.toLocaleString()}`);
+                    Data.log(`✅ All ${allRows.length.toLocaleString()} rows loaded successfully!`);
+                    
+                    // Create a result object similar to what DuckDB returns
+                    return {
+                        schema: schema,
+                        toArray: function() { return allRows; }
+                    };
                 })
                 .then(async function(result) {
                     console.log("📊 DuckDB query completed successfully");
@@ -2927,17 +3147,14 @@ $Log:data.js,v $
                         }
                         
                         try {
-                            // Simplified batch processor using helper functions
+                            // Simplified batch processor using smart idle scheduling
                             const processMicroBatch = async (startIndex, endIndex) => {
-                                return new Promise((resolve) => {
-                                    setTimeout(() => {
-                                        // Process all rows in batch using helper function
-                                        for (let i = startIndex; i < endIndex; i++) {
-                                            dataRows.push(__this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat));
-                                        }
-                                        resolve();
-                                    }, 0);
-                                });
+                                return __this.__scheduleIdleWork((deadline) => {
+                                    // Process all rows in batch using helper function
+                                    for (let i = startIndex; i < endIndex; i++) {
+                                        dataRows.push(__this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat));
+                                    }
+                                }, 1000);
                             };
                             
                             // Process all data in optimized batches
@@ -3171,10 +3388,22 @@ $Log:data.js,v $
                     _LOG("Error in DuckDB parquet processing: " + error);
                     console.error("❌ DuckDB processing error:", error);
                     
+                    // Check if it's a memory allocation error
+                    let errorMessage = error.message;
+                    if (error.message && error.message.includes('malloc')) {
+                        errorMessage = `File is too large to process in browser (requires ${(parquetBuffer.byteLength / 1024 / 1024).toFixed(0)}+ MB of memory). ` +
+                                     `Please try:\n` +
+                                     `1. Use a smaller file (< 500MB recommended)\n` +
+                                     `2. Filter the data before loading\n` +
+                                     `3. Use DuckDB CLI or other tools for large files`;
+                        console.error("💾 Memory allocation failed - file is too large for browser processing");
+                        Data.log("❌ File too large: Browser cannot allocate enough memory");
+                    }
+                    
                     if (typeof opt !== "undefined" && opt.error) {
-                        opt.error("Error processing parquet file with DuckDB: " + error.message);
+                        opt.error(errorMessage);
                     } else {
-                        _alert("Error processing parquet file with DuckDB: " + error.message);
+                        _alert(errorMessage);
                     }
                 })
                 .finally(function() {
@@ -3300,11 +3529,22 @@ $Log:data.js,v $
             try {
                 geoJson = geoparquet.toGeoJson({ file: geoparquetBuffer });
             } catch (conversionError) {
-                // Handle immediate errors (like "non-delta field id not supported")
-                if (conversionError.message && conversionError.message.includes('non-delta field')) {
-                    console.warn("⚠️ GeoParquet library doesn't support this file's encoding");
+                // Handle immediate errors (encoding issues, compression issues, etc.)
+                const needsDuckDBFallback = conversionError.message && (
+                    conversionError.message.includes('non-delta field') ||           // Thrift encoding issue
+                    conversionError.message.includes('ZSTD') ||                      // ZSTD compression not supported
+                    conversionError.message.includes('unsupported compression')      // Other compression issues
+                );
+                
+                if (needsDuckDBFallback) {
+                    if (conversionError.message.includes('ZSTD')) {
+                        console.warn("⚠️ GeoParquet library doesn't support ZSTD compression");
+                        Data.log("⚠️ File uses ZSTD compression - switching to DuckDB...");
+                    } else {
+                        console.warn("⚠️ GeoParquet library doesn't support this file's encoding/compression");
+                    }
                     console.log("🔄 Falling back to DuckDB WASM for GeoParquet processing...");
-                    _LOG("GeoParquet library failed with encoding issue, using DuckDB fallback");
+                    _LOG("GeoParquet library failed with compatibility issue, using DuckDB fallback");
                     
                     // Check if DuckDB is loaded, if not, load it first
                     if (window.duckdb && window.duckdb.db) {
@@ -3344,11 +3584,22 @@ $Log:data.js,v $
                     _LOG("Error stack: " + error.stack);
                     _LOG("Error message: " + error.message);
                     
-                    // Check if it's the "non-delta field id" error (incompatible Thrift encoding)
-                    if (error.message && error.message.includes('non-delta field')) {
-                        console.warn("⚠️ GeoParquet library doesn't support this file's encoding");
+                    // Check for known compatibility issues that require DuckDB fallback
+                    const needsDuckDBFallback = error.message && (
+                        error.message.includes('non-delta field') ||           // Thrift encoding issue
+                        error.message.includes('ZSTD') ||                      // ZSTD compression not supported
+                        error.message.includes('unsupported compression')      // Other compression issues
+                    );
+                    
+                    if (needsDuckDBFallback) {
+                        if (error.message.includes('ZSTD')) {
+                            console.warn("⚠️ GeoParquet library doesn't support ZSTD compression");
+                            Data.log("⚠️ File uses ZSTD compression - switching to DuckDB...");
+                        } else {
+                            console.warn("⚠️ GeoParquet library doesn't support this file's encoding/compression");
+                        }
                         console.log("🔄 Falling back to DuckDB WASM for GeoParquet processing...");
-                        _LOG("GeoParquet library failed with encoding issue, using DuckDB fallback");
+                        _LOG("GeoParquet library failed with compatibility issue, using DuckDB fallback");
                         
                         // Check if DuckDB is loaded, if not, load it first
                         if (window.duckdb && window.duckdb.db) {
@@ -3387,6 +3638,1837 @@ $Log:data.js,v $
                 opt.error("Error processing GeoParquet data: " + error);
             } else {
                 _alert("Error processing GeoParquet data: " + error);
+            }
+        }
+    };
+
+    // ----------------------------------------
+    // G E O P A C K A G E   ( . g p k g )
+    // ----------------------------------------
+
+    /**
+     * __doGpkgImport
+     * reads GeoPackage file from URL using DuckDB WASM spatial extension
+     * @param szUrl GeoPackage file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__doGpkgImport = function (szUrl, opt) {
+        _LOG("__doGpkgImport: " + szUrl);
+        
+        const __this = this;
+        
+        // Use Fetch API for better binary handling
+        _LOG("Attempting to load GeoPackage file using Fetch API...");
+        
+        fetch(szUrl, {
+            method: 'GET',
+            cache: opt.cache ? 'default' : 'no-cache'
+        })
+        .then(response => {
+            _LOG("Fetch response received, status: " + response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Get the response as ArrayBuffer
+            return response.arrayBuffer();
+        })
+        .then(arrayBuffer => {
+            _LOG("Successfully loaded GeoPackage as ArrayBuffer: " + arrayBuffer.byteLength + " bytes");
+            
+            // Verify this looks like a SQLite/GeoPackage file
+            const uint8Array = new Uint8Array(arrayBuffer);
+            if (uint8Array.length >= 16) {
+                const magic = String.fromCharCode(...uint8Array.slice(0, 16));
+                _LOG("Magic string: " + magic);
+                if (magic.startsWith('SQLite format 3')) {
+                    _LOG("✅ SUCCESS: Valid GeoPackage (SQLite) file detected!");
+                    __this.__processGpkgData(arrayBuffer, opt);
+                } else {
+                    _LOG("⚠️ Warning: Magic string is not 'SQLite format 3': " + magic);
+                    _LOG("First 16 bytes: " + Array.from(uint8Array.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                    
+                    // Try to process anyway
+                    _LOG("Attempting to process as GeoPackage anyway...");
+                    __this.__processGpkgData(arrayBuffer, opt);
+                }
+            } else {
+                _LOG("⚠️ Warning: Response too short to check magic number");
+                __this.__processGpkgData(arrayBuffer, opt);
+            }
+        })
+        .catch(error => {
+            _LOG("Fetch failed: " + error.message);
+            
+            // Fallback to XMLHttpRequest if Fetch fails
+            _LOG("Falling back to XMLHttpRequest...");
+            __this.__loadGpkgWithXHR(szUrl, opt);
+        });
+    };
+
+    /**
+     * __loadGpkgWithXHR
+     * fallback method using XMLHttpRequest if Fetch fails
+     * @param szUrl GeoPackage file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__loadGpkgWithXHR = function (szUrl, opt) {
+        const __this = this;
+        
+        _LOG("Loading GeoPackage with XMLHttpRequest...");
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', szUrl, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const arrayBuffer = xhr.response;
+                _LOG("XHR successful: " + arrayBuffer.byteLength + " bytes");
+                
+                // Verify this looks like a GeoPackage file
+                const uint8Array = new Uint8Array(arrayBuffer);
+                if (uint8Array.length >= 16) {
+                    const magic = String.fromCharCode(...uint8Array.slice(0, 16));
+                    _LOG("XHR magic string: " + magic);
+                    if (magic.startsWith('SQLite format 3')) {
+                        _LOG("✅ SUCCESS: Valid GeoPackage file via XHR!");
+                        __this.__processGpkgData(arrayBuffer, opt);
+                    } else {
+                        _LOG("⚠️ Warning: XHR magic string is not 'SQLite format 3': " + magic);
+                        _LOG("First 16 bytes: " + Array.from(uint8Array.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                        
+                        // Try to process anyway
+                        _LOG("Attempting to process anyway...");
+                        __this.__processGpkgData(arrayBuffer, opt);
+                    }
+                } else {
+                    _LOG("⚠️ Warning: XHR response too short to check magic number");
+                    __this.__processGpkgData(arrayBuffer, opt);
+                }
+            } else {
+                _LOG("XHR failed with status: " + xhr.status + " " + xhr.statusText);
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("XHR failed: " + xhr.status + " " + xhr.statusText);
+                } else {
+                    _alert("XHR failed: " + xhr.status + " " + xhr.statusText);
+                }
+            }
+        };
+        
+        xhr.onerror = function() {
+            _LOG("XHR network error");
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("XHR network error");
+            } else {
+                _alert("XHR network error");
+            }
+        };
+        
+        xhr.send();
+    };
+
+    /**
+     * __processGpkgData
+     * Entry point for processing GeoPackage files using DuckDB WASM spatial extension
+     * @param {ArrayBuffer} gpkgBuffer ArrayBuffer containing GeoPackage data
+     * @param {Object} opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__processGpkgData = function (gpkgBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Processing GeoPackage data, buffer size: " + gpkgBuffer.byteLength + " bytes");
+        Data.log("📦 Starting GeoPackage processing with DuckDB spatial extension...");
+        
+        // Check if DuckDB is already loaded AND working
+        if (window.duckdb && window.duckdb.db && window.duckdb.conn) {
+            console.log("📦 Attempting to use existing DuckDB WASM module for GeoPackage");
+            
+            // Test if the connection is still valid
+            __this.__testAndUseDuckDB(gpkgBuffer, opt);
+        } else {
+            console.log("📦 Loading DuckDB WASM module for GeoPackage...");
+            __this.__loadDuckDBAndProcessGpkg(gpkgBuffer, opt);
+        }
+    };
+    
+    /**
+     * __testAndUseDuckDB
+     * Tests if existing DuckDB connection is still valid, or recreates it
+     * @param {ArrayBuffer} gpkgBuffer ArrayBuffer containing GeoPackage data
+     * @param {Object} opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__testAndUseDuckDB = function (gpkgBuffer, opt) {
+        const __this = this;
+        
+        // Try a simple query to test if connection is still valid
+        window.duckdb.conn.query('SELECT 1 as test')
+            .then(result => {
+                console.log("✅ DuckDB connection is valid, reusing it");
+                __this.__processGpkgWithDuckDB(gpkgBuffer, opt);
+            })
+            .catch(error => {
+                console.warn("⚠️ Existing DuckDB connection is invalid:", error.message);
+                console.log("🔄 Cleaning up and creating fresh DuckDB instance...");
+                
+                // Cleanup the broken instance
+                __this.__cleanupDuckDB();
+                
+                // Create a new instance
+                __this.__loadDuckDBAndProcessGpkg(gpkgBuffer, opt);
+            });
+    };
+    
+    /**
+     * __cleanupDuckDB
+     * Properly cleanup DuckDB worker and connections
+     * @type void
+     */
+    Data.Feed.prototype.__cleanupDuckDB = function () {
+        try {
+            if (window.duckdb) {
+                // Try to close connection
+                if (window.duckdb.conn) {
+                    try {
+                        window.duckdb.conn.close();
+                        console.log("🧹 Closed DuckDB connection");
+                    } catch (e) {
+                        console.warn("⚠️ Error closing connection:", e.message);
+                    }
+                }
+                
+                // Try to terminate the database
+                if (window.duckdb.db) {
+                    try {
+                        window.duckdb.db.terminate();
+                        console.log("🧹 Terminated DuckDB database");
+                    } catch (e) {
+                        console.warn("⚠️ Error terminating database:", e.message);
+                    }
+                }
+                
+                // Try to terminate the worker directly if it exists
+                if (window.duckdb.worker) {
+                    try {
+                        window.duckdb.worker.terminate();
+                        console.log("🧹 Terminated DuckDB worker");
+                    } catch (e) {
+                        console.warn("⚠️ Error terminating worker:", e.message);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("⚠️ Error during DuckDB cleanup:", e.message);
+        } finally {
+            // Always clear the reference
+            delete window.duckdb;
+            delete window.duckdbLoadedForGpkg;
+            console.log("✅ DuckDB cleanup complete");
+        }
+    };
+
+    /**
+     * __loadDuckDBAndProcessGpkg
+     * Loads DuckDB WASM module and processes GeoPackage data
+     * Reuses the proven parquet loading mechanism
+     * @param gpkgBuffer ArrayBuffer containing GeoPackage data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__loadDuckDBAndProcessGpkg = function (gpkgBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Loading DuckDB WASM module for GeoPackage...");
+        
+        // Create a wrapper to call GPKG processing after DuckDB loads
+        // Store the buffer temporarily
+        window.__pendingGpkgBuffer = gpkgBuffer;
+        window.__pendingGpkgOpt = opt;
+        
+        // Use the same proven loading mechanism as parquet
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            // Try to load DuckDB WASM from CDN
+            let duckdb;
+            try {
+                // Try jsDelivr first (most reliable for DuckDB WASM)
+                duckdb = await import("https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm");
+                console.log("✅ DuckDB loaded from jsDelivr for GeoPackage");
+            } catch (e1) {
+                try {
+                    // Fallback to ESM.sh
+                    duckdb = await import("https://esm.sh/@duckdb/duckdb-wasm@1.30.0");
+                    console.log("✅ DuckDB loaded from ESM.sh for GeoPackage");
+                } catch (e2) {
+                    try {
+                        // Fallback to unpkg
+                        duckdb = await import("https://unpkg.com/@duckdb/duckdb-wasm@1.30.0");
+                        console.log("✅ DuckDB loaded from unpkg for GeoPackage");
+                    } catch (e3) {
+                        throw new Error("Failed to load DuckDB from any CDN: " + e3.message);
+                    }
+                }
+            }
+            
+            console.log("DuckDB WASM module imported for GeoPackage:", duckdb);
+            console.log("Available DuckDB methods:", Object.keys(duckdb));
+            
+            // Initialize DuckDB using CDN bundles
+            // CRITICAL: GeoPackage requires spatial extension, which MVP bundle doesn't support!
+            // We MUST use EH bundle for GeoPackage (even though it uses pthread workers)
+            try {
+                console.log('🔧 Selecting bundle from jsDelivr CDN for GeoPackage...');
+                const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+                
+                // IMPORTANT: Must use EH bundle for GeoPackage (supports spatial extension)
+                // MVP bundle does NOT support dynamic extensions needed for spatial
+                console.log('🎯 Using EH bundle for GeoPackage (required for spatial extension)...');
+                const bundle = JSDELIVR_BUNDLES.eh;
+                console.log('✅ Using EH bundle:', bundle);
+                
+                console.log("👷 Creating worker from bundle...");
+                
+                let worker;
+                try {
+                    // Create worker using blob URL approach to avoid CORS issues
+                    const worker_url = URL.createObjectURL(
+                        new Blob([\`importScripts("\${bundle.mainWorker}");\`], { type: 'text/javascript' })
+                    );
+                    worker = new Worker(worker_url);
+                    console.log("✅ Worker created successfully for GeoPackage");
+                } catch (workerError) {
+                    console.error("❌ Failed to create Web Worker:", workerError);
+                    throw new Error("Worker creation failed: " + workerError.message + ". This may be due to browser resource limits. Try refreshing the page.");
+                }
+                
+                const logger = new duckdb.ConsoleLogger();
+                const db = new duckdb.AsyncDuckDB(logger, worker);
+                
+                // EH bundle supports pthread, so we pass pthreadWorker
+                console.log("🚀 Instantiating DuckDB with WASM module...");
+                await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+                console.log("✅ DuckDB instantiated for GeoPackage with EH bundle (spatial support enabled)");
+                
+                const conn = await db.connect();
+                console.log("✅ DuckDB connection established for GeoPackage");
+                
+                // Store globally with worker reference for cleanup
+                window.duckdb = { 
+                    module: duckdb,
+                    worker: worker,
+                    db: db, 
+                    conn: conn 
+                };
+                window.duckdbLoadedForGpkg = true;
+            } catch (initError) {
+                console.error("❌ DuckDB initialization error for GeoPackage:", initError);
+                throw initError;
+            }
+        `;
+        
+        // Listen for when DuckDB is loaded
+        const checkLoaded = setInterval(function() {
+            if (window.duckdbLoadedForGpkg && window.duckdb) {
+                clearInterval(checkLoaded);
+                _LOG("DuckDB WASM module loaded successfully for GeoPackage");
+                
+                // Process the pending GeoPackage
+                __this.__processGpkgWithDuckDB(window.__pendingGpkgBuffer, window.__pendingGpkgOpt);
+                
+                // Clean up
+                delete window.__pendingGpkgBuffer;
+                delete window.__pendingGpkgOpt;
+                delete window.duckdbLoadedForGpkg;
+            }
+        }, 100);
+        
+        // Set a timeout in case loading fails
+        setTimeout(function() {
+            if (!window.duckdbLoadedForGpkg) {
+                clearInterval(checkLoaded);
+                _LOG("Failed to load DuckDB WASM module for GeoPackage");
+                
+                // Clean up
+                delete window.__pendingGpkgBuffer;
+                delete window.__pendingGpkgOpt;
+                
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("Failed to load DuckDB WASM module for GeoPackage");
+                } else {
+                    _alert("Failed to load DuckDB WASM module for GeoPackage");
+                }
+            }
+        }, 30000); // 30 second timeout
+        
+        // Add the script to the document
+        document.head.appendChild(script);
+    };
+
+    /**
+     * __ensureSpatialExtension
+     * Ensures DuckDB spatial extension is installed and loaded
+     * @param {function} callback - Function to call after extension is loaded
+     * @param {function} errorCallback - Function to call on error
+     */
+    Data.Feed.prototype.__ensureSpatialExtension = function(callback, errorCallback) {
+        const __this = this;
+        
+        _LOG("Checking DuckDB spatial extension...");
+        
+        // Try to load spatial extension (it may already be installed)
+        window.duckdb.conn.query("INSTALL spatial;")
+            .then(function() {
+                _LOG("Spatial extension installed (or already present)");
+                return window.duckdb.conn.query("LOAD spatial;");
+            })
+            .then(function() {
+                _LOG("✅ Spatial extension loaded successfully");
+                Data.log("✅ DuckDB spatial extension ready for GeoPackage");
+                callback();
+            })
+            .catch(function(error) {
+                // Extension might already be loaded, try to continue
+                _LOG("Note: " + error.message);
+                console.warn("⚠️ Spatial extension load note:", error.message);
+                
+                // Try to load anyway (extension might be pre-installed)
+                window.duckdb.conn.query("LOAD spatial;")
+                    .then(function() {
+                        _LOG("Spatial extension loaded on second attempt");
+                        callback();
+                    })
+                    .catch(function(error2) {
+                        _LOG("❌ Could not load spatial extension: " + error2.message);
+                        console.error("❌ Spatial extension not available:", error2);
+                        
+                        if (errorCallback) {
+                            errorCallback(error2);
+                        } else if (typeof opt !== "undefined" && opt.error) {
+                            opt.error("DuckDB spatial extension not available: " + error2.message);
+                        } else {
+                            _alert("DuckDB spatial extension not available. Cannot process GeoPackage files.");
+                        }
+                    });
+            });
+    };
+
+    /**
+     * __processGpkgWithDuckDB
+     * Processes GeoPackage data using DuckDB WASM spatial extension with ST_Read
+     * @param gpkgBuffer ArrayBuffer containing GeoPackage data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__processGpkgWithDuckDB = function (gpkgBuffer, opt) {
+        const __this = this;
+        
+        try {
+            _LOG("Processing GeoPackage with DuckDB spatial extension, buffer size: " + gpkgBuffer.byteLength + " bytes");
+            
+            // Check for SQLite magic number
+            if (gpkgBuffer.byteLength < 16) {
+                throw new Error("File too small to be a valid GeoPackage file");
+            }
+            
+            const uint8Array = new Uint8Array(gpkgBuffer);
+            const magic = String.fromCharCode(...uint8Array.slice(0, 16));
+            _LOG("GeoPackage magic string: " + magic);
+            
+            if (!magic.startsWith('SQLite format 3')) {
+                throw new Error("File does not appear to be a valid GeoPackage file (missing SQLite header). Magic: " + magic);
+            }
+            
+            _LOG("Valid GeoPackage file detected, processing with DuckDB spatial extension...");
+            
+            // Ensure spatial extension is loaded
+            __this.__ensureSpatialExtension(function() {
+                // Extension loaded, now process the file
+                
+                // Register the GeoPackage buffer as a temporary file in DuckDB's virtual filesystem
+                const tempFileName = 'temp_gpkg_' + Date.now() + '.gpkg';
+                
+                // Create a copy to avoid modifying the original buffer
+                const uint8ArrayCopy = new Uint8Array(gpkgBuffer);
+                
+                window.duckdb.db.registerFileBuffer(tempFileName, uint8ArrayCopy)
+                    .then(function() {
+                        console.log("📊 GeoPackage file registered in DuckDB virtual filesystem");
+                        Data.log("📦 Reading GeoPackage with ST_Read...");
+                        
+                        // First, query to discover geometry column names
+                        return window.duckdb.conn.query(`
+                            SELECT column_name 
+                            FROM (DESCRIBE SELECT * FROM st_read('${tempFileName}'))
+                            WHERE column_type LIKE '%GEOMETRY%' OR column_type LIKE '%WKB%'
+                        `).then(function(geomColsResult) {
+                            let geomColumns = [];
+                            try {
+                                const geomRows = geomColsResult.toArray ? geomColsResult.toArray() : geomColsResult;
+                                geomColumns = geomRows.map(row => row.column_name || row[0]);
+                                console.log("📊 Found geometry columns:", geomColumns);
+                            } catch (e) {
+                                console.warn("⚠️ Could not detect geometry columns, will read all as-is");
+                            }
+                            
+                            // Build query based on whether geometry columns exist
+                            let dataQuery;
+                            if (geomColumns.length > 0) {
+                                // Build SELECT list with geometry conversion
+                                const selectCols = geomColumns.map(col => 
+                                    `ST_AsGeoJSON(${col}) as ${col}`
+                                ).join(', ');
+                                
+                                dataQuery = `
+                                    SELECT * EXCLUDE (${geomColumns.join(', ')}), 
+                                           ${selectCols}
+                                    FROM st_read('${tempFileName}')
+                                    LIMIT 10000000
+                                `;
+                            } else {
+                                // No geometry columns, just read everything
+                                dataQuery = `
+                                    SELECT *
+                                    FROM st_read('${tempFileName}')
+                                    LIMIT 10000000
+                                `;
+                            }
+                            
+                            console.log("📊 Executing query:", dataQuery);
+                            return window.duckdb.conn.query(dataQuery);
+                        });
+                    })
+                    .then(async function(result) {
+                        console.log("📊 DuckDB GeoPackage query completed successfully");
+                        _LOG("DuckDB query result type: " + typeof result);
+                        
+                        if (!result) {
+                            throw new Error("DuckDB query returned null/undefined");
+                        }
+                        
+                        // Extract rows and columns (same as parquet processing)
+                        let rows;
+                        let columns;
+                        
+                        if (typeof result.toArray === 'function') {
+                            rows = result.toArray();
+                            console.log("📊 Using toArray() method, rows count:", rows.length);
+                        } else if (typeof result.fetchAll === 'function') {
+                            rows = result.fetchAll();
+                            console.log("📊 Using fetchAll() method, rows count:", rows.length);
+                        } else if (Array.isArray(result)) {
+                            rows = result;
+                            console.log("📊 Result is already an array, rows count:", rows.length);
+                        } else {
+                            throw new Error("Cannot convert DuckDB result to array. Available methods: " + Object.getOwnPropertyNames(result).join(', '));
+                        }
+                        
+                        if (rows.length === 0) {
+                            throw new Error("No rows found in GeoPackage file");
+                        }
+                        
+                        // Get column names and types from schema
+                        let columnTypes = null;
+                        if (result.schema && result.schema.fields) {
+                            columns = result.schema.fields.map(field => field.name);
+                            // Extract type information for optimization using helper
+                            columnTypes = __this.__detectColumnTypes(result.schema);
+                            if (columnTypes) {
+                                _LOG("Schema-based optimization enabled - detected column types: " + columnTypes.join(', '));
+                            }
+                        } else if (result.columns) {
+                            columns = result.columns;
+                        } else if (rows.length > 0 && typeof rows[0] === 'object') {
+                            columns = Object.keys(rows[0]);
+                        } else {
+                            throw new Error("Cannot determine column names from DuckDB result");
+                        }
+                        
+                        _LOG("Extracted columns: " + columns.join(', '));
+                        
+                        if (columns.length === 0) {
+                            throw new Error("No columns found in GeoPackage file");
+                        }
+                        
+                        // Process rows - check dataset size
+                        const dataRows = [];
+                        
+                        if (rows.length > 10000000) {
+                            throw new Error(`Dataset too large (${rows.length} rows). Maximum supported: 10,000,000 rows.`);
+                        }
+                        
+                        // Warn about large datasets
+                        if (rows.length > 500000) {
+                            Data.log(`⚠️ Processing large GeoPackage dataset (${rows.length} rows). This may take a while.`);
+                        }
+
+                        // For large datasets, use streaming processing
+                        if (rows.length > 100000) {
+                            Data.log("📊 Large GeoPackage dataset detected, using streaming processing...");
+                            return __this.__processStreamingDataset(rows, columns, columnTypes, tempFileName, opt);
+                        }
+                        
+                        // For medium-large datasets (50K-100K), use optimized batch processing
+                        if (rows.length > 50000) {
+                            console.log("📊 Medium-large GeoPackage dataset detected, using optimized batch processing...");
+                            
+                            // Detect row format once
+                            const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
+                            const isObjectFormat = rows.length > 0 && typeof rows[0] === 'object' && rows[0] !== null && !Array.isArray(rows[0]);
+                            
+                            // Dynamic batch sizing based on cell count
+                            const cellsPerRow = columns.length;
+                            const totalCells = rows.length * cellsPerRow;
+                            const actualBatchSize = Math.min(
+                                2000000,
+                                Math.max(100000, Math.floor(10000000 / cellsPerRow))
+                            );
+                            
+                            console.log(`📊 Processing ${rows.length.toLocaleString()} GeoPackage rows (${totalCells.toLocaleString()} cells) in batches of ${actualBatchSize.toLocaleString()} rows`);
+                            if (columnTypes) {
+                                Data.log(`⚡ Schema-based optimization active for GeoPackage dataset`);
+                            }
+                            
+                            try {
+                                // Simplified batch processor using smart idle scheduling
+                                const processMicroBatch = async (startIndex, endIndex) => {
+                                    return __this.__scheduleIdleWork((deadline) => {
+                                        // Process all rows in batch using helper function
+                                        for (let i = startIndex; i < endIndex; i++) {
+                                            dataRows.push(__this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat));
+                                        }
+                                    }, 1000);
+                                };
+                                
+                                // Process all data in optimized batches
+                                const startTime = Date.now();
+                                let lastLogTime = startTime;
+                                
+                                for (let batchStart = 0; batchStart < rows.length; batchStart += actualBatchSize) {
+                                    const batchEnd = Math.min(batchStart + actualBatchSize, rows.length);
+                                    await processMicroBatch(batchStart, batchEnd);
+                                    
+                                    const now = Date.now();
+                                    const timeSinceLastLog = now - lastLogTime;
+                                    
+                                    // Log every 500K rows or every 2 seconds
+                                    if (batchEnd % 500000 === 0 || batchEnd === rows.length || timeSinceLastLog > 2000) {
+                                        const elapsed = ((now - startTime) / 1000).toFixed(1);
+                                        const rowsPerSec = Math.round(batchEnd / ((now - startTime) / 1000));
+                                        let memInfo = '';
+                                        if (performance.memory) {
+                                            const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                                            const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
+                                            memInfo = ` | Memory: ${used}MB / ${total}MB`;
+                                        }
+                                        Data.log(`📊 Processing GeoPackage: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                        lastLogTime = now;
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn("⚠️ Async processing failed for GeoPackage, using synchronous:", error);
+                                
+                                // Fallback to synchronous processing
+                                for (let i = 0; i < rows.length; i++) {
+                                    dataRows.push(__this.__processRow(rows[i], columns, columnTypes, rows.length > 0 && Array.isArray(rows[0]), rows.length > 0 && typeof rows[0] === 'object' && rows[0] !== null && !Array.isArray(rows[0])));
+                                }
+                            }
+                        } else {
+                            // For smaller datasets (< 50K), use fast synchronous processing
+                            console.log(`📊 Processing small GeoPackage dataset (${rows.length.toLocaleString()} rows) synchronously`);
+                            
+                            // Detect row format once
+                            const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
+                            const isObjectFormat = rows.length > 0 && typeof rows[0] === 'object' && rows[0] !== null && !Array.isArray(rows[0]);
+                            
+                            // Fast synchronous processing
+                            for (let i = 0; i < rows.length; i++) {
+                                dataRows.push(__this.__processRow(rows[i], columns, columnTypes, isArrayFormat, isObjectFormat));
+                            }
+                        }
+                        
+                        _LOG("Converted " + dataRows.length + " GeoPackage rows with " + columns.length + " columns");
+                        
+                        // Create data array with header row
+                        const dataA = [columns];
+                        dataA.push(...dataRows);
+                        
+                        _LOG("Created data array with " + dataA.length + " rows (including header)");
+                        
+                        // Clean up the temporary file
+                        try {
+                            window.duckdb.db.dropFile(tempFileName);
+                            console.log("🧹 Cleaned up temporary GeoPackage file");
+                        } catch (cleanupError) {
+                            console.warn("Warning: Could not clean up temporary file:", cleanupError);
+                        }
+                        
+                        // Process the data using the standard method
+                        __this.__createDataTableObject(dataA, "gpkg", opt);
+                        
+                    })
+                    .catch(function(error) {
+                        console.error("❌ Error processing GeoPackage with DuckDB:", error);
+                        _LOG("Error in GeoPackage processing: " + error);
+                        
+                        // Clean up the temporary file
+                        try {
+                            window.duckdb.db.dropFile(tempFileName);
+                        } catch (cleanupError) {
+                            console.warn("Warning: Could not clean up temporary file:", cleanupError);
+                        }
+                        
+                        if (typeof opt !== "undefined" && opt.error) {
+                            opt.error("Error processing GeoPackage: " + error.message);
+                        } else {
+                            _alert("Error processing GeoPackage: " + error.message);
+                        }
+                    });
+                    
+            }, function(error) {
+                _LOG("❌ Error loading spatial extension: " + error);
+                console.error("❌ Spatial extension error:", error);
+                
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("Error loading DuckDB spatial extension: " + error.message);
+                } else {
+                    _alert("Error loading DuckDB spatial extension: " + error.message);
+                }
+            });
+                
+        } catch (error) {
+            _LOG("Error in DuckDB GeoPackage processing setup: " + error);
+            console.error("❌ DuckDB GeoPackage setup error:", error);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Error setting up DuckDB GeoPackage processing: " + error.message);
+            } else {
+                _alert("Error setting up DuckDB GeoPackage processing: " + error.message);
+            }
+        }
+    };
+
+
+    // ---------------------------------
+    // F L A T G E O B U F 
+    // ---------------------------------
+
+    /**
+     * __doFlatGeobufImport
+     * reads FlatGeobuf (.fgb) files from URL
+     * loads binary data and processes it into GeoJSON
+     * @param szUrl FlatGeobuf file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__doFlatGeobufImport = function (szUrl, opt) {
+        
+        _LOG("__doFlatGeobufImport: " + szUrl);
+        const __this = this;
+        
+        Data.log("📊 Loading FlatGeobuf file from: " + szUrl);
+        
+        // Check if spatial filter (bbox) is provided
+        // If bbox is provided, use streaming with HTTP Range Requests for efficient filtering
+        // If no bbox, download the entire file (simpler and faster for full dataset)
+        if (opt && opt.bbox) {
+            _LOG("Bbox filter detected - using streaming mode with HTTP Range Requests");
+            Data.log("🔍 Using HTTP Range Requests for spatial filtering");
+            __this.__loadFlatGeobufStreaming(szUrl, opt);
+        } else {
+            _LOG("No bbox filter - loading entire file");
+            // Try using Fetch API first (modern, supports streaming)
+            fetch(szUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    _LOG("Fetch successful, reading FlatGeobuf data...");
+                    return response.arrayBuffer();
+                })
+                .then(arrayBuffer => {
+                    _LOG("FlatGeobuf data loaded: " + arrayBuffer.byteLength + " bytes");
+                    
+                    // Verify this looks like a FlatGeobuf file (magic bytes: 0x6667620366676200)
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    if (uint8Array.length >= 8) {
+                        const magic = Array.from(uint8Array.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join('');
+                        _LOG("Magic bytes: " + magic);
+                        // FlatGeobuf magic bytes can vary, but typically start with 'fgb' in some form
+                        // We'll process it regardless and let the library handle validation
+                    }
+                    
+                    __this.__processFlatGeobufData(arrayBuffer, opt);
+                })
+                .catch(error => {
+                    _LOG("Fetch failed: " + error.message);
+                    
+                    // Fallback to XMLHttpRequest if Fetch fails
+                    _LOG("Falling back to XMLHttpRequest...");
+                    __this.__loadFlatGeobufWithXHR(szUrl, opt);
+                });
+        }
+    };
+
+    /**
+     * __loadFlatGeobufWithXHR
+     * fallback method using XMLHttpRequest if Fetch fails
+     * @param szUrl FlatGeobuf file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__loadFlatGeobufWithXHR = function (szUrl, opt) {
+        const __this = this;
+        
+        _LOG("Loading FlatGeobuf with XMLHttpRequest...");
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', szUrl, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const arrayBuffer = xhr.response;
+                _LOG("XHR successful: " + arrayBuffer.byteLength + " bytes");
+                __this.__processFlatGeobufData(arrayBuffer, opt);
+            } else {
+                _LOG("XHR failed with status: " + xhr.status + " " + xhr.statusText);
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("XHR failed: " + xhr.status + " " + xhr.statusText);
+                } else {
+                    _alert("XHR failed: " + xhr.status + " " + xhr.statusText);
+                }
+            }
+        };
+        
+        xhr.onerror = function() {
+            _LOG("XHR network error");
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("XHR network error");
+            } else {
+                _alert("XHR network error");
+            }
+        };
+        
+        xhr.send();
+    };
+
+    /**
+     * __loadFlatGeobufStreaming
+     * Loads FlatGeobuf with HTTP Range Requests for efficient spatial filtering
+     * This allows the FlatGeobuf R-tree index to fetch only the relevant portions of the file
+     * @param szUrl FlatGeobuf file url
+     * @param opt options object (must include opt.bbox for spatial filtering)
+     * @type void
+     */
+    Data.Feed.prototype.__loadFlatGeobufStreaming = function (szUrl, opt) {
+        const __this = this;
+        
+        _LOG("Loading FlatGeobuf with streaming and spatial filter...");
+        Data.log("🌐 Using HTTP Range Requests for efficient spatial filtering");
+        
+        // Check if FlatGeobuf library is already loaded
+        if (window.flatgeobuf) {
+            console.log("📦 Using existing FlatGeobuf library for streaming");
+            __this.__streamFlatGeobufWithLib(szUrl, opt);
+        } else {
+            console.log("📦 Loading FlatGeobuf library for streaming...");
+            __this.__loadFlatGeobufLibAndStream(szUrl, opt);
+        }
+    };
+
+    /**
+     * __loadFlatGeobufLibAndStream
+     * Loads FlatGeobuf library from CDN and then streams the data with spatial filter
+     * @param szUrl FlatGeobuf file url
+     * @param opt options object
+     */
+    Data.Feed.prototype.__loadFlatGeobufLibAndStream = function (szUrl, opt) {
+        const __this = this;
+        
+        _LOG("Loading FlatGeobuf library from CDN for streaming...");
+        
+        // Store the URL and options temporarily
+        window.__pendingFgbStreamUrl = szUrl;
+        window.__pendingFgbStreamOpt = opt;
+        
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            // Try to load FlatGeobuf from CDN
+            let flatgeobuf;
+            try {
+                // Try jsDelivr with geojson subpath (most reliable)
+                flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                console.log("✅ FlatGeobuf GeoJSON loaded from jsDelivr");
+            } catch (e1) {
+                console.warn("jsDelivr geojson failed:", e1);
+                try {
+                    // Try main package from jsDelivr
+                    flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@latest/+esm");
+                    console.log("✅ FlatGeobuf loaded from jsDelivr (main)");
+                } catch (e2) {
+                    console.warn("jsDelivr main failed:", e2);
+                    try {
+                        // Fallback to unpkg with geojson
+                        flatgeobuf = await import("https://unpkg.com/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                        console.log("✅ FlatGeobuf loaded from unpkg");
+                    } catch (e3) {
+                        console.warn("unpkg failed:", e3);
+                        try {
+                            // Fallback to ESM.sh
+                            flatgeobuf = await import("https://esm.sh/flatgeobuf@3.31.0/lib/mjs/geojson");
+                            console.log("✅ FlatGeobuf loaded from esm.sh");
+                        } catch (e4) {
+                            console.error("❌ Failed to load FlatGeobuf from any CDN:", e4);
+                            throw new Error("Failed to load FlatGeobuf library from CDN: " + e4.message);
+                        }
+                    }
+                }
+            }
+            
+            // Store globally for reuse
+            console.log("FlatGeobuf module loaded, available exports:", Object.keys(flatgeobuf));
+            window.flatgeobuf = flatgeobuf;
+            
+            // Trigger streaming
+            window.dispatchEvent(new CustomEvent('flatgeobuf-streaming-ready'));
+        `;
+        
+        // Listen for successful load
+        const loadHandler = function() {
+            const url = window.__pendingFgbStreamUrl;
+            const options = window.__pendingFgbStreamOpt;
+            
+            // Clean up
+            delete window.__pendingFgbStreamUrl;
+            delete window.__pendingFgbStreamOpt;
+            window.removeEventListener('flatgeobuf-streaming-ready', loadHandler);
+            document.body.removeChild(script);
+            
+            // Stream the data
+            __this.__streamFlatGeobufWithLib(url, options);
+        };
+        
+        window.addEventListener('flatgeobuf-streaming-ready', loadHandler);
+        
+        // Handle errors
+        script.onerror = function(error) {
+            _LOG("❌ Failed to load FlatGeobuf library for streaming");
+            window.removeEventListener('flatgeobuf-streaming-ready', loadHandler);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Failed to load FlatGeobuf library from CDN");
+            } else {
+                _alert("Failed to load FlatGeobuf library from CDN");
+            }
+        };
+        
+        document.body.appendChild(script);
+    };
+
+    /**
+     * __streamFlatGeobufWithLib
+     * Streams FlatGeobuf data using HTTP Range Requests with spatial filtering
+     * @param szUrl FlatGeobuf file url
+     * @param opt options object with bbox
+     */
+    Data.Feed.prototype.__streamFlatGeobufWithLib = function (szUrl, opt) {
+        const __this = this;
+        
+        try {
+            _LOG("Streaming FlatGeobuf with spatial filter from URL: " + szUrl);
+            Data.log("🔄 Streaming FlatGeobuf with spatial filter...");
+            
+            // Find the deserialize function
+            let deserialize = null;
+            
+            if (window.flatgeobuf) {
+                deserialize = window.flatgeobuf.deserialize ||
+                              window.flatgeobuf.default?.deserialize ||
+                              window.flatgeobuf.geojson?.deserialize ||
+                              (window.flatgeobuf.default?.geojson?.deserialize);
+            }
+            
+            if (!deserialize) {
+                throw new Error("FlatGeobuf deserialize function not found. Available: " + Object.keys(window.flatgeobuf || {}).join(", "));
+            }
+            
+            _LOG("Found deserialize function, starting streaming...");
+            
+            // Get bbox for spatial filtering
+            const bbox = opt.bbox;
+            _LOG("Applying spatial filter - bbox: [" + bbox.join(", ") + "]");
+            Data.log("🔍 Spatial filter: [" + bbox.join(", ") + "]");
+            
+            // Deserialize with streaming and spatial filter
+            // The FlatGeobuf library will make range requests using the R-tree index
+            // Following the official FlatGeobuf example pattern
+            (async () => {
+                try {
+                    const features = [];
+                    const startTime = Date.now();
+                    
+                    _LOG("Starting FlatGeobuf streaming deserialization with bbox filter...");
+                    
+                    // Convert bbox array to rect object (FlatGeobuf format)
+                    const rect = {
+                        minX: bbox[0],
+                        minY: bbox[1],
+                        maxX: bbox[2],
+                        maxY: bbox[3]
+                    };
+                    
+                    // Use the FlatGeobuf library EXACTLY as in official examples
+                    // API: deserialize(url, rect, headerCallback?)
+                    // Third parameter is optional callback for header metadata, NOT custom fetch
+                    const iter = deserialize(szUrl, rect);
+                    
+                    // Iterate through features asynchronously
+                    for await (const feature of iter) {
+                        features.push(feature);
+                    }
+                    
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                    _LOG("Streaming complete! Features: " + features.length + " in " + elapsed + "s");
+                    Data.log("✅ Loaded " + features.length + " features in " + elapsed + "s (HTTP range requests)");
+                    
+                    // Create GeoJSON FeatureCollection
+                    const geojson = {
+                        type: "FeatureCollection",
+                        features: features
+                    };
+                    
+                    // Process as GeoJSON
+                    __this.__processGeoJsonData(geojson, opt);
+                    
+                } catch (error) {
+                    // Streaming failed - this is often due to server compression issues
+                    // Fallback to full download is automatic and expected for misconfigured servers
+                    _LOG("FlatGeobuf streaming not available (common with compressed servers): " + error.message);
+                    
+                    // Check error type for better diagnostics
+                    if (error.message && (error.message.includes('DECODING') || error.message.includes('Failed to fetch'))) {
+                        // This is expected for servers that compress data - not an error
+                        console.log("ℹ️ Server doesn't support HTTP range requests (likely compressed)");
+                        Data.log("ℹ️ Using full download mode (server compression detected)");
+                    } else {
+                        // Unexpected error - show as warning
+                        console.warn("⚠️ Streaming failed:", error.message);
+                        Data.log("⚠️ Using fallback download method");
+                    }
+                    
+                    // Fallback to downloading the entire file and filtering in memory
+                    _LOG("Downloading full file and filtering in memory");
+                    
+                    fetch(szUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            return response.arrayBuffer();
+                        })
+                        .then(arrayBuffer => {
+                            _LOG("Full file downloaded: " + arrayBuffer.byteLength + " bytes, applying bbox filter in memory");
+                            Data.log("📊 Downloaded " + Math.round(arrayBuffer.byteLength/(1024*1024)*10)/10 + " MB, filtering features...");
+                            
+                            // Process with bbox option - it will filter during deserialization
+                            __this.__processFlatGeobufData(arrayBuffer, opt);
+                        })
+                        .catch(fallbackError => {
+                            console.error("❌ Fallback also failed:", fallbackError);
+                            _LOG("Fallback download failed: " + fallbackError);
+                            
+                            if (typeof opt !== "undefined" && opt.error) {
+                                opt.error("Error loading FlatGeobuf: " + fallbackError.message);
+                            } else {
+                                _alert("Error loading FlatGeobuf: " + fallbackError.message);
+                            }
+                        });
+                }
+            })();
+                
+        } catch (error) {
+            _LOG("Error setting up FlatGeobuf streaming: " + error);
+            console.error("❌ FlatGeobuf streaming setup error:", error);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Error setting up FlatGeobuf streaming: " + error.message);
+            } else {
+                _alert("Error setting up FlatGeobuf streaming: " + error.message);
+            }
+        }
+    };
+
+    /**
+     * __processFlatGeobufData
+     * Entry point for processing FlatGeobuf files using flatgeobuf library
+     * @param {ArrayBuffer} fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param {Object} opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__processFlatGeobufData = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Processing FlatGeobuf data, buffer size: " + fgbBuffer.byteLength + " bytes");
+        Data.log("📦 Starting FlatGeobuf processing...");
+        
+        // Check if FlatGeobuf library is already loaded
+        if (window.flatgeobuf) {
+            console.log("📦 Using existing FlatGeobuf library");
+            __this.__processFlatGeobufWithLib(fgbBuffer, opt);
+        } else {
+            console.log("📦 Loading FlatGeobuf library from CDN...");
+            __this.__loadFlatGeobufLibAndProcess(fgbBuffer, opt);
+        }
+    };
+
+    /**
+     * __loadFlatGeobufLibAndProcess
+     * Loads FlatGeobuf library from CDN and processes the data
+     * @param fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__loadFlatGeobufLibAndProcess = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Loading FlatGeobuf library from CDN...");
+        
+        // Store the buffer temporarily
+        window.__pendingFgbBuffer = fgbBuffer;
+        window.__pendingFgbOpt = opt;
+        
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            // Try to load FlatGeobuf from CDN
+            let flatgeobuf;
+            try {
+                // Try jsDelivr with geojson subpath (most reliable)
+                flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                console.log("✅ FlatGeobuf GeoJSON loaded from jsDelivr");
+            } catch (e1) {
+                console.warn("jsDelivr geojson failed:", e1);
+                try {
+                    // Try main package from jsDelivr
+                    flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@latest/+esm");
+                    console.log("✅ FlatGeobuf loaded from jsDelivr (main)");
+                } catch (e2) {
+                    console.warn("jsDelivr main failed:", e2);
+                    try {
+                        // Fallback to unpkg with geojson
+                        flatgeobuf = await import("https://unpkg.com/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                        console.log("✅ FlatGeobuf loaded from unpkg");
+                    } catch (e3) {
+                        console.warn("unpkg failed:", e3);
+                        try {
+                            // Fallback to ESM.sh
+                            flatgeobuf = await import("https://esm.sh/flatgeobuf@3.31.0/lib/mjs/geojson");
+                            console.log("✅ FlatGeobuf loaded from esm.sh");
+                        } catch (e4) {
+                            console.error("❌ Failed to load FlatGeobuf from any CDN:", e4);
+                            throw new Error("Failed to load FlatGeobuf library from CDN: " + e4.message);
+                        }
+                    }
+                }
+            }
+            
+            // Store globally for reuse
+            console.log("FlatGeobuf module loaded, available exports:", Object.keys(flatgeobuf));
+            window.flatgeobuf = flatgeobuf;
+            
+            // Trigger processing
+            window.dispatchEvent(new CustomEvent('flatgeobuf-loaded'));
+        `;
+        
+        // Listen for successful load
+        const loadHandler = function() {
+            const buffer = window.__pendingFgbBuffer;
+            const options = window.__pendingFgbOpt;
+            
+            // Clean up
+            delete window.__pendingFgbBuffer;
+            delete window.__pendingFgbOpt;
+            window.removeEventListener('flatgeobuf-loaded', loadHandler);
+            document.body.removeChild(script);
+            
+            // Process the data
+            __this.__processFlatGeobufWithLib(buffer, options);
+        };
+        
+        window.addEventListener('flatgeobuf-loaded', loadHandler);
+        
+        // Handle errors
+        script.onerror = function(error) {
+            _LOG("❌ Failed to load FlatGeobuf library");
+            window.removeEventListener('flatgeobuf-loaded', loadHandler);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Failed to load FlatGeobuf library from CDN");
+            } else {
+                _alert("Failed to load FlatGeobuf library from CDN");
+            }
+        };
+        
+        document.body.appendChild(script);
+    };
+
+    /**
+     * __processFlatGeobufWithDuckDB
+     * Fallback to process FlatGeobuf using DuckDB WASM spatial extension
+     * @param fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param opt options object
+     *            opt.bbox - optional bounding box filter [minX, minY, maxX, maxY]
+     *                       Uses ST_Intersects for spatial filtering
+     */
+    Data.Feed.prototype.__processFlatGeobufWithDuckDB = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Processing FlatGeobuf with DuckDB WASM spatial extension...");
+        Data.log("🦆 Using DuckDB WASM to read FlatGeobuf file...");
+        
+        // Check if DuckDB is already loaded
+        if (window.duckdb && window.duckdb.db) {
+            __this.__processFgbWithDuckDB(fgbBuffer, opt);
+        } else {
+            Data.log("📦 Loading DuckDB WASM...");
+            __this.__loadDuckDBAndProcessFgb(fgbBuffer, opt);
+        }
+    };
+
+    /**
+     * __loadDuckDBAndProcessFgb
+     * Loads DuckDB WASM and processes FlatGeobuf data
+     * @param fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__loadDuckDBAndProcessFgb = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Loading DuckDB WASM module for FlatGeobuf...");
+        
+        // Store the buffer temporarily
+        window.__pendingFgbBufferDuckDB = fgbBuffer;
+        window.__pendingFgbOptDuckDB = opt;
+        
+        // Use the same proven loading mechanism as parquet and geopackage
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            // Try to load DuckDB WASM from CDN
+            let duckdb;
+            try {
+                // Try jsDelivr first (most reliable for DuckDB WASM)
+                duckdb = await import("https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm");
+                console.log("✅ DuckDB loaded from jsDelivr for FlatGeobuf");
+            } catch (e1) {
+                try {
+                    // Fallback to ESM.sh
+                    duckdb = await import("https://esm.sh/@duckdb/duckdb-wasm@1.30.0");
+                    console.log("✅ DuckDB loaded from ESM.sh for FlatGeobuf");
+                } catch (e2) {
+                    try {
+                        // Fallback to unpkg
+                        duckdb = await import("https://unpkg.com/@duckdb/duckdb-wasm@1.30.0/+esm");
+                        console.log("✅ DuckDB loaded from unpkg for FlatGeobuf");
+                    } catch (e3) {
+                        console.error("❌ Failed to load DuckDB from any CDN:", e3);
+                        throw new Error("Failed to load DuckDB library from CDN: " + e3.message);
+                    }
+                }
+            }
+            
+            // Store module reference
+            window.duckdbModule = duckdb;
+            
+            // Check if window.duckdb already exists (from parquet/gpkg loading)
+            if (!window.duckdb || !window.duckdb.db) {
+                // Get bundles
+                const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+                
+                // Force MVP bundle (single-threaded) to avoid pthread worker issues
+                console.log('🎯 Forcing MVP bundle (single-threaded) to avoid resource limits...');
+                const bundle = JSDELIVR_BUNDLES.mvp;
+                console.log('✅ Using MVP bundle for FlatGeobuf:', bundle);
+                
+                console.log("📦 Creating DuckDB worker for FlatGeobuf...");
+                
+                // Create worker using blob URL to avoid CORS issues
+                const worker_url = URL.createObjectURL(
+                    new Blob([\`importScripts("\${bundle.mainWorker}");\`], { type: 'text/javascript' })
+                );
+                const worker = new Worker(worker_url);
+                URL.revokeObjectURL(worker_url);
+                
+                // Initialize DuckDB
+                const logger = new duckdb.ConsoleLogger();
+                const db = new duckdb.AsyncDuckDB(logger, worker);
+                // MVP bundle is single-threaded, so we don't pass pthreadWorker
+                await db.instantiate(bundle.mainModule);
+                
+                console.log("✅ DuckDB initialized successfully for FlatGeobuf");
+                
+                // Create a new object to store db and connection (don't modify frozen module)
+                window.duckdb = {
+                    module: duckdb,
+                    worker: worker,
+                    db: db,
+                    conn: await db.connect()
+                };
+                window.duckdbLoaded = true;
+            } else {
+                console.log("✅ Using existing DuckDB instance for FlatGeobuf");
+            }
+            
+            // Trigger processing
+            window.dispatchEvent(new CustomEvent('duckdb-fgb-loaded'));
+        `;
+        
+        // Listen for successful load
+        const loadHandler = function() {
+            const buffer = window.__pendingFgbBufferDuckDB;
+            const options = window.__pendingFgbOptDuckDB;
+            
+            // Clean up
+            delete window.__pendingFgbBufferDuckDB;
+            delete window.__pendingFgbOptDuckDB;
+            window.removeEventListener('duckdb-fgb-loaded', loadHandler);
+            document.body.removeChild(script);
+            
+            // Process the data
+            __this.__processFgbWithDuckDB(buffer, options);
+        };
+        
+        window.addEventListener('duckdb-fgb-loaded', loadHandler);
+        
+        // Handle errors
+        script.onerror = function(error) {
+            _LOG("❌ Failed to load DuckDB for FlatGeobuf");
+            window.removeEventListener('duckdb-fgb-loaded', loadHandler);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Failed to load DuckDB library from CDN");
+            } else {
+                _alert("Failed to load DuckDB library from CDN");
+            }
+        };
+        
+        document.body.appendChild(script);
+    };
+
+    /**
+     * __processFgbWithDuckDB
+     * Processes FlatGeobuf data using DuckDB WASM spatial extension
+     * @param fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param opt options object
+     *            opt.bbox - optional bounding box filter [minX, minY, maxX, maxY]
+     *                       Uses ST_Intersects with ST_MakeEnvelope for efficient spatial filtering
+     */
+    Data.Feed.prototype.__processFgbWithDuckDB = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Processing FlatGeobuf with DuckDB spatial extension...");
+        Data.log("📊 Reading FlatGeobuf with DuckDB spatial extension...");
+        
+        // Create a temporary file name
+        const tempFileName = 'temp_' + Date.now() + '.fgb';
+        
+        // Register the file with DuckDB
+        const db = window.duckdb.db;
+        const conn = window.duckdb.conn;
+        
+        // Register the ArrayBuffer as a file in DuckDB's virtual filesystem
+        db.registerFileBuffer(tempFileName, new Uint8Array(fgbBuffer))
+            .then(function() {
+                _LOG("FlatGeobuf file registered with DuckDB: " + tempFileName);
+                
+                // Install and load spatial extension
+                return conn.query("INSTALL spatial; LOAD spatial;");
+            })
+            .then(function() {
+                _LOG("DuckDB spatial extension loaded");
+                Data.log("🔧 Spatial extension loaded");
+                
+                // Step 1: Detect geometry columns
+                const schemaQuery = `SELECT column_name FROM (DESCRIBE SELECT * FROM st_read('${tempFileName}')) WHERE column_type LIKE '%GEOMETRY%' OR column_type LIKE '%WKB%'`;
+                return conn.query(schemaQuery);
+            })
+            .then(function(schemaResult) {
+                const geometryColumns = [];
+                for (let i = 0; i < schemaResult.numRows; i++) {
+                    geometryColumns.push(schemaResult.get(i).column_name);
+                }
+                
+                _LOG("Detected geometry columns: " + geometryColumns.join(', '));
+                
+                // Step 2: Build query with ST_AsGeoJSON for geometry columns
+                let selectClause = '*';
+                let whereClause = '';
+                
+                if (geometryColumns.length > 0) {
+                    const geoJsonSelects = geometryColumns.map(col => 
+                        `ST_AsGeoJSON(${col}) AS ${col}`
+                    ).join(', ');
+                    
+                    selectClause = `${geoJsonSelects}, * EXCLUDE (${geometryColumns.join(', ')})`;
+                    
+                    // Add spatial filter if bbox is provided
+                    if (opt && opt.bbox && geometryColumns.length > 0) {
+                        const [minX, minY, maxX, maxY] = opt.bbox;
+                        const geomCol = geometryColumns[0]; // Use first geometry column
+                        whereClause = ` WHERE ST_Intersects(${geomCol}, ST_MakeEnvelope(${minX}, ${minY}, ${maxX}, ${maxY}))`;
+                        _LOG("Applying spatial filter in DuckDB - bbox: [" + opt.bbox.join(", ") + "]");
+                        Data.log("🔍 Applying spatial filter in DuckDB: [" + opt.bbox.join(", ") + "]");
+                    }
+                }
+                
+                const dataQuery = `SELECT ${selectClause} FROM st_read('${tempFileName}')${whereClause}`;
+                _LOG("Executing query: " + dataQuery);
+                
+                return conn.query(dataQuery);
+            })
+            .then(function(result) {
+                _LOG("DuckDB query successful, rows: " + result.numRows);
+                Data.log(`✅ Loaded ${result.numRows} features from FlatGeobuf`);
+                
+                // Convert to our table format using the same processing as parquet
+                const rows = result.toArray().map(row => Object.fromEntries(row));
+                const columns = result.schema.fields.map(field => field.name);
+                
+                _LOG("Converting DuckDB result to table format...");
+                
+                // Detect column types from schema
+                const columnTypes = __this.__detectColumnTypes(result.schema);
+                
+                // Use the standard processing pipeline
+                __this.__processStreamingDataset(rows, columns, columnTypes, tempFileName, opt);
+            })
+            .catch(function(error) {
+                console.error("❌ Error processing FlatGeobuf with DuckDB:", error);
+                _LOG("Error processing FlatGeobuf with DuckDB: " + error);
+                
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("Error processing FlatGeobuf with DuckDB: " + error.message);
+                } else {
+                    _alert("Error processing FlatGeobuf with DuckDB: " + error.message);
+                }
+            });
+    };
+
+    /**
+     * __processFlatGeobufWithLib
+     * Processes FlatGeobuf binary data into GeoJSON using the loaded library
+     * @param fgbBuffer ArrayBuffer containing FlatGeobuf data
+     * @param opt options object
+     *            opt.bbox - optional bounding box filter [minX, minY, maxX, maxY] or [west, south, east, north]
+     *                       Uses FlatGeobuf's built-in R-tree spatial index for efficient filtering
+     */
+    Data.Feed.prototype.__processFlatGeobufWithLib = function (fgbBuffer, opt) {
+        const __this = this;
+        
+        try {
+            _LOG("Converting FlatGeobuf to GeoJSON...");
+            Data.log("🔄 Converting FlatGeobuf to GeoJSON...");
+            
+            // Create a ReadableStream from the ArrayBuffer for the FlatGeobuf library
+            const uint8Array = new Uint8Array(fgbBuffer);
+            
+            // Find the deserialize function - it can be in various places depending on CDN/loading method
+            let deserialize = null;
+            
+            // Log what we have for debugging
+            console.log("FlatGeobuf library structure:", Object.keys(window.flatgeobuf || {}));
+            
+            // Try multiple possible locations
+            if (window.flatgeobuf) {
+                deserialize = window.flatgeobuf.deserialize ||
+                              window.flatgeobuf.default?.deserialize ||
+                              window.flatgeobuf.geojson?.deserialize ||
+                              (window.flatgeobuf.default?.geojson?.deserialize);
+            }
+            
+            if (!deserialize) {
+                _LOG("Available properties: " + Object.keys(window.flatgeobuf || {}).join(", "));
+                console.error("FlatGeobuf library structure:", window.flatgeobuf);
+                throw new Error("FlatGeobuf deserialize function not found. Available: " + Object.keys(window.flatgeobuf || {}).join(", "));
+            }
+            
+            _LOG("Found deserialize function, processing FlatGeobuf data...");
+            
+            // Check for spatial filter (bounding box)
+            // bbox format: [minX, minY, maxX, maxY] or [west, south, east, north]
+            let bbox = null;
+            if (opt && opt.bbox) {
+                bbox = opt.bbox;
+                _LOG("Applying spatial filter - bbox: [" + bbox.join(", ") + "]");
+                Data.log("🔍 Applying spatial filter: [" + bbox.join(", ") + "]");
+            }
+            
+            // Create a proper ReadableStream from the ArrayBuffer
+            // FlatGeobuf library expects a ReadableStream, not an async generator
+            const stream = new ReadableStream({
+                start(controller) {
+                    // Enqueue the entire buffer
+                    controller.enqueue(uint8Array);
+                    controller.close();
+                }
+            });
+            
+            // Deserialize and collect features
+            // The deserialize function returns an async iterator directly, not a Promise
+            (async () => {
+                try {
+                    const features = [];
+                    
+                    _LOG("Starting FlatGeobuf deserialization from ReadableStream...");
+                    
+                    // Iterate over features asynchronously
+                    // Pass bbox to deserialize for spatial filtering
+                    // Note: When using a stream from ArrayBuffer, the bbox filter is applied
+                    // during deserialization (reads R-tree from buffer), but the full file was already downloaded
+                    let featureIterator;
+                    if (bbox) {
+                        // Convert bbox array to rect object format that FlatGeobuf expects
+                        const rect = {
+                            minX: bbox[0],
+                            minY: bbox[1],
+                            maxX: bbox[2],
+                            maxY: bbox[3]
+                        };
+                        _LOG("Applying bbox filter to stream: " + JSON.stringify(rect));
+                        featureIterator = deserialize(stream, rect);
+                    } else {
+                        featureIterator = deserialize(stream);
+                    }
+                    
+                    for await (const feature of featureIterator) {
+                        features.push(feature);
+                    }
+                    
+                    _LOG("Converted " + features.length + " features from FlatGeobuf");
+                    Data.log("✅ Converted " + features.length + " features from FlatGeobuf");
+                    
+                    // Create GeoJSON FeatureCollection
+                    const geojson = {
+                        type: "FeatureCollection",
+                        features: features
+                    };
+                    
+                    // Process as GeoJSON
+                    __this.__processGeoJsonData(geojson, opt);
+                    
+                } catch (error) {
+                    console.error("❌ Error deserializing FlatGeobuf:", error);
+                    _LOG("Error in FlatGeobuf deserialization: " + error);
+                    
+                    // Check if it's a JSON parsing error (incompatible data types)
+                    if (error.message && error.message.includes('JSON')) {
+                        console.warn("⚠️ FlatGeobuf library can't parse this file's data format");
+                        Data.log("🔄 Switching to DuckDB WASM for better FlatGeobuf compatibility...");
+                        _LOG("FlatGeobuf library failed with data parsing issue, using DuckDB fallback");
+                        
+                        // Use DuckDB WASM which has excellent FlatGeobuf support via spatial extension
+                        __this.__processFlatGeobufWithDuckDB(fgbBuffer, opt);
+                    } else {
+                        // Other error - report to user
+                        if (typeof opt !== "undefined" && opt.error) {
+                            opt.error("Error processing FlatGeobuf: " + error.message);
+                        } else {
+                            _alert("Error processing FlatGeobuf: " + error.message);
+                        }
+                    }
+                }
+            })();
+                
+        } catch (error) {
+            _LOG("Error in FlatGeobuf processing: " + error);
+            console.error("❌ FlatGeobuf processing error:", error);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Error processing FlatGeobuf: " + error.message);
+            } else {
+                _alert("Error processing FlatGeobuf: " + error.message);
+            }
+        }
+    };
+
+
+    // ---------------------------------
+    // G E O B U F 
+    // ---------------------------------
+
+    /**
+     * __doGeobufImport
+     * reads Geobuf (.pbf) files from URL
+     * loads binary data and processes it into GeoJSON
+     * @param szUrl Geobuf file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__doGeobufImport = function (szUrl, opt) {
+        
+        _LOG("__doGeobufImport: " + szUrl);
+        const __this = this;
+        
+        Data.log("📊 Loading Geobuf file from: " + szUrl);
+        
+        // Try using Fetch API first (modern, supports streaming)
+        fetch(szUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                _LOG("Fetch successful, reading Geobuf data...");
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => {
+                _LOG("Geobuf data loaded: " + arrayBuffer.byteLength + " bytes");
+                
+                // Verify this looks like a Geobuf file (Protocol Buffer format)
+                const uint8Array = new Uint8Array(arrayBuffer);
+                if (uint8Array.length >= 4) {
+                    // Geobuf files are Protocol Buffers, check for valid PBF structure
+                    _LOG("Geobuf file size: " + uint8Array.length + " bytes");
+                }
+                
+                __this.__processGeobufData(arrayBuffer, opt);
+            })
+            .catch(error => {
+                _LOG("Fetch failed: " + error.message);
+                
+                // Fallback to XMLHttpRequest if Fetch fails
+                _LOG("Falling back to XMLHttpRequest...");
+                __this.__loadGeobufWithXHR(szUrl, opt);
+            });
+    };
+
+    /**
+     * __loadGeobufWithXHR
+     * fallback method using XMLHttpRequest if Fetch fails
+     * @param szUrl Geobuf file url
+     * @param opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__loadGeobufWithXHR = function (szUrl, opt) {
+        const __this = this;
+        
+        _LOG("Loading Geobuf with XMLHttpRequest...");
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', szUrl, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const arrayBuffer = xhr.response;
+                _LOG("XHR successful: " + arrayBuffer.byteLength + " bytes");
+                __this.__processGeobufData(arrayBuffer, opt);
+            } else {
+                _LOG("XHR failed with status: " + xhr.status + " " + xhr.statusText);
+                if (typeof opt !== "undefined" && opt.error) {
+                    opt.error("XHR failed: " + xhr.status + " " + xhr.statusText);
+                } else {
+                    _alert("XHR failed: " + xhr.status + " " + xhr.statusText);
+                }
+            }
+        };
+        
+        xhr.onerror = function() {
+            _LOG("XHR network error");
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("XHR network error");
+            } else {
+                _alert("XHR network error");
+            }
+        };
+        
+        xhr.send();
+    };
+
+    /**
+     * __processGeobufData
+     * Entry point for processing Geobuf files using geobuf library
+     * @param {ArrayBuffer} pbfBuffer ArrayBuffer containing Geobuf data
+     * @param {Object} opt options object
+     * @type void
+     */
+    Data.Feed.prototype.__processGeobufData = function (pbfBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Processing Geobuf data, buffer size: " + pbfBuffer.byteLength + " bytes");
+        Data.log("📦 Starting Geobuf processing...");
+        
+        // Check if Geobuf library is already loaded
+        if (window.geobuf && window.Pbf) {
+            console.log("📦 Using existing Geobuf library");
+            __this.__processGeobufWithLib(pbfBuffer, opt);
+        } else {
+            console.log("📦 Loading Geobuf library from CDN...");
+            __this.__loadGeobufLibAndProcess(pbfBuffer, opt);
+        }
+    };
+
+    /**
+     * __loadGeobufLibAndProcess
+     * Loads Geobuf library from CDN and processes the data
+     * @param pbfBuffer ArrayBuffer containing Geobuf data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__loadGeobufLibAndProcess = function (pbfBuffer, opt) {
+        const __this = this;
+        
+        _LOG("Loading Geobuf library from CDN...");
+        
+        // Store the buffer temporarily
+        window.__pendingPbfBuffer = pbfBuffer;
+        window.__pendingPbfOpt = opt;
+        
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            // Try to load Geobuf and Pbf from CDN
+            let geobuf, Pbf;
+            try {
+                // Try jsDelivr first
+                geobuf = await import("https://cdn.jsdelivr.net/npm/geobuf@3.0.2/+esm");
+                Pbf = await import("https://cdn.jsdelivr.net/npm/pbf@3.2.1/+esm");
+                console.log("✅ Geobuf and Pbf loaded from jsDelivr");
+            } catch (e1) {
+                console.warn("jsDelivr failed:", e1);
+                try {
+                    // Fallback to unpkg
+                    geobuf = await import("https://unpkg.com/geobuf@3.0.2/dist/geobuf.js");
+                    Pbf = await import("https://unpkg.com/pbf@3.2.1/dist/pbf.js");
+                    console.log("✅ Geobuf and Pbf loaded from unpkg");
+                } catch (e2) {
+                    console.warn("unpkg failed:", e2);
+                    try {
+                        // Fallback to ESM.sh
+                        geobuf = await import("https://esm.sh/geobuf@3.0.2");
+                        Pbf = await import("https://esm.sh/pbf@3.2.1");
+                        console.log("✅ Geobuf and Pbf loaded from esm.sh");
+                    } catch (e3) {
+                        console.error("❌ Failed to load Geobuf from any CDN:", e3);
+                        throw new Error("Failed to load Geobuf library from CDN: " + e3.message);
+                    }
+                }
+            }
+            
+            // Store globally for reuse
+            console.log("Geobuf module loaded, available exports:", Object.keys(geobuf));
+            console.log("Pbf module loaded, available exports:", Object.keys(Pbf));
+            window.geobuf = geobuf;
+            window.Pbf = Pbf;
+            
+            // Trigger processing
+            window.dispatchEvent(new CustomEvent('geobuf-loaded'));
+        `;
+        
+        // Listen for successful load
+        const loadHandler = function() {
+            const buffer = window.__pendingPbfBuffer;
+            const options = window.__pendingPbfOpt;
+            
+            // Clean up
+            delete window.__pendingPbfBuffer;
+            delete window.__pendingPbfOpt;
+            window.removeEventListener('geobuf-loaded', loadHandler);
+            document.body.removeChild(script);
+            
+            // Process the data
+            __this.__processGeobufWithLib(buffer, options);
+        };
+        
+        window.addEventListener('geobuf-loaded', loadHandler);
+        
+        // Handle errors
+        script.onerror = function(error) {
+            _LOG("❌ Failed to load Geobuf library");
+            window.removeEventListener('geobuf-loaded', loadHandler);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Failed to load Geobuf library from CDN");
+            } else {
+                _alert("Failed to load Geobuf library from CDN");
+            }
+        };
+        
+        document.body.appendChild(script);
+    };
+
+    /**
+     * __processGeobufWithLib
+     * Processes Geobuf binary data into GeoJSON using the loaded library
+     * @param pbfBuffer ArrayBuffer containing Geobuf data
+     * @param opt options object
+     */
+    Data.Feed.prototype.__processGeobufWithLib = function (pbfBuffer, opt) {
+        const __this = this;
+        
+        try {
+            _LOG("Converting Geobuf to GeoJSON...");
+            Data.log("🔄 Converting Geobuf to GeoJSON...");
+            
+            // Create a Pbf instance from the ArrayBuffer
+            const uint8Array = new Uint8Array(pbfBuffer);
+            
+            // Find the decode function - it can be in various places depending on CDN/loading method
+            let decode = null;
+            
+            // Log what we have for debugging
+            console.log("Geobuf library structure:", Object.keys(window.geobuf || {}));
+            console.log("Pbf library structure:", Object.keys(window.Pbf || {}));
+            
+            // Try multiple possible locations for decode function
+            if (window.geobuf) {
+                decode = window.geobuf.decode ||
+                         window.geobuf.default?.decode ||
+                         (window.geobuf.default?.geobuf?.decode);
+            }
+            
+            // Try multiple possible locations for Pbf constructor
+            let PbfConstructor = null;
+            if (window.Pbf) {
+                PbfConstructor = window.Pbf.default ||
+                                 window.Pbf.Pbf ||
+                                 window.Pbf;
+            }
+            
+            if (!decode) {
+                _LOG("Available geobuf properties: " + Object.keys(window.geobuf || {}).join(", "));
+                console.error("Geobuf library structure:", window.geobuf);
+                throw new Error("Geobuf decode function not found. Available: " + Object.keys(window.geobuf || {}).join(", "));
+            }
+            
+            if (!PbfConstructor) {
+                _LOG("Available Pbf properties: " + Object.keys(window.Pbf || {}).join(", "));
+                console.error("Pbf library structure:", window.Pbf);
+                throw new Error("Pbf constructor not found. Available: " + Object.keys(window.Pbf || {}).join(", "));
+            }
+            
+            _LOG("Found decode function and Pbf constructor, processing Geobuf data...");
+            
+            // Create Pbf instance and decode
+            const pbf = new PbfConstructor(uint8Array);
+            const geojson = decode(pbf);
+            
+            _LOG("Converted Geobuf to GeoJSON successfully");
+            Data.log("✅ Converted Geobuf to GeoJSON successfully");
+            
+            // Process as GeoJSON
+            __this.__processGeoJsonData(geojson, opt);
+                
+        } catch (error) {
+            _LOG("Error in Geobuf processing: " + error);
+            console.error("❌ Geobuf processing error:", error);
+            
+            if (typeof opt !== "undefined" && opt.error) {
+                opt.error("Error processing Geobuf: " + error.message);
+            } else {
+                _alert("Error processing Geobuf: " + error.message);
             }
         }
     };
@@ -5183,6 +7265,7 @@ $Log:data.js,v $
          *								   <tr><td><b>"geojson"</b></td><td>the source is a JSON object formatted in <a href="https://geojson.org/" target="_blank">GeoJson</a></td></tr>
          *								   <tr><td><b>"geoparquet"</b></td><td>the source is a GeoParquet file (converted to GeoJSON)</td></tr>
          *								   <tr><td><b>"parquet"</b></td><td>the source is a Parquet file</td></tr>
+         *								   <tr><td><b>"gpkg"</b></td><td>the source is a GeoPackage file (using DuckDB WASM spatial extension, converted to GeoJSON)</td></tr>
          *								   <tr><td><b>"JSON-stat"</b></td><td>the source is a JSON object formatted in <a href="https://json-stat.org/JSON-stat" target="_blank">JSON-stat</a></td></tr>
          *								   <tr><td><b>"jsonDB"</b></td><td>the source is in ixmaps internal data table format</td></tr>
          *								   <tr><td><b>"rss"</b></td><td>the source is an xml rss feed</td></tr>
