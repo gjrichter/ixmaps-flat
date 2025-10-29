@@ -207,15 +207,15 @@ $Log: htmlgui_api.js,v $
             type: 'js'
         },
         {
-            url: 'https://cdn.maptiler.com/maptiler-sdk-js/v1.1.1/maptiler-sdk.umd.js',
+            url: 'ui/libs/maptiler/maptiler-sdk.umd.js',
             type: 'js'
         },
         {
-            url: 'https://cdn.maptiler.com/maptiler-sdk-js/v3.2.0/maptiler-sdk.css',
+            url: 'ui/libs/maptiler/maptiler-sdk.css',
             type: 'css'
         },
         {
-            url: 'https://cdn.maptiler.com/leaflet-maptilersdk/v1.0.0/leaflet-maptilersdk.js',
+            url: 'ui/libs/maptiler/leaflet-maptilersdk.js',
             type: 'js'
         },
         {
