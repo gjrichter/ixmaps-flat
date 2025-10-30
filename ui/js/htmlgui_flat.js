@@ -940,17 +940,17 @@ $Log: htmlgui_api.js,v $
 
         loadMap: function (szUrl) {
             alert(szUrl);
-            ixmaps.loadMap(this.szMap, szUrl);
+            ixmaps.loadMap(szUrl);
             return this;
         },
 
         setBounds: function (bounds) {
-            ixmaps.setBounds(this.szMap, bounds);
+            ixmaps.setBounds(bounds);
             return this;
         },
 
         setView: function (center, zoom) {
-            ixmaps.setView(this.szMap, center, zoom);
+            ixmaps.setView(center, zoom);
             return this;
         },
         view: function (center, zoom) {
@@ -959,7 +959,7 @@ $Log: htmlgui_api.js,v $
         },
 
         flyTo: function (center, zoom) {
-            ixmaps.flyTo(this.szMap, center, zoom);
+            ixmaps.flyTo(center, zoom);
             return this;
         },
 
@@ -969,7 +969,7 @@ $Log: htmlgui_api.js,v $
         },
 
         setScaleParam: function (szParam) {
-            ixmaps.setScaleParam(this.szMap, szParam);
+            ixmaps.setScaleParam(szParam);
             return this;
         },
 
@@ -979,7 +979,7 @@ $Log: htmlgui_api.js,v $
         },
 
         setOptions: function (options) {
-            ixmaps.setOptions(this.szMap, options);
+            ixmaps.setOptions(options);
             return this;
         },
         options: function (options) {
