@@ -277,6 +277,10 @@ $Log: htmlgui_api.js,v $
             type: 'js'
         },
         {
+            url: 'ui/js/tools/tooltip_mustache.js',
+            type: 'js'
+        },
+        {
             url: 'ui/libs/leaflet-gesture-handling/leaflet-gesture-handling.min.js',
             type: 'js'
         },

@@ -445,6 +445,9 @@ window.ixmaps = window.ixmaps || {};
 					for ( i in themeObj.itemA[szItem].nValuesA ){
 						nSymbols += themeObj.itemA[szItem].nValuesA[i]?1:1;
 					}
+					if ( themeObj.szFlag.match(/HORZ/) ){
+						width = 100 + nSymbols*10;
+					}else
 					if ( themeObj.szFlag.match(/CHOROPLETH/) ){
 						height = nSymbols*15;
 						width = height / SVGBox.height * SVGBox.width;

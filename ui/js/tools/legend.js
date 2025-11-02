@@ -839,12 +839,13 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 
         var fLegendCompact = (szMode && szMode == "compact") ? true : false;
         var themeObj = ixmaps.getThemeObj(szId);
-
+        /** 
         if (themeObj.nDoneCount == 0) {
             if (themeObj.nChartUpper) {
                 return ("<strong>not visible at actual zoom!</strong><br>please zoom in below 1:" + themeObj.nChartUpper);
             }
         }
+        **/
 
         // check whether to make VECTOR legend 
         // -----------------------------------------------
@@ -1158,6 +1159,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 ixmaps.legend.scrollPositions[szId] = scrollContainer.scrollTop;
             }
             
+            // Clear legend to prevent accumulation
+            $("#map-legend").html("");
+            
             for (var i = 0; i < allThemes.length; i++) {
                 var theme = allThemes[i];
                 var themeObj = ixmaps.getThemeObj(theme.szId);
@@ -1295,6 +1299,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		if (scrollContainer && szId) {
 			ixmaps.legend.scrollPositions[szId] = scrollContainer.scrollTop;
 		}
+		
+		// Clear legend to prevent accumulation
+		$("#map-legend").html("");
 		
         // in case szId is not giveb, set it from themeObj
         szId = szId || themeObj.szId;

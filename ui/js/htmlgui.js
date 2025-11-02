@@ -32,7 +32,7 @@ $Log: htmlgui.js,v $
  */
 
 (function (window, document, undefined) {
-	
+
 	var $ = window.$;
 	var jQuery = window.jQuery;
 	var alert = window.alert;
@@ -171,12 +171,12 @@ $Log: htmlgui.js,v $
 	ixmaps.map = function (szMapDiv, options, callback) {
 
 		// Multi-map support: Check if this specific div already has a map
-		if (ixmaps.szGmapDiv && ixmaps.szGmapDiv === szMapDiv){
+		if (ixmaps.szGmapDiv && ixmaps.szGmapDiv === szMapDiv) {
 			return ixmaps.api() || ixmaps;
 		}
 
 		// For backward compatibility: if no specific div is provided and a map already exists
-		if (ixmaps.szGmapDiv && !szMapDiv){
+		if (ixmaps.szGmapDiv && !szMapDiv) {
 			return ixmaps.api() || ixmaps;
 		}
 
@@ -223,12 +223,12 @@ $Log: htmlgui.js,v $
 		aDiv = document.createElement("div");
 		aDiv.setAttribute("id", "svgmapdiv");
 		mapDiv.appendChild(aDiv);
-		
+
 		if ((options.mapsize == "fix")) {
 			ixmaps.fMapSizeMode = "fix";
 			const width = parseInt($('#' + szMapDiv).css("width"));
 			const height = parseInt($('#' + szMapDiv).css("height"));
-            console.log("--- map size = fix ---");
+			console.log("--- map size = fix ---");
 			console.log(mapDiv);
 			console.log($('#' + szMapDiv).attr("style"));
 			console.log(width);
@@ -255,7 +255,7 @@ $Log: htmlgui.js,v $
 					"overflow": "hidden"
 				});
 			}
-	
+
 		}
 		if (options.mode) {
 			if (options.mode.match(/nolegend/)) {
@@ -313,16 +313,16 @@ $Log: htmlgui.js,v $
 	 * @return the initialized ixmaps object
 	 */
 	ixmaps.InitAll = function (szGmapDiv, szSvgDiv, szUrl, szMapService) {
-        
+
 		var szError = null;
-        /**
+		/**
 		if (!$(szGmapDiv).assertStr()) {
 			szError = "Error: missing map target (HTML div)!";
 		}
 		if (!$(szSvgDiv).assertStr()) {
 			szError = "Error: missing map target (SVG div)!";
 		}
-        **/
+		**/
 		if (szError) {
 			this.showLoading();
 			$("#loading-text").append(szError + "x");
@@ -332,11 +332,11 @@ $Log: htmlgui.js,v $
 			// --------------------------------------------------------
 			try {
 				this.onMapReady(this.szName);
-			} catch (e) {}
+			} catch (e) { }
 			// bubble it up !
 			try {
 				this.parentApi.onMapReady(this.szName);
-			} catch (e) {}
+			} catch (e) { }
 			return;
 		}
 
@@ -427,11 +427,11 @@ $Log: htmlgui.js,v $
 
 			// GR 09.01.2014 create without data="... attribute !
 			//				 data= will be defined by ixmaps.HTML_loadSVGMap(...); see below
-			
+
 			// Initialize szResourceBase if not already set
 			if (!ixmaps.szResourceBase) {
 				ixmaps.szResourceBase = "../../";
-				
+
 				let scriptsA = document.querySelectorAll("script");
 				for (var i in scriptsA) {
 					let scr = scriptsA[i].getAttribute("src");
@@ -440,64 +440,64 @@ $Log: htmlgui.js,v $
 						break;
 					}
 				}
-				
+
 				console.log("ixmaps.szResourceBase = " + ixmaps.szResourceBase);
 			}
-			
-            szUrl = szUrl || "maps/svg/maps/generic/mercator.svg";
-            if(szUrl.match("../../")){
-                szUrl = szUrl.split("../../")[1];    
-            }
-			if(szUrl.match("http")){
-				$(this.svgDiv).load(szUrl);
-			}else{
-            	$(this.svgDiv).load(ixmaps.szResourceBase+szUrl);
+
+			szUrl = szUrl || "maps/svg/maps/generic/mercator.svg";
+			if (szUrl.match("../../")) {
+				szUrl = szUrl.split("../../")[1];
 			}
-            
-			console.log("Loading mapscript.js from:", ixmaps.szResourceBase+"maps/svg/js/mapscript.js");
-            
+			if (szUrl.match("http")) {
+				$(this.svgDiv).load(szUrl);
+			} else {
+				$(this.svgDiv).load(ixmaps.szResourceBase + szUrl);
+			}
+
+			console.log("Loading mapscript.js from:", ixmaps.szResourceBase + "maps/svg/js/mapscript.js");
+
 			// Try production mode first (mapscript.min.js)
 			// If it fails, fall back to development mode scripts
 			// Load mapscript.min.js with a small delay to ensure everything is ready
-			setTimeout(function() {
+			setTimeout(function () {
 				$.when(
-					$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapscript.min.js"),
-					$.Deferred(function(deferred) {
+					$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapscript.min.js"),
+					$.Deferred(function (deferred) {
 						$(deferred.resolve);
 					})
-				).done(function() {
+				).done(function () {
 					console.log("Production mode: mapscript.min.js loaded successfully");
 					setTimeout("initAll()", 100);
-				}).fail(function(jqXHR, textStatus, errorThrown) {
+				}).fail(function (jqXHR, textStatus, errorThrown) {
 					console.warn("Failed to load mapscript.min.js (production):", textStatus, errorThrown);
 					console.log("Falling back to development mode scripts...");
-					
+
 					// Fall back to development mode
 					$.when(
-						$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapscript.js"),
-						$.Deferred(function(deferred) {
+						$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapscript.js"),
+						$.Deferred(function (deferred) {
 							$(deferred.resolve);
 						})
-					).done(function() {
+					).done(function () {
 						$.when(
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/colorscheme.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapscript2.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapapi.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapquery.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/maptheme.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/mapselect.js"),
-							$.getScript(ixmaps.szResourceBase+"maps/svg/js/piechart.js"),
-							$.Deferred(function(deferred) {
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/colorscheme.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapscript2.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapapi.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapquery.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/maptheme.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/mapselect.js"),
+							$.getScript(ixmaps.szResourceBase + "maps/svg/js/piechart.js"),
+							$.Deferred(function (deferred) {
 								$(deferred.resolve);
 							})
-						).done(function() {
+						).done(function () {
 							console.log("Development mode: all scripts loaded successfully");
 							setTimeout("initAll()", 100);
-						}).fail(function(jqXHR, textStatus, errorThrown) {
+						}).fail(function (jqXHR, textStatus, errorThrown) {
 							console.error("Failed to load development mode scripts:", textStatus, errorThrown);
 							alert("Failed to load map scripts: " + textStatus);
 						})
-					}).fail(function(jqXHR, textStatus, errorThrown) {
+					}).fail(function (jqXHR, textStatus, errorThrown) {
 						console.error("Failed to load mapscript.js (fallback):", textStatus, errorThrown);
 						alert("Failed to load mapscript.js: " + textStatus);
 					});
@@ -511,11 +511,11 @@ $Log: htmlgui.js,v $
 		});
 
 		//window.setTimeout("ixmaps.resizeMap(null,false)", 1000);
-        console.log("**********************");
-        console.log(window);
-        
-        //alert("checkpoint");
-        
+		console.log("**********************");
+		console.log(window);
+
+		//alert("checkpoint");
+
 		return ixmaps;
 	};
 
@@ -525,8 +525,9 @@ $Log: htmlgui.js,v $
 	 * @param szName a name to identify the map, usefull if we have more than one map in a HTML page
 	 * @type void
 	 */
-	ixmaps.HTML_loadSVGMap = function (szUrl) { return;
-		
+	ixmaps.HTML_loadSVGMap = function (szUrl) {
+		return;
+
 		if (!szUrl || (typeof (szUrl) != 'string')) {
 			ixmaps.loadMapError(szUrl);
 			return;
@@ -536,7 +537,7 @@ $Log: htmlgui.js,v $
 		if ((szUrl == this.szUrlSVG) && this.loadedMap) {
 			// GR 22.12.2020 we must clear the map to get the user informed of deleted themes
 			ixmaps.clearAll();
-			setTimeout(function(){$(ixmaps.svgObject).attr('src', ixmaps.szUrlSVG)},"100");
+			setTimeout(function () { $(ixmaps.svgObject).attr('src', ixmaps.szUrlSVG) }, "100");
 			delete this.loadedMap;
 			return;
 		}
@@ -553,7 +554,7 @@ $Log: htmlgui.js,v $
 		}
 
 		if (this.szUrlSVG == szUrl) {
-			
+
 			// call user defined method on map ready
 			// --------------------------------------------------------
 			if (this.callback) {
@@ -577,13 +578,13 @@ $Log: htmlgui.js,v $
 		$(this.svgObject).attr('onerror', 'ixmaps.loadMapError(ixmaps.szUrlSVG)');
 
 		$.get(this.szUrlSVG).
-		done(function (data) {
-			$(ixmaps.svgObject).attr('src', ixmaps.szUrlSVG);
-		}).
-		fail(function () {
-			$("#loading-text").empty();
-			$("#loading-text").append("<span style='font-size:32px'><span style='color:red'>loading map error: </span>'" + ixmaps.szUrlSVG + "'<br> <span style='color:red'>not found</span></span>");
-		});
+			done(function (data) {
+				$(ixmaps.svgObject).attr('src', ixmaps.szUrlSVG);
+			}).
+			fail(function () {
+				$("#loading-text").empty();
+				$("#loading-text").append("<span style='font-size:32px'><span style='color:red'>loading map error: </span>'" + ixmaps.szUrlSVG + "'<br> <span style='color:red'>not found</span></span>");
+			});
 
 		//$(this.svgObject).attr('data',this.szUrlSVG);
 
@@ -593,7 +594,7 @@ $Log: htmlgui.js,v $
 	};
 
 	ixmaps.loadMapError = function (e) {
-		alert("load SVG map error!\nurl: "+e);
+		alert("load SVG map error!\nurl: " + e);
 	};
 
 	/**
@@ -642,8 +643,8 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.resizeMap = function (mapBox, fZoomTo, fCenter) {
-        
- 		if (mapBox) {
+
+		if (mapBox) {
 			__SVGmapOffX = mapBox.x;
 			__SVGmapOffY = mapBox.y;
 			ixmaps.SVGmapWidth = mapBox.width;
@@ -658,10 +659,10 @@ $Log: htmlgui.js,v $
 			}
 			//ixmaps.SVGmapWidth = window.innerWidth - __mapLeft - __SVGmapPosX - __SVGmapOffX;
 			//ixmaps.SVGmapHeight = window.innerHeight - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
-			ixmaps.SVGmapWidth  = ($("#ixmap").parent().width() ||window.innerWidth) - __mapLeft - __SVGmapPosX - __SVGmapOffX;
-			ixmaps.SVGmapHeight = ($("#ixmap").parent().height()||(window.innerHeight-10)) - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
-            
-			
+			ixmaps.SVGmapWidth = ($("#ixmap").parent().width() || window.innerWidth) - __mapLeft - __SVGmapPosX - __SVGmapOffX;
+			ixmaps.SVGmapHeight = ($("#ixmap").parent().height() || (window.innerHeight - 10)) - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
+
+
 			//$("#attribution-div").css("bottom","15px");
 		}
 
@@ -713,7 +714,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			this.htmlgui_onWindowResize();
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 
@@ -733,7 +734,7 @@ $Log: htmlgui.js,v $
 			return;
 		}
 
-		if (!szMessage){
+		if (!szMessage) {
 			return;
 		}
 
@@ -741,7 +742,7 @@ $Log: htmlgui.js,v $
 			if (ixmaps.embeddedSVG) {
 				szMessage = ixmaps.embeddedSVG.window.map.Dictionary.getLocalText(szMessage);
 			}
-		} catch (e) {}
+		} catch (e) { }
 
 		if (szMessage && (szMessage.length > 25)) {
 			szMessage = "..." + szMessage.slice(-25);
@@ -792,14 +793,14 @@ $Log: htmlgui.js,v $
 			if (gmapDiv && $(gmapDiv).css("visibility") == "visible") {
 				top = $(gmapDiv).offset().top;
 				left = $(gmapDiv).offset().left;
-				width =$(gmapDiv).innerWidth();
+				width = $(gmapDiv).innerWidth();
 				height = $(gmapDiv).innerHeight();
 			}
 			$(".loading-text-div").css({
 				"visibility": "visible",
-				"top": String((top+height/2-20) + "px"),
+				"top": String((top + height / 2 - 20) + "px"),
 				"left": String(left + "px"),
-                "width": String(width + "px")
+				"width": String(width + "px")
 			});
 			$("#loading-image").css("visibility", "visible");
 			$("#loading-text-div").show();
@@ -811,7 +812,7 @@ $Log: htmlgui.js,v $
 			ixmaps.blockLoadingMessage = true;
 
 			clearTimeout(ixmaps.hideLoadingTimeout);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -827,7 +828,7 @@ $Log: htmlgui.js,v $
 			$("#loading-image").css("visibility", "hidden");
 			ixmaps.hideLoadingTimeout = setTimeout('$("#loading-text-div").hide()', 100);
 			ixmaps.blockLoadingMessage = false;
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	// -----------------------------------
@@ -896,19 +897,19 @@ $Log: htmlgui.js,v $
 			$("#map-overlay").html("").hide();
 		}
 	};
-	
+
 	/**
 	 * display title
 	 * @param szTitle an arbitrary text
 	 * @type void
 	 */
 	ixmaps.setTitle = function (szTitle) {
-		
+
 		var szHtml = "";
-		if (ixmaps.legendAlign && ixmaps.legendAlign=="left" ){
-			szHtml = "<div style='float:right;margin-right:1em;;margin-top:0.5em;font-style:arial,helvetica;font-size:22px'>"+szTitle+"</div>";
-		}else{
-			szHtml = "<div style='position:relative;left:100px;top:10px;font-style:arial,helvetica;font-size:22px'>"+szTitle+"</div>";
+		if (ixmaps.legendAlign && ixmaps.legendAlign == "left") {
+			szHtml = "<div style='float:right;margin-right:1em;;margin-top:0.5em;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
+		} else {
+			szHtml = "<div style='position:relative;left:100px;top:10px;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
 		}
 		this.setMapOverlayHTML(szHtml);
 	};
@@ -919,8 +920,8 @@ $Log: htmlgui.js,v $
 	 * @param szColor an arbitrary text
 	 * @type void
 	 */
-	ixmaps.setTitleBox = function(szTitle,szColor){
-		ixmaps.setTitle("<span style='padding: 0.3em 1em;border:solid #ddd 1px;border-radius:0.2em;font-family:courier new,Raleway,arial,helvetica;background:"+(szColor||"rgba(255,255,255,0.9)")+";color:"+(szColor?"#fff":"#888")+"'>"+szTitle+"</span");
+	ixmaps.setTitleBox = function (szTitle, szColor) {
+		ixmaps.setTitle("<span style='padding: 0.3em 1em;border:solid #ddd 1px;border-radius:0.2em;font-family:courier new,Raleway,arial,helvetica;background:" + (szColor || "rgba(255,255,255,0.9)") + ";color:" + (szColor ? "#fff" : "#888") + "'>" + szTitle + "</span");
 	};
 
 	// -----------------------------------
@@ -992,21 +993,21 @@ $Log: htmlgui.js,v $
 	ixmaps.setSVGMapOpacity = function (nValue, szMode) {
 		try {
 			ixmaps.embeddedSVG.window.map.setOpacity(nValue, szMode);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.toggleSVGMapOpacity = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.toggleOpacity();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.setBasemapOpacity = function (nOpacity, szMode) {
 		ixmaps.setHTMLMapOpacity(nOpacity, szMode);
 	}
 	ixmaps.setHTMLMapOpacity = function (nValue, szMode) {
-		if (szMode == "relative"){
+		if (szMode == "relative") {
 			nOpacity = Number($(this.gmapDiv).css("opacity") || 1);
 			nOpacity += nValue;
-		}else{
+		} else {
 			nOpacity = nValue;
 		}
 		$(this.gmapDiv).css("opacity", String(nOpacity));
@@ -1016,7 +1017,7 @@ $Log: htmlgui.js,v $
 	 * hide the user interface of the map(s) (the pan,info,search... buttons)
 	 * @return void
 	 */
-	ixmaps.hideUi = function(){
+	ixmaps.hideUi = function () {
 		ixmaps.switchUi(false);
 	};
 
@@ -1024,10 +1025,10 @@ $Log: htmlgui.js,v $
 	 * show the user interface of the map(s) (the pan,info,search... buttons); complement to {@link ixmaps.hideUi}
 	 * @return void
 	 */
-	ixmaps.showUi = function(){
+	ixmaps.showUi = function () {
 		ixmaps.switchUi(true);
 	};
-	
+
 
 	/* ------------------------------------------------------------------ * 
 		helper
@@ -1058,34 +1059,34 @@ $Log: htmlgui.js,v $
 				if ((typeof (i) == "string") && (i.match(/silent/i))) {
 					this.fSilent = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
 				} else
-				if ((typeof (i) == "string") && (i.match(/syncMap/i))) {
-					this.fSyncMap = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
-				} else
-				if ((typeof (i) == "string") && (i.match(/autoSwitchInfo/i))) {
-					this.setAutoSwitchInfo((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
-				} else
-				if ((typeof (i) == "string") && (i.match(/panHidden/i))) {
-					this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
-				} else
-				if ((typeof (i) == "string") && (i.match(/hideOnPan/i))) {
-					this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
-				} else
-				if ((typeof (i) == "string") && (i.match(/freezeOnPan/i))) {
-					this.panFreezed = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
-				} else
-				if ((typeof (i) == "string") && (i.match(/normalSizeScale/i))) {
-					this.setScaleParam({
-						"normalSizeScale": opt[i]
-					});
-				} else
-				if ((typeof (i) == "string") && (i.match(/basemapopacity/i))) {
-					$(this.gmapDiv).css("opacity", opt[i]);
-				} else {
-					szFeatures += String(i + ":" + opt[i] + ";");
-				}
+					if ((typeof (i) == "string") && (i.match(/syncMap/i))) {
+						this.fSyncMap = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
+					} else
+						if ((typeof (i) == "string") && (i.match(/autoSwitchInfo/i))) {
+							this.setAutoSwitchInfo((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
+						} else
+							if ((typeof (i) == "string") && (i.match(/panHidden/i))) {
+								this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
+							} else
+								if ((typeof (i) == "string") && (i.match(/hideOnPan/i))) {
+									this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
+								} else
+									if ((typeof (i) == "string") && (i.match(/freezeOnPan/i))) {
+										this.panFreezed = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
+									} else
+										if ((typeof (i) == "string") && (i.match(/normalSizeScale/i))) {
+											this.setScaleParam({
+												"normalSizeScale": opt[i]
+											});
+										} else
+											if ((typeof (i) == "string") && (i.match(/basemapopacity/i))) {
+												$(this.gmapDiv).css("opacity", opt[i]);
+											} else {
+												szFeatures += String(i + ":" + opt[i] + ";");
+											}
 			}
 			ixmaps.embeddedSVG.window.map.Api.setMapFeatures(szFeatures);
-			
+
 		}
 		return ixmaps;
 	};
@@ -1118,7 +1119,7 @@ $Log: htmlgui.js,v $
 	// -----------------------------
 
 	ixmaps.newTheme = function (szThemeName, theme, fClear) {
-		
+
 		if (!theme) {
 			alert("no theme defined");
 			return;
@@ -1132,15 +1133,15 @@ $Log: htmlgui.js,v $
 			if (fClear.match(/force/)) {
 				theme.style.type += "|FORCE";
 			} else
-			if (fClear.match(/replace/)) {
-				this.removeTheme(theme.style.name||theme.meta.name);
-			} else
-			if (fClear.match(/clearcharts/)) {
-				this.clearAllCharts();
-			} else 
-			if (fClear.match(/clear|clearall/)) {
-				this.clearAll();
-			}
+				if (fClear.match(/replace/)) {
+					this.removeTheme(theme.style.name || theme.meta.name);
+				} else
+					if (fClear.match(/clearcharts/)) {
+						this.clearAllCharts();
+					} else
+						if (fClear.match(/clear|clearall/)) {
+							this.clearAll();
+						}
 		}
 
 		// set theme title to theme name if not defined in theme object
@@ -1153,7 +1154,7 @@ $Log: htmlgui.js,v $
 		if (theme.type) {
 			theme.style["type"] = theme.type;
 		}
-		
+
 		// GR 30.01.2021  
 		//
 		if (theme.meta) {
@@ -1161,7 +1162,7 @@ $Log: htmlgui.js,v $
 				theme.style[i] = theme.meta[i];
 			}
 		}
-		
+
 		// GR 10.01.2019 new theme object data{} --> old JSON structure -> object style 
 		//
 		if (theme.data) {
@@ -1169,171 +1170,171 @@ $Log: htmlgui.js,v $
 				if (i == "obj") {
 					theme.style["dbtableObj"] = theme.data[i];
 				} else
-				if (i == "name") {
-					theme.style["dbtable"] = theme.data[i];
-				} else
-				if (i == "url") {
-					theme.style["dbtableUrl"] = theme.data[i];
-				} else
-				if (i == "type") {
-					theme.style["dbtableType"] = theme.data[i];
-				} else
-				if (i == "ext") {
-					theme.style["dbtableExt"] = theme.data[i];
-				} else
-				if (i == "process") {
-					theme.style["dbtableProcess"] = theme.data[i];
-				} else
-				if (i == "query") {
-					theme.style["dbtableQuery"] = theme.data[i];
-				} else
-				if (i == "cache") {
-					theme.style["datacache"] = theme.data[i];
-				} else
-				if (i == "field") {
-					theme["field"] = theme.data[i];
-				} else
-				if (i == "field100") {
-					theme["field100"] = theme.data[i];
-				} else {
-					theme.style[i] = theme.data[i];
-				}
+					if (i == "name") {
+						theme.style["dbtable"] = theme.data[i];
+					} else
+						if (i == "url") {
+							theme.style["dbtableUrl"] = theme.data[i];
+						} else
+							if (i == "type") {
+								theme.style["dbtableType"] = theme.data[i];
+							} else
+								if (i == "ext") {
+									theme.style["dbtableExt"] = theme.data[i];
+								} else
+									if (i == "process") {
+										theme.style["dbtableProcess"] = theme.data[i];
+									} else
+										if (i == "query") {
+											theme.style["dbtableQuery"] = theme.data[i];
+										} else
+											if (i == "cache") {
+												theme.style["datacache"] = theme.data[i];
+											} else
+												if (i == "field") {
+													theme["field"] = theme.data[i];
+												} else
+													if (i == "field100") {
+														theme["field100"] = theme.data[i];
+													} else {
+														theme.style[i] = theme.data[i];
+													}
 			}
 		}
-		
+
 		// GR 24.01.2022 new theme object binding{} --> old JSON structure -> object style 
 		//
 		if (theme.binding) {
 			for (var i in theme.binding) {
 				if ((i == "id") ||
 					(i == "item") ||
-				    (i == "itemfield")) {
+					(i == "itemfield")) {
 					theme.style["itemfield"] = theme.binding[i];
 				} else
-				if ((i == "geo") ||
-					(i == "georef") ||
-					(i == "position") ||
-					(i == "lookup") ||
-					(i == "lookupfield")) {
-					theme.style["lookupfield"] = theme.binding[i];
-				} else
-				if ((i == "geo1") ||
-					(i == "georef1") ||
-					(i == "position1") ||
-					(i == "lookup1") ||
-					(i == "lookupfield1")) {
-					theme.style["lookupfield"] = theme.binding[i];
-				} else
-				if ((i == "geo2") ||
-					(i == "georef2") ||
-					(i == "position2") ||
-					(i == "lookup2") ||
-					(i == "lookupfield2")) {
-					theme.style["lookupfield2"] = theme.binding[i];
-				} else
-				if ((i == "value") ||
-					(i == "values") ||
-					(i == "field") ||
-					(i == "fields")) {
-					theme["field"] = theme.binding[i];
-				} else
-				if ((i == "value100") ||
-					(i == "field100")){
-					theme["field100"] = theme.binding[i];
-				} else
-				if ((i == "size") ||
-					(i == "sizefield")) {
-					theme.style["sizefield"] = theme.binding[i];
-				} else
-				if ((i == "color") ||
-					(i == "colorfield")) {
-					theme.style["colorfield"] = theme.binding[i];
-				} else
-				if ((i == "alpha") || 
-					(i == "alphafield")) {
-					theme.style["alphafield"] = theme.binding[i];
-				} else
-				if ((i == "alpha100") || 
-					(i == "alphafield100")) {
-					theme.style["alphafield100"] = theme.binding[i];
-				} else
-				if ((i == "title") ||
-					(i == "titlefield")) {
-					theme.style["titlefield"] = theme.binding[i];
-				} else
-				if ((i == "text") ||
-                    (i == "valuetext") ||
-                    (i == "textvalue") ||
-					(i == "valuefield")) {
-					theme.style["valuefield"] = theme.binding[i];
-				} else
-				if ((i == "aggregation") ||
-					(i == "aggregationfield")) {
-					theme.style["aggregationfield"] = theme.binding[i];
-				} else
-				if ((i == "time") ||
-					(i == "timefield")) {
-					theme.style["timefield"] = theme.binding[i];
-				} else
-				if ((i == "number") ||
-					(i == "tonumber") ||
-					(i == "lookuptonumber")) {
-					theme.style["lookuptonumber"] = theme.binding[i];
-				} else
-				if ((i == "upper") ||
-					(i == "toupper") ||
-					(i == "lookuptoupper")) {
-					theme.style["lookuptoupper"] = theme.binding[i];
-				} else
-				if ((i == "digits") ||
-					(i == "lookupdigits")) {
-					theme.style["lookupdigits"] = theme.binding[i];
-				} else
-				if ((i == "suffix") ||
-					(i == "lookupsuffix")) {
-					theme.style["lookupsuffix"] = theme.binding[i];
-				}
+					if ((i == "geo") ||
+						(i == "georef") ||
+						(i == "position") ||
+						(i == "lookup") ||
+						(i == "lookupfield")) {
+						theme.style["lookupfield"] = theme.binding[i];
+					} else
+						if ((i == "geo1") ||
+							(i == "georef1") ||
+							(i == "position1") ||
+							(i == "lookup1") ||
+							(i == "lookupfield1")) {
+							theme.style["lookupfield"] = theme.binding[i];
+						} else
+							if ((i == "geo2") ||
+								(i == "georef2") ||
+								(i == "position2") ||
+								(i == "lookup2") ||
+								(i == "lookupfield2")) {
+								theme.style["lookupfield2"] = theme.binding[i];
+							} else
+								if ((i == "value") ||
+									(i == "values") ||
+									(i == "field") ||
+									(i == "fields")) {
+									theme["field"] = theme.binding[i];
+								} else
+									if ((i == "value100") ||
+										(i == "field100")) {
+										theme["field100"] = theme.binding[i];
+									} else
+										if ((i == "size") ||
+											(i == "sizefield")) {
+											theme.style["sizefield"] = theme.binding[i];
+										} else
+											if ((i == "color") ||
+												(i == "colorfield")) {
+												theme.style["colorfield"] = theme.binding[i];
+											} else
+												if ((i == "alpha") ||
+													(i == "alphafield")) {
+													theme.style["alphafield"] = theme.binding[i];
+												} else
+													if ((i == "alpha100") ||
+														(i == "alphafield100")) {
+														theme.style["alphafield100"] = theme.binding[i];
+													} else
+														if ((i == "title") ||
+															(i == "titlefield")) {
+															theme.style["titlefield"] = theme.binding[i];
+														} else
+															if ((i == "text") ||
+																(i == "valuetext") ||
+																(i == "textvalue") ||
+																(i == "valuefield")) {
+																theme.style["valuefield"] = theme.binding[i];
+															} else
+																if ((i == "aggregation") ||
+																	(i == "aggregationfield")) {
+																	theme.style["aggregationfield"] = theme.binding[i];
+																} else
+																	if ((i == "time") ||
+																		(i == "timefield")) {
+																		theme.style["timefield"] = theme.binding[i];
+																	} else
+																		if ((i == "number") ||
+																			(i == "tonumber") ||
+																			(i == "lookuptonumber")) {
+																			theme.style["lookuptonumber"] = theme.binding[i];
+																		} else
+																			if ((i == "upper") ||
+																				(i == "toupper") ||
+																				(i == "lookuptoupper")) {
+																				theme.style["lookuptoupper"] = theme.binding[i];
+																			} else
+																				if ((i == "digits") ||
+																					(i == "lookupdigits")) {
+																					theme.style["lookupdigits"] = theme.binding[i];
+																				} else
+																					if ((i == "suffix") ||
+																						(i == "lookupsuffix")) {
+																						theme.style["lookupsuffix"] = theme.binding[i];
+																					}
 			}
 		}
-		
+
 		// GR 07.02.20221 check and preset default values for geojson/topojson
-		if ( theme.style["dbtabletype"] && theme.style["dbtabletype"](/geojson|topojson/i) ){
-			theme.style["lookupfield"] = theme.style["lookupfield"] || "geometry";	
-			theme.style["type"] = theme.style["type"] || "FEATURES|NOLEGEND";	
+		if (theme.style["dbtabletype"] && theme.style["dbtabletype"](/geojson|topojson/i)) {
+			theme.style["lookupfield"] = theme.style["lookupfield"] || "geometry";
+			theme.style["type"] = theme.style["type"] || "FEATURES|NOLEGEND";
 		}
 
 		// GR 25.01.2022 new: user defined data given by object
-		if ( theme.style["dbtableObj"] ){
+		if (theme.style["dbtableObj"]) {
 			ixmaps.setExternalData(
-					   theme.style["dbtableObj"],
-					   {type:theme.style["dbtableType"],name:theme.style["dbtable"]});
+				theme.style["dbtableObj"],
+				{ type: theme.style["dbtableType"], name: theme.style["dbtable"] });
 			theme.style["dbtableObj"] = null;
 			theme.style["dbtableType"] = null;
 		}
 
 		// GR 07.01.2022 new: user defined a data processing function given by string
-		if (theme.style["dbtableProcess"]){
+		if (theme.style["dbtableProcess"]) {
 			try {
-				eval("ixmaps."+theme.style["dbtable"]+" = ixmaps."+theme.style["dbtable"]+" || {}");
-				eval("ixmaps."+theme.style["dbtable"]+".process = "+theme.style["dbtableProcess"]);
+				eval("ixmaps." + theme.style["dbtable"] + " = ixmaps." + theme.style["dbtable"] + " || {}");
+				eval("ixmaps." + theme.style["dbtable"] + ".process = " + theme.style["dbtableProcess"]);
 			} catch (e) {
 				ixmaps.error("data.process - function not valid: '" + e, 2000);
 			}
 		}
-		if (theme.style["dbtableQuery"]){
+		if (theme.style["dbtableQuery"]) {
 			try {
-				eval("ixmaps."+theme.style["dbtable"]+" = ixmaps."+theme.style["dbtable"]+" || {}");
-				eval("ixmaps."+theme.style["dbtable"]+" = "+theme.style["dbtableQuery"]);
+				eval("ixmaps." + theme.style["dbtable"] + " = ixmaps." + theme.style["dbtable"] + " || {}");
+				eval("ixmaps." + theme.style["dbtable"] + " = " + theme.style["dbtableQuery"]);
 			} catch (e) {
 				ixmaps.error("data.query - function not valid: '" + e, 2000);
 			}
 		}
 
 		try {
-			ixmaps.embeddedSVG.window.map.Api.newMapThemeByObj(theme,fClear);
-		} catch (e) {}
+			ixmaps.embeddedSVG.window.map.Api.newMapThemeByObj(theme, fClear);
+		} catch (e) { }
 	};
-	
+
 	ixmaps.newStyleThemeJson = function (origTheme) {
 		var theme = {};
 		theme.layer = origTheme.layer;
@@ -1365,146 +1366,146 @@ $Log: htmlgui.js,v $
 		}
 		return theme;
 	};
-  	ixmaps.replaceTheme = function (szThemeId,theme,flag) {
-        let themes = ixmaps.getThemes();
-        for ( var i in themes ){
-            if ( themes[i].szId == szThemeId ){
-                ixmaps.changeThemeStyle(szThemeId,"type:LOCKED","remove|direct");
-                ixmaps.removeTheme(szThemeId);
-                ixmaps.newTheme(szThemeId,theme,flag);
-            }
-        }
+	ixmaps.replaceTheme = function (szThemeId, theme, flag) {
+		let themes = ixmaps.getThemes();
+		for (var i in themes) {
+			if (themes[i].szId == szThemeId) {
+				ixmaps.changeThemeStyle(szThemeId, "type:LOCKED", "remove|direct");
+				ixmaps.removeTheme(szThemeId);
+				ixmaps.newTheme(szThemeId, theme, flag);
+			}
+		}
 	};
- 	ixmaps.refreshTheme = function (szThemeId) {
+	ixmaps.refreshTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.refreshTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.resetTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.resetTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.removeTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.removeTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.showTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.showTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.hideTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.hideTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.toggleTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.toggleTheme(szThemeId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.stopThemes = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.stopThemes();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.startThemes = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.startThemes();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.clearAll = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearAll();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.clearAllCharts = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearAllCharts();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.clearAllChoropleth = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearAllChoropleth();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.clearAllOverlays = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearAllOverlays();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.clearHighlight = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearHighlight();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.changeObjectScaling = function (nDelta) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeObjectScaling(nDelta);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.changeFeatureScaling = function (nDelta) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeFeatureScaling(nDelta);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.changeLabelScaling = function (nDelta) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeLabelScaling(nDelta);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.changeLineScaling = function (nDelta) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeLineScaling(nDelta);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.changeRotation = function (nDelta) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeRotation(nDelta);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.showNorthArrow = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.showNorthArrow();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.hideNorthArrow = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.hideNorthArrow();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.popupThemeMenu = function (szId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.popupThemeStyleMenu(szId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	_valuesFlag = false;
 	ixmaps.toggleThemeValues = function (fFlag) {
 		try {
 			_valuesFlag = !_valuesFlag;
 			ixmaps.embeddedSVG.window.map.Api.toggleThemeValues(_valuesFlag);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	_legendsFlag = true;
 	ixmaps.toggleThemeLegends = function (fFlag) {
 		try {
 			_legendsFlag = (typeof (fFlag) != "undefined") ? fFlag : !_legendsFlag;
 			ixmaps.embeddedSVG.window.map.Api.toggleThemeLegends(_legendsFlag);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.extendMap = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.extendMap();
 			setTimeout("ixmaps.embeddedSVG.window.map.Api.hideLegend()", 1);
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.normalMap = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.normalMap();
 			ixmaps.embeddedSVG.window.map.Api.showLegend();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	var __fLegendSideBar = true;
 	ixmaps.toggleLegend = function () {
@@ -1525,7 +1526,7 @@ $Log: htmlgui.js,v $
 			ixmaps.embeddedSVG.window.map.Api.doZoomMapToFullExtend();
 			this.htmlgui_synchronizeMap(false, true);
 			ixmaps.resetCenter();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	ixmaps.resetCenter = function () {
 		var arrayPtLatLon = htmlMap_getBounds();
@@ -1538,7 +1539,7 @@ $Log: htmlgui.js,v $
 	ixmaps.clearOverlays = function () {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.clearAllOverlays();
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	ixmaps.changeThemeStyle = function (szThemeName, szStyle, szFlag, szPlus) {
@@ -1548,13 +1549,13 @@ $Log: htmlgui.js,v $
 		}
 		try {
 			ixmaps.embeddedSVG.window.map.Api.changeThemeStyle(arguments[0], arguments[1], arguments[2]);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	ixmaps.zoomToTheme = function (szThemeName) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.zoomToTheme(szThemeName);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	ixmaps.getThemes = function () {
@@ -1581,7 +1582,7 @@ $Log: htmlgui.js,v $
 			if (!szThemeName) {
 				szThemeName = ixmaps.parentApi.getLegendThemeId();
 			}
-			var themeObj = ixmaps.embeddedSVG.window.map.Api.getMapThemeDefinitionObj(szThemeName); 
+			var themeObj = ixmaps.embeddedSVG.window.map.Api.getMapThemeDefinitionObj(szThemeName);
 			//themeObj = ixmaps.newStyleThemeJson(themeObj);
 			return themeObj;
 		} catch (e) {
@@ -1626,7 +1627,7 @@ $Log: htmlgui.js,v $
 				}
 				result.push(data);
 				return result;
-			}else{
+			} else {
 				// if is something like "theme:layername::itemname"
 				// remove first ":" qualifier from id
 				szItem = szItem.split(":");
@@ -1731,7 +1732,7 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.highlightThemeItems = function (szThemeId, szItems, separator) {
 		try {
-			ixmaps.embeddedSVG.window.map.Api.highlightThemeItems(szThemeId,szItems,separator);
+			ixmaps.embeddedSVG.window.map.Api.highlightThemeItems(szThemeId, szItems, separator);
 		} catch (e) {
 			return null;
 		}
@@ -1743,7 +1744,7 @@ $Log: htmlgui.js,v $
 	 * @param {String} szThemeId the id of the theme received on create
 	 * @return void
 	 */
-	ixmaps.pauseThemeClip = function(szThemeId){
+	ixmaps.pauseThemeClip = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.pauseClip(szThemeId);
 		} catch (e) {
@@ -1757,9 +1758,9 @@ $Log: htmlgui.js,v $
 	 * @param {String} szThemeId the id of the theme received on create
 	 * @return void
 	 */
-	ixmaps.startThemeClip = function(szThemeId,nFrame){
+	ixmaps.startThemeClip = function (szThemeId, nFrame) {
 		try {
-			ixmaps.embeddedSVG.window.map.Api.startClip(szThemeId,nFrame);
+			ixmaps.embeddedSVG.window.map.Api.startClip(szThemeId, nFrame);
 		} catch (e) {
 			return null;
 		}
@@ -1772,9 +1773,9 @@ $Log: htmlgui.js,v $
 	 * @param {Number} nFrame number of the clip frame to show
 	 * @return void
 	 */
-	ixmaps.setThemeClipFrame = function(szThemeId,nFrame){
+	ixmaps.setThemeClipFrame = function (szThemeId, nFrame) {
 		try {
-			ixmaps.embeddedSVG.window.map.Api.setClipFrame(szThemeId,nFrame);
+			ixmaps.embeddedSVG.window.map.Api.setClipFrame(szThemeId, nFrame);
 		} catch (e) {
 			return null;
 		}
@@ -1786,14 +1787,14 @@ $Log: htmlgui.js,v $
 	 * @param {String} szThemeId the id of the theme received on create
 	 * @return void
 	 */
-	ixmaps.nextThemeClipFrame = function(szThemeId){
+	ixmaps.nextThemeClipFrame = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.nextClipFrame(szThemeId);
 		} catch (e) {
 			return null;
 		}
 	};
-		
+
 	/**
 	 * create a selection of theme items by a given shape, buffer
 	 * @param {String} szThemeId the id of the theme with map items to select
@@ -1802,10 +1803,10 @@ $Log: htmlgui.js,v $
 	 * @param {String} szTitle an optional title 
 	 * @return void
 	 */
-	ixmaps.newSelection = function (szThemes,szSelectShape,szStyle,szTitle) {
+	ixmaps.newSelection = function (szThemes, szSelectShape, szStyle, szTitle) {
 		try {
-			ixmaps.embeddedSVG.window.map.Api.newMapSelection(szThemes,szSelectShape,szStyle,szTitle);
-		} catch (e) {}
+			ixmaps.embeddedSVG.window.map.Api.newMapSelection(szThemes, szSelectShape, szStyle, szTitle);
+		} catch (e) { }
 	};
 
 	/**
@@ -1816,38 +1817,38 @@ $Log: htmlgui.js,v $
 	ixmaps.zoomMapToItem = function (szItemId) {
 		ixmaps.embeddedSVG.window.map.Api.zoomMapToItem(szItemId);
 	};
-    
+
 	/**
 	 * selection a theme items by a position
 	 * @param {String} szThemes the id of the theme with map items to select
 	 * @param {point} pos the position to use for the select
 	 * @return {String} the item id
 	 */
-	ixmaps.selectItemByPosition = function (szThemes,position) {
-        var szId = null;
+	ixmaps.selectItemByPosition = function (szThemes, position) {
+		var szId = null;
 		try {
-			szId = ixmaps.embeddedSVG.window.map.Api.selectItemByPosition(szThemes,position);
-		} catch (e) {}
-        
-        return szId;
+			szId = ixmaps.embeddedSVG.window.map.Api.selectItemByPosition(szThemes, position);
+		} catch (e) { }
+
+		return szId;
 	};
-    
+
 	/**
 	 * selection a theme items by a bounding box
 	 * @param {String} szThemes the id of the theme with map items to select
 	 * @param {box} boundingBox definition of a bounding box by to points Nord,East and South,West
 	 * @return {String} the item id
 	 */
-	ixmaps.selectItemByBoundingBox = function (szThemes,box) {
-        var szId = null;
+	ixmaps.selectItemByBoundingBox = function (szThemes, box) {
+		var szId = null;
 		try {
-			szId = ixmaps.embeddedSVG.window.map.Api.selectItemByBoundingBox(szThemes,box);
-		} catch (e) {}
-        
-        return szId;
+			szId = ixmaps.embeddedSVG.window.map.Api.selectItemByBoundingBox(szThemes, box);
+		} catch (e) { }
+
+		return szId;
 	};
-    
-	
+
+
 	// -----------------------------
 	// html button handler
 	// -----------------------------
@@ -1983,7 +1984,7 @@ $Log: htmlgui.js,v $
 		try {
 			$("#loading-div").css("visibility", "hidden");
 			//$("#ixmap").css("background", "#fff");
-		} catch (e) {}
+		} catch (e) { }
 
 		// call user defined method on map ready
 		// --------------------------------------------------------
@@ -2017,12 +2018,12 @@ $Log: htmlgui.js,v $
 		console.log("*");
 		_LOG("htmlgui_onMapReady");
 
-        console.log(this);
+		console.log(this);
 		console.log("");
 
 		this.fSVGInitializing = false;
-        
-        ixmaps.resizeMap(null, false);
+
+		ixmaps.resizeMap(null, false);
 
 		ixmaps.blockLoadingMessage = false;
 
@@ -2041,7 +2042,7 @@ $Log: htmlgui.js,v $
 			setTimeout("ixmaps.hideLoading()", 250);
 			this.mapTool("pan");
 		}
-        
+
 		// enable access to the SVG map
 		// ----------------------------
 		/*
@@ -2051,7 +2052,7 @@ $Log: htmlgui.js,v $
 		*/
 		try {
 			this.embeddedSVG.window._TRACE("access to SVG map verified !");
-		} catch (e) {}
+		} catch (e) { }
 		if (this.parentApi && this.parentApi.setEmbeddedSVG) {
 			this.parentApi.setEmbeddedSVG(this.embeddedSVG);
 		}
@@ -2069,11 +2070,11 @@ $Log: htmlgui.js,v $
 		} else {
 			try {
 				this.onMapReady(this.szName);
-			} catch (e) {}
+			} catch (e) { }
 			// bubble it up !
 			try {
 				this.parentApi.onMapReady(this.szName);
-			} catch (e) {}
+			} catch (e) { }
 		}
 		if (this.fSilent) {
 			this.embeddedSVG.window.map.Api.setMapFeatures('worksilent:true');
@@ -2098,7 +2099,7 @@ $Log: htmlgui.js,v $
 		try {
 			var mapBox = this.embeddedSVG.window.map.Api.getMapBox();
 			this.resizeMap(mapBox, false);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -2112,7 +2113,7 @@ $Log: htmlgui.js,v $
 				var zoomSelect = window.document.getElementById("zoomList");
 				zoomSelect.options[zoomSelect.options.length - 1].text = "1:" + newScale;
 				zoomSelect.selectedIndex = zoomSelect.options.length - 1;
-			} catch (e) {}
+			} catch (e) { }
 		}
 		if (ixmaps.parentApi != ixmaps) {
 			ixmaps.parentApi.htmlgui_setScaleSelect(newScale);
@@ -2129,7 +2130,7 @@ $Log: htmlgui.js,v $
 		if (this.embeddedSVG) {
 			try {
 				this.htmlgui_synchronizeMap(false, fZoomto);
-			} catch (e) {}
+			} catch (e) { }
 		}
 	};
 
@@ -2209,7 +2210,7 @@ $Log: htmlgui.js,v $
 		// 2. try to call a function, that, if defined, may push init actions for this map; if all parts of the map are loaded, this actions are evaluated
 		try {
 			htmlgui_queryActions(szEmbed);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -2226,10 +2227,10 @@ $Log: htmlgui.js,v $
 				$("#tools").buttonset().refresh();
 				**/
 			}
-		} catch (e) {}
+		} catch (e) { }
 		try {
 			this.htmlgui_onMapTool(szToolId);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -2286,7 +2287,7 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.htmlgui_errorLog = function (szMessage) {
 		ixmaps.error(szMessage);
-		ixmaps.status(szMessage,2000);
+		ixmaps.status(szMessage, 2000);
 	};
 
 	function changeCss(className, classValue) {
@@ -2504,12 +2505,12 @@ $Log: htmlgui.js,v $
 			if (gmapDiv && $(gmapDiv).css("visibility") == "visible") {
 				top = $(gmapDiv).offset().top;
 				left = $(gmapDiv).offset().left;
-				width =$(gmapDiv).innerWidth();
+				width = $(gmapDiv).innerWidth();
 				height = $(gmapDiv).innerHeight();
 			}
 			$("#attribution-div").css({
 				"visibility": "visible",
-				"top": String(top+height-$("#attribution-div").height()-12) + "px",
+				"top": String(top + height - $("#attribution-div").height() - 12) + "px",
 				"left": "60px"
 			});
 
@@ -2603,10 +2604,10 @@ $Log: htmlgui.js,v $
 		eval('ixmaps.embeddedSVG.window.' + szScript);
 	};
 
-	ixmaps.message = function (szMessage,nTimeout) {
+	ixmaps.message = function (szMessage, nTimeout) {
 		ixmaps.htmlgui_displayInfo(szMessage);
-		if (nTimeout){
-			setTimeout("ixmaps.htmlgui_killInfo()",nTimeout);
+		if (nTimeout) {
+			setTimeout("ixmaps.htmlgui_killInfo()", nTimeout);
 		}
 	};
 
@@ -2638,12 +2639,12 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.setView = function (center, nZoom) {
 		// GR 04.03.2023 view in object syntax
-		if ((typeof(center) != "array") && center.center && center.zoom ) {
+		if ((typeof (center) != "array") && center.center && center.zoom) {
 			ixmaps.htmlgui_setCenterAndZoom({
 				lat: center.center.lat,
 				lng: center.center.lng
 			}, center.zoom);
-		}else{
+		} else {
 			// GR 15.08.2018 call 2 times needed (magick)
 			ixmaps.htmlgui_setCenterAndZoom({
 				lat: center[0],
@@ -2771,7 +2772,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			return ixmaps.embeddedSVG.window.map.Api.getLayer();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	/**
 	 * get layer dependency list
@@ -2781,7 +2782,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			return ixmaps.embeddedSVG.window.map.Api.getLayerDependency();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	/**
 	 * get tile Info
@@ -2791,7 +2792,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			return ixmaps.embeddedSVG.window.map.Api.getTileInfo();
-		} catch (e) {}
+		} catch (e) { }
 	};
 	/**
 	 * switch layer
@@ -2803,7 +2804,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			ixmaps.embeddedSVG.window.map.Api.switchLayer(szLayerName, fState);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -2815,7 +2816,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			ixmaps.embeddedSVG.window.map.Api.setMapLayer(JSON.stringify(layerObject));
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	// -----------------------------
@@ -2829,9 +2830,9 @@ $Log: htmlgui.js,v $
 	// -----------------------------
 	// D A T A    L O A D E R 
 	// -----------------------------
-	
+
 	var __lastOptionName = null;
-	
+
 	/**
 	 * Is called by the svg map script to load external data from FusionTable, GeoRSS, GeoJson, ...
 	 * @param szUrl where to find the data
@@ -2839,7 +2840,7 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.htmlgui_loadExternalData = function (szUrl, options) {
-		
+
 		if ((!szUrl || (szUrl === undefined)) && !(options.type === "ext")) {
 			alert("htmlgui_loadExternalData: szUrl is 'undefined' !");
 			return;
@@ -2861,19 +2862,59 @@ $Log: htmlgui.js,v $
 			// set the complete ext path for further use
 			options.theme.coTableExt = options.ext;
 		}
-		
-		if (!ixmaps.fSilent)
-		ixmaps.showLoadingArray(["loading data ...", " ... "]);
+
+		if (!ixmaps.fSilent) {
+			ixmaps.showLoadingArray(["loading data ...", " ... "]);
+		}
+
 		console.log('');
 		console.log('ixmaps.htmlgui_loadExternalData ******************');
 		console.log('');
-		$.getScript(ixmaps.szResourceBase+"../data.js/data.js")
-			.done(function (script, textStatus) {
+		console.log(Data);
 
-				// a) data is loaded by a specific data provider function
-				// -------------------------------------------------------
-				if (options.type == "ext") {
-					if (eval("ixmaps." + options.name)){
+		// Define the main data loading logic
+		const __executeDataLoading = function () {
+
+			// a) data is loaded by a specific data provider function
+			// -------------------------------------------------------
+			if (options.type == "ext") {
+				if (eval("ixmaps." + options.name)) {
+					options.setData = ixmaps.setExternalData;
+					var fLoading = false;
+
+					try {
+						eval("fLoading = ixmaps." + options.name + "(options.theme,options)");
+					} catch (e) {
+						try {
+							eval("fLoading = ixmaps.parentApi." + options.name + "(options.theme,options)");
+						} catch (e) {
+							try {
+								eval("fLoading = ixmaps.parentApi.parentApi." + options.name + "(options.theme,options)");
+							} catch (e) {
+								try {
+									eval("fLoading = ixmaps.queryData(options.theme,options)");
+								} catch (e) {
+									ixmaps.showLoadingArrayStop();
+									ixmaps.hideLoading();
+									ixmaps.error("external data function: '" + options.name + "' not defined !", 2000);
+								}
+							}
+						}
+					}
+					if (!fLoading && __lastOptionName && (options.name == __lastOptionName)) {
+						//ixmaps.showLoadingArrayStop();
+					} else {
+						__lastOptionName = options.name;
+					}
+					return;
+				}
+				$.ajax({
+					type: "GET",
+					url: options.ext,
+					dataType: "text",
+					success: function (script) {
+
+						eval(script);
 						options.setData = ixmaps.setExternalData;
 						var fLoading = false;
 
@@ -2896,182 +2937,157 @@ $Log: htmlgui.js,v $
 								}
 							}
 						}
-						if (!fLoading && __lastOptionName && (options.name == __lastOptionName) ) {
-							//ixmaps.showLoadingArrayStop();
-						}else{
+						if (!fLoading && __lastOptionName && (options.name == __lastOptionName)) {
+							ixmaps.showLoadingArrayStop();
+						} else {
 							__lastOptionName = options.name;
 						}
+					},
+					error: function (jqxhr, settings, exception) {
+						ixmaps.showLoadingArrayStop();
+						ixmaps.hideLoading();
+						ixmaps.error("external data provider: '" + options.ext + "' could not be loaded !", 2000);
+					}
+				});
+
+			} else {
+
+				// b) data is loaded by data.js
+				// -------------------------------------------------------
+
+				// check if exist already a broker for this data source
+				for (i in ixmaps.dataLoaderA) {
+					if (ixmaps.dataLoaderA[i].url == szUrl &&
+						ixmaps.dataLoaderA[i].name == options.name &&
+						ixmaps.dataLoaderA[i].ext == options.ext &&
+						options.theme.fDataCache) {
+						_LOG("double loading suppressed: " + szUrl);
+						ixmaps.showLoadingArrayStop();
 						return;
 					}
-					$.ajax({
-						type: "GET",
-						url: options.ext,
-						dataType: "text",
-						success: function (script) {
+				}
+				ixmaps.dataLoaderA.push({
+					url: szUrl,
+					name: options.name,
+					ext: options.ext,
+					cache: options.theme.fDataCache
+				});
+				options.cache = options.theme.fDataCache;
 
-							eval(script);
-							options.setData = ixmaps.setExternalData;
-							var fLoading = false;
+				var broker = new Data.Broker(options);
+				broker.addSource(szUrl, options.type)
+					.error(function (e) {
+						ixmaps.error("loading data error: " + e + "\n \n<span style='color:#ddd'>" + szUrl + "</span>");
+						ixmaps.showLoadingArrayStop();
+						ixmaps.hideLoading();
+					})
+					.realize(function (dataA) {
 
-							try {
-								eval("fLoading = ixmaps." + options.name + "(options.theme,options)");
-							} catch (e) {
-								try {
-									eval("fLoading = ixmaps.parentApi." + options.name + "(options.theme,options)");
-								} catch (e) {
-									try {
-										eval("fLoading = ixmaps.parentApi.parentApi." + options.name + "(options.theme,options)");
-									} catch (e) {
-										try {
-											eval("fLoading = ixmaps.queryData(options.theme,options)");
-										} catch (e) {
-											ixmaps.showLoadingArrayStop();
-											ixmaps.hideLoading();
-											ixmaps.error("external data function: '" + options.name + "' not defined !", 2000);
-										}
-									}
-								}
-							}
-							if (!fLoading && __lastOptionName && (options.name == __lastOptionName) ) {
-								ixmaps.showLoadingArrayStop();
-							}else{
-								__lastOptionName = options.name;
-							}
-						},
-						error: function (jqxhr, settings, exception) {
-							ixmaps.showLoadingArrayStop();
-							ixmaps.hideLoading();
-							ixmaps.error("external data provider: '" + options.ext + "' could not be loaded !", 2000);
-						}
-					});
+						ixmaps.showLoadingArrayStop();
+						//ixmaps.showLoading("processing data ...");
+						ixmaps.hideLoading();
 
-				} else {
-					
-					// b) data is loaded by data.js
-					// -------------------------------------------------------
+						var themeDataObj = dataA[0];
 
-					// check if exist already a broker for this data source
-					for (i in ixmaps.dataLoaderA) {
-						if (ixmaps.dataLoaderA[i].url == szUrl &&
-							ixmaps.dataLoaderA[i].name == options.name &&
-							ixmaps.dataLoaderA[i].ext == options.ext &&
-							options.theme.fDataCache) {
-							_LOG("double loading suppressed: " + szUrl);
-							ixmaps.showLoadingArrayStop();
+						if (!themeDataObj) {
+							ixmaps.error("loading data error: '" + szUrl + "' could not be loaded !", 2000);
 							return;
 						}
-					}
-					ixmaps.dataLoaderA.push({
-						url: szUrl,
-						name: options.name,
-						ext: options.ext,
-						cache: options.theme.fDataCache
-					});
-					options.cache = options.theme.fDataCache;
-					
-					var broker = new Data.Broker(options);
-					broker.addSource(szUrl, options.type)
-						.error(function (e) {
-							ixmaps.error("loading data error: " + e + "\n \n<span style='color:#ddd'>" + szUrl + "</span>");
-							ixmaps.showLoadingArrayStop();
-							ixmaps.hideLoading();
-						})
-						.realize(function (dataA) {
 
-							ixmaps.showLoadingArrayStop();
-							//ixmaps.showLoading("processing data ...");
-							ixmaps.hideLoading();
+						// if there is an ext data after processor defined, call it
+						// --------------------------------------------------
+						if (typeof (options.ext) != "undefined") {
 
-							var themeDataObj = dataA[0];
+							_LOG("get external data processor");
 
-							if ( !themeDataObj ){
-								ixmaps.error("loading data error: '" + szUrl + "' could not be loaded !", 2000);
+							// inline function !
+							if (options.ext.match(/function/)) {
+								eval("var process = " + options.ext);
+								process(themeDataObj, options);
+								ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
 								return;
 							}
 
-							// if there is an ext data after processor defined, call it
-							// --------------------------------------------------
-							if (typeof (options.ext) != "undefined") {
+							$.ajax({
+								type: "GET",
+								url: options.ext,
+								dataType: "text",
+								success: function (script) {
 
-								_LOG("get external data processor");
-
-								// inline function !
-								if (options.ext.match(/function/)) {
-									eval("var process = " + options.ext);
-									process(themeDataObj,options);
-									ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
-									return;
-								}
-
-								$.ajax({
-									type: "GET",
-									url: options.ext,
-									dataType: "text",
-									success: function (script) {
-
-										eval(script);
-										var fError = 0;
+									eval(script);
+									var fError = 0;
+									try {
+										eval("themeDataObj = ixmaps." + options.name + ".after(themeDataObj,options) || themeDataObj");
+									} catch (e) {
 										try {
-											eval("themeDataObj = ixmaps." + options.name + ".after(themeDataObj,options) || themeDataObj");
+											eval("themeDataObj = ixmaps.parentApi." + options.name + ".after(themeDataObj,options) || themeDataObj");
 										} catch (e) {
 											try {
-												eval("themeDataObj = ixmaps.parentApi." + options.name + ".after(themeDataObj,options) || themeDataObj");
+												eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".after(themeDataObj,options) || themeDataObj");
 											} catch (e) {
 												try {
-													eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".after(themeDataObj,options) || themeDataObj");
+													eval("themeDataObj = ixmaps." + options.name + ".process(themeDataObj,options) || themeDataObj");
 												} catch (e) {
 													try {
-														eval("themeDataObj = ixmaps." + options.name + ".process(themeDataObj,options) || themeDataObj");
+														eval("themeDataObj = ixmaps.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
 													} catch (e) {
 														try {
-															eval("themeDataObj = ixmaps.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
+															eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
 														} catch (e) {
-															try {
-																eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
-															} catch (e) {
-																alert(options.ext + ":\ndata processing functions\nixmaps." + options.name + ".after or ixmaps." + options.name + ".process\nnot found!");
-															}
+															alert(options.ext + ":\ndata processing functions\nixmaps." + options.name + ".after or ixmaps." + options.name + ".process\nnot found!");
 														}
 													}
 												}
 											}
 										}
-
-										_LOG("set processed data");
-
-										// set processed data
-										// --------------------------------------------------
-										ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
-									},
-									error: function (jqxhr, settings, exception) {
-										ixmaps.showLoadingArrayStop();
-										ixmaps.hideLoading();
-										ixmaps.error("external data provider: '" + options.ext + "' could not be loaded !", 2000);
 									}
-								});
 
-								// no external processor file defined, so try to call internal processor and set data
-								// -----------------------------------------------------------------------------------
-							} else {
+									_LOG("set processed data");
+
+									// set processed data
+									// --------------------------------------------------
+									ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
+								},
+								error: function (jqxhr, settings, exception) {
+									ixmaps.showLoadingArrayStop();
+									ixmaps.hideLoading();
+									ixmaps.error("external data provider: '" + options.ext + "' could not be loaded !", 2000);
+								}
+							});
+
+							// no external processor file defined, so try to call internal processor and set data
+							// -----------------------------------------------------------------------------------
+						} else {
+							try {
+								eval("themeDataObj = ixmaps." + options.name + ".process(themeDataObj,options) || themeDataObj");
+							} catch (e) {
 								try {
-									eval("themeDataObj = ixmaps." + options.name + ".process(themeDataObj,options) || themeDataObj");
+									eval("themeDataObj = ixmaps.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
 								} catch (e) {
 									try {
-										eval("themeDataObj = ixmaps.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
-									} catch (e) {
-										try {
-											eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
-										} catch (e) {}
-									}
+										eval("themeDataObj = ixmaps.parentApi.parentApi." + options.name + ".process(themeDataObj,options) || themeDataObj");
+									} catch (e) { }
 								}
-								ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
 							}
-						});
-					}
+							ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, themeDataObj, options.name);
+						}
+					});
+			}
+		};
+
+		// Load Data.js if not already loaded, then execute
+		if (typeof Data === 'undefined') {
+			$.getScript(ixmaps.szResourceBase + "../data.js/data.js")
+				.done(function (script, textStatus) {
+					__executeDataLoading();
 				})
 				.fail(function (jqxhr, settings, exception) {
 					alert("'" + options.type + "' unknown format !");
 				});
+		} else {
+			// Data.js already loaded, execute immediately
+			__executeDataLoading();
+		}
 	};
 
 	/**
@@ -3083,7 +3099,7 @@ $Log: htmlgui.js,v $
 	 * ixmaps.setExternalData(dataObject,{type:"json",name:"myData"});
 	 */
 	ixmaps.setExternalData = function (data, opt) {
-		
+
 		if (opt && opt.type && (opt.type != "jsonDB") && (opt.type != "dbtable")) {
 			if ((typeof (Data) != "undefined") && Data.object) {
 				// load the data using data.js
@@ -3112,7 +3128,7 @@ $Log: htmlgui.js,v $
 					});
 			}
 		} else {
-			if ( !data.table ){
+			if (!data.table) {
 				alert("error at ixmaps.setExternalData: data not of format 'jsonDB'");
 			}
 			ixmaps.showLoadingArrayStop();
@@ -3147,7 +3163,7 @@ $Log: htmlgui.js,v $
 	ixmaps.setLocalString = function (szOrig, szLocal) {
 		try {
 			this.embeddedSVG.window.map.Api.setLocalString(szOrig, szLocal);
-		} catch (e) {}
+		} catch (e) { }
 	};
 
 	/**
@@ -3163,7 +3179,7 @@ $Log: htmlgui.js,v $
 	ixmaps.setLocal = function (szOrig, szLocal) {
 		try {
 			this.embeddedSVG.window.map.Api.setLocalString(szOrig, szLocal);
-		} catch (e) {}
+		} catch (e) { }
 		return ixmaps;
 	};
 
@@ -3223,30 +3239,30 @@ $Log: htmlgui.js,v $
 	 * @example
 	 * ixmaps.setMessage("... loading ...");
 	 */
-	ixmaps.setMessage = function (szMessage,nTimeout) {
+	ixmaps.setMessage = function (szMessage, nTimeout) {
 		ixmaps.htmlgui_displayInfo(szMessage);
-		if (nTimeout){
-			setTimeout("ixmaps.htmlgui_killInfo()",nTimeout);
+		if (nTimeout) {
+			setTimeout("ixmaps.htmlgui_killInfo()", nTimeout);
 		}
 	};
-    
-	ixmaps.showItemGrid = function(szTheme){
+
+	ixmaps.showItemGrid = function (szTheme) {
 		ixmaps.legend = ixmaps.legend || {};
 		ixmaps.legend.showItemGrid(szTheme);
-	};	
-	
+	};
+
 	/**
 	 * require
 	 * @param {String} szUrl the URL of the external script to add toi project * @return void
 	 * @return void
 	 * @private
 	 */
-	ixmaps.require = function(szUrl){
-		
+	ixmaps.require = function (szUrl) {
+
 		// save for use in project
 		ixmaps.requiredUrlA = ixmaps.requiredUrlA || [];
 		ixmaps.requiredUrlA.push(szUrl);
-		
+
 		// try to load the required file
 		ixmaps.loading++;
 		$.ajax({
@@ -3261,7 +3277,7 @@ $Log: htmlgui.js,v $
 				ixmaps.loading--;
 				ixmaps.showLoadingArrayStop();
 				ixmaps.hideLoading();
-				ixmaps.error("required resource '"+szUrl+"' could not be loaded !", 2000);
+				ixmaps.error("required resource '" + szUrl + "' could not be loaded !", 2000);
 			}
 		});
 	};
@@ -3290,9 +3306,9 @@ $Log: htmlgui.js,v $
 			}
 			// project requires external resources (scripts) 
 			//
-			if ( (typeof (project.required) != "undefined") ) {
+			if ((typeof (project.required) != "undefined")) {
 				ixmaps.loading = 0;
-				for ( i in project.required ){
+				for (i in project.required) {
 					ixmaps.loading++;
 					$.ajax({
 						type: "GET",
@@ -3300,48 +3316,48 @@ $Log: htmlgui.js,v $
 						dataType: "text",
 						success: function (script) {
 							eval(script);
-							if (--ixmaps.loading<=0){
+							if (--ixmaps.loading <= 0) {
 								ixmaps.continueSetProjectJSON(project, szFlag);
-							}	
+							}
 						},
 						error: function (jqxhr, settings, exception) {
 							ixmaps.showLoadingArrayStop();
 							ixmaps.hideLoading();
-							ixmaps.error("required resource '"+project.required[ixmaps.loading]+"' could not be loaded !", 2000);
+							ixmaps.error("required resource '" + project.required[ixmaps.loading] + "' could not be loaded !", 2000);
 						}
 					});
 				}
-			}else
-			// project requires external resources (scripts) 
-			//
-			if ( (typeof (project.require) != "undefined") ) {
-				ixmaps.loading = 0;
-				for ( i in project.require ){
-					ixmaps.loading++;
-					$.ajax({
-						type: "GET",
-						url: project.require[i],
-						dataType: "text",
-						success: function (script) {
-							eval(script);
-							if (--ixmaps.loading<=0){
-								ixmaps.continueSetProjectJSON(project, szFlag);
-							}	
-						},
-						error: function (jqxhr, settings, exception) {
-							ixmaps.showLoadingArrayStop();
-							ixmaps.hideLoading();
-							ixmaps.error("required resource '"+project.require[ixmaps.loading]+"' could not be loaded !", 2000);
-						}
-					});
+			} else
+				// project requires external resources (scripts) 
+				//
+				if ((typeof (project.require) != "undefined")) {
+					ixmaps.loading = 0;
+					for (i in project.require) {
+						ixmaps.loading++;
+						$.ajax({
+							type: "GET",
+							url: project.require[i],
+							dataType: "text",
+							success: function (script) {
+								eval(script);
+								if (--ixmaps.loading <= 0) {
+									ixmaps.continueSetProjectJSON(project, szFlag);
+								}
+							},
+							error: function (jqxhr, settings, exception) {
+								ixmaps.showLoadingArrayStop();
+								ixmaps.hideLoading();
+								ixmaps.error("required resource '" + project.require[ixmaps.loading] + "' could not be loaded !", 2000);
+							}
+						});
+					}
+				} else {
+					// no external resource -> go
+					ixmaps.continueSetProjectJSON(project, szFlag);
 				}
-			}else{
-				// no external resource -> go
-				ixmaps.continueSetProjectJSON(project, szFlag);
-			}
 		}
 	};
-			
+
 	/**
 	 * continue realizing project JSON  
 	 */
@@ -3350,13 +3366,13 @@ $Log: htmlgui.js,v $
 		szFlag = szFlag || "";
 
 		if (project && project.map) {
-			
+
 			if ((typeof (project.map) != "string") && !szFlag.match(/themeonly|add|replace/i)) {
 
 				ixmaps.loadedProject = project;
 				try {
 					ixmaps.parentApi.setLoadedProject(project);
-				}  catch (e) {}
+				} catch (e) { }
 
 				var map = project.map;
 
@@ -3382,7 +3398,7 @@ $Log: htmlgui.js,v $
 						if (map.layout) {
 							ixmaps.parentApi.parentApi.setLayout(map.layout);
 						}
-					} catch (e) {}
+					} catch (e) { }
 
 					ixmaps.legend = ixmaps.legend || {};
 					ixmaps.legend.url = (typeof (map.legend) != "undefined") ? map.legend : ixmaps.legend.url;
@@ -3392,24 +3408,24 @@ $Log: htmlgui.js,v $
 						delete ixmaps.embeddedSVG.window.themeDataObj;
 					}
 					**/
-					ixmaps.htmlgui_synchronizeMap(false, false);					
+					ixmaps.htmlgui_synchronizeMap(false, false);
 
 					if (project.themes) {
 						for (i in project.themes) {
 							ixmaps.newTheme("project", project.themes[i], (i == 0) ? "clear" : "");
 						}
 					} else
-					if (project.theme) {
-						ixmaps.newTheme("project", project.theme, "clear");
-					} else {
-						setTimeout("ixmaps.hideLoading()", 250);
-					}
+						if (project.theme) {
+							ixmaps.newTheme("project", project.theme, "clear");
+						} else {
+							setTimeout("ixmaps.hideLoading()", 250);
+						}
 					// GR 29.08.2018 must force to show SVG layer
 					// if not, it wasn't switched on sometimes 
 					setTimeout("ixmaps.showAll();", 1000);
 					try {
 						ixmaps.onMapReady(map.map);
-					} catch (e) {}
+					} catch (e) { }
 					if (map.search) {
 						ixmaps.search.szSearchSuffix = map.search;
 						ixmaps.search.show();
@@ -3437,18 +3453,18 @@ $Log: htmlgui.js,v $
 							ixmaps.setMapTypeId(project.basemap);
 							ixmaps.setLocalize(project.localize);
 							ixmaps.setMapLayer(project.layerMask);
-						} catch (e) {}
+						} catch (e) { }
 
 						if (project.themes) {
 							for (i in project.themes) {
 								ixmaps.newTheme("project", project.themes[i], (i == 0) ? "clear" : "");
 							}
 						} else
-						if (project.theme) {
-							ixmaps.newTheme("project", project.theme, "clear");
-						} else {
-							setTimeout("ixmaps.hideLoading()", 250);
-						}
+							if (project.theme) {
+								ixmaps.newTheme("project", project.theme, "clear");
+							} else {
+								setTimeout("ixmaps.hideLoading()", 250);
+							}
 						// GR 29.08.2018 must force to show SVG layer
 						// if not, it wasn't switched on sometimes 
 						setTimeout("ixmaps.showAll();", 1000);
@@ -3458,21 +3474,21 @@ $Log: htmlgui.js,v $
 						ixmaps.search.show();
 					}
 				} else
-			if (project.themes && !szFlag.match(/maponly/i)) {
-				for (i in project.themes) {
-					if ( project.themes[i].style.name && szFlag.match(/replace/i) ){
-						ixmaps.removeTheme(project.themes[i].style.name);
-						setTimeout(function(){ixmaps.newTheme("project", project.themes[i],"")},"1000");
-					}else{
-						ixmaps.newTheme("project", project.themes[i], (i == 0 && !szFlag.match(/add/i)) ? "clear" : "");
-					}
-				}
-			} else
-			if (project.theme && !szFlag.match(/maponly/i)) {
-				ixmaps.newTheme("project", project.theme, "clear");
-			} else {
-				setTimeout("ixmaps.hideLoading()", 250);
-			}
+					if (project.themes && !szFlag.match(/maponly/i)) {
+						for (i in project.themes) {
+							if (project.themes[i].style.name && szFlag.match(/replace/i)) {
+								ixmaps.removeTheme(project.themes[i].style.name);
+								setTimeout(function () { ixmaps.newTheme("project", project.themes[i], "") }, "1000");
+							} else {
+								ixmaps.newTheme("project", project.themes[i], (i == 0 && !szFlag.match(/add/i)) ? "clear" : "");
+							}
+						}
+					} else
+						if (project.theme && !szFlag.match(/maponly/i)) {
+							ixmaps.newTheme("project", project.theme, "clear");
+						} else {
+							setTimeout("ixmaps.hideLoading()", 250);
+						}
 		}
 
 	};
@@ -3485,7 +3501,7 @@ $Log: htmlgui.js,v $
 	ixmaps.setProject = function (szProject) {
 
 		var project = null;
-		
+
 		if (typeof (szProject) != "string") {
 			try {
 				ixmaps.setProjectJSON(szProject);
@@ -3494,7 +3510,7 @@ $Log: htmlgui.js,v $
 			}
 			return;
 		}
-		
+
 		try {
 			project = JSON.parse(szProject);
 		} catch (e) {
@@ -3503,7 +3519,7 @@ $Log: htmlgui.js,v $
 
 		try {
 			ixmaps.parentApi.htmlgui_onProjectLoaded(project);
-		} catch (e) {}
+		} catch (e) { }
 
 		if (project) {
 			ixmaps.setProjectJSON(project);
@@ -3517,7 +3533,7 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.loadProject = function (szUrl, szFlag) {
-		
+
 		// test if szUrl is not a string, but a JSON object
 		// ------------------------------------------------
 		if (typeof (szUrl) != "string") {
@@ -3557,17 +3573,17 @@ $Log: htmlgui.js,v $
 
 				try {
 					ixmaps.parentApi.htmlgui_onProjectLoaded(project);
-				} catch (e) {}
+				} catch (e) { }
 
 				if (project) {
 					ixmaps.setProjectJSON(project, szFlag);
-					
+
 					ixmaps.loadedProjectUrl = szUrl;
 				}
 
 			}).fail(function (e) {
-			ixmaps.error('loading error with:' + szUrl);
-		});
+				ixmaps.error('loading error with:' + szUrl);
+			});
 
 	};
 
@@ -3631,9 +3647,9 @@ $Log: htmlgui.js,v $
 		map.basemap = szMapType;
 
 		map.legend = ixmaps.legend ? (ixmaps.legend.url || "") : "";
-		map.item   = (ixmaps.loadedProject && 
-					  ixmaps.loadedProject.map && 
-					  ixmaps.loadedProject.map.item) ? (ixmaps.loadedProject.map.item || "") : "";
+		map.item = (ixmaps.loadedProject &&
+			ixmaps.loadedProject.map &&
+			ixmaps.loadedProject.map.item) ? (ixmaps.loadedProject.map.item || "") : "";
 
 		map.scaleParam = scaleParam;
 		map.options = options;
@@ -3641,30 +3657,30 @@ $Log: htmlgui.js,v $
 		map.zoom = zoom;
 
 		project.map = map;
-		
+
 		if (ixmaps.loadedProject && ixmaps.loadedProject.require) {
 			project.require = ixmaps.loadedProject.require;
 		}
-		
+
 		if (ixmaps.loadedProject && ixmaps.loadedProject.required) {
 			project.required = ixmaps.loadedProject.required;
 		}
-		
+
 		if (ixmaps.loadedProject && ixmaps.loadedProject.map && ixmaps.loadedProject.map.localize) {
 			project.map.localize = ixmaps.loadedProject.map.localize;
 		}
-		
-		if (ixmaps.requiredUrlA){
+
+		if (ixmaps.requiredUrlA) {
 			project.require = ixmaps.requiredUrlA;
 		}
-		
+
 		project.themes = themeDefA;
 		project.layerMask = layerObj;
 
 		// return the project object (JSON) as string !
 		//
 		var szProject = JSON.stringify(project);
-		
+
 		return szProject;
 	};
 
@@ -3674,10 +3690,10 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.loadData = function (szUrl, szFlag) {
-		setTimeout("ixmaps.doLoadData('"+szUrl+"','"+szFlag+"')",1000);
+		setTimeout("ixmaps.doLoadData('" + szUrl + "','" + szFlag + "')", 1000);
 	};
 	ixmaps.doLoadData = function (szUrl, szFlag) {
-		
+
 		var tt = {
 			"layer": "World Mercator",
 			"field": "$item$",
@@ -3692,56 +3708,56 @@ $Log: htmlgui.js,v $
 				"dbtableUrl": "http://corsme.herokuapp.com/http://turismo.comune.civitanova.mc.it/wp-content/blogs.dir/9/sites/9/csv/C_C770_dataset_strutture-ricettive-extra-alberghiere_1608373621.csv",
 				"dbtableType": "csv",
 				"datacache": "true",
-				"showdata":"true",
+				"showdata": "true",
 				"lookupfield": "Latitudine|Longitudine",
 				"symbols": [
 					"circle"],
-				"label":"items",
+				"label": "items",
 				"units": "",
 				"refreshtimeout": "0",
 				"scale": "1",
 				"valuescale": "1",
 				"valuedecimals": "0",
 				"title": "dataset"
-				}
+			}
 		};
 
 		// load data from URL
 		// ------------------
 		$.get(szUrl,
 			function (data) {
-				if (data[0] == "{" ){
+				if (data[0] == "{") {
 					alert("json");
-				}else{
+				} else {
 					objTheme = {};
 					objTheme.layer = "World Mercator";
 					objTheme.fields = "$item$";
 					objTheme.style = {};
 					objTheme.style.type = "CHART|DOT",
-					objTheme.style.colorscheme = ["blue"],
-					objTheme.style.dbtableUrl = szUrl;
+						objTheme.style.colorscheme = ["blue"],
+						objTheme.style.dbtableUrl = szUrl;
 					objTheme.style.dbtableType = "csv";
 					objTheme.style.dbtable = "themeDataObj";
 					objTheme.style.lookupfield = "Latitudine|Longitudine";
 					ixmaps.loadedProject = ixmaps.loadedProject || {};
 					ixmaps.loadedProject.map = ixmaps.loadedProject.map || {};
 					ixmaps.loadedProject.map.item = "html";
-					
+
 					tt.style.dbtableUrl = szUrl;
-					if ( szUrl.match(/corsme/) ){
-						szUrl = "http:"+szUrl.split("http:")[2];
+					if (szUrl.match(/corsme/)) {
+						szUrl = "http:" + szUrl.split("http:")[2];
 					}
-					tt.style.snippet = "fonte: <br><a href='"+szUrl+"'><small style='overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display:block; width:100%'>"+szUrl+"</small></a>";
+					tt.style.snippet = "fonte: <br><a href='" + szUrl + "'><small style='overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display:block; width:100%'>" + szUrl + "</small></a>";
 					ixmaps.newTheme("project", tt, "clear");
 				}
 			}).fail(function (e) {
-			ixmaps.error('loading error with:' + szUrl);
-		});
+				ixmaps.error('loading error with:' + szUrl);
+			});
 
 	};
-	
+
 	ixmaps.editor = ixmaps.editor || {};
-	ixmaps.editor.analyseValues = function(a) {
+	ixmaps.editor.analyseValues = function (a) {
 
 		var themeObj = {
 			"type": "",
@@ -3750,12 +3766,12 @@ $Log: htmlgui.js,v $
 			}
 		};
 
-		if (!a || (typeof(a) != "object")) {
+		if (!a || (typeof (a) != "object")) {
 			return null;
 		}
 
 		// get unique valyes array
-		var onlyUnique = function(value, index, self) {
+		var onlyUnique = function (value, index, self) {
 			return self.indexOf(value) === index;
 		};
 		var u = a.filter(onlyUnique);
@@ -3805,7 +3821,7 @@ $Log: htmlgui.js,v $
 		return themeObj;
 	};
 
-	ixmaps.editor.makeDefaultTheme = function(color_selected) {
+	ixmaps.editor.makeDefaultTheme = function (color_selected) {
 
 		if (!ixmaps.editor.dbtable) {
 			return {};
@@ -3828,15 +3844,15 @@ $Log: htmlgui.js,v $
 			objTheme.style.dopacitypow = 2;
 			objTheme.style.dopacityscale = 2;
 		} else
-		if (ixmaps.editor.dbtable && ixmaps.editor.dbtable.table && (ixmaps.editor.dbtable.table.records > 100000)) {
-			objTheme.style.type = "CHART|BUBBLE|AGGREGATE|FAST|SUM|ZOOMTO";
-			objTheme.style.gridwidth = "2px";
-			objTheme.style.fillopacity = "0.3";
-		} else {
-			//objTheme.style.type = "CHART|DOT|RAW|FAST";
-			objTheme.style.type = "CHART|DOT|RAW|FAST|ZOOMTO";
-			objTheme.style.fillopacity = "0.2";
-		}
+			if (ixmaps.editor.dbtable && ixmaps.editor.dbtable.table && (ixmaps.editor.dbtable.table.records > 100000)) {
+				objTheme.style.type = "CHART|BUBBLE|AGGREGATE|FAST|SUM|ZOOMTO";
+				objTheme.style.gridwidth = "2px";
+				objTheme.style.fillopacity = "0.3";
+			} else {
+				//objTheme.style.type = "CHART|DOT|RAW|FAST";
+				objTheme.style.type = "CHART|DOT|RAW|FAST|ZOOMTO";
+				objTheme.style.fillopacity = "0.2";
+			}
 		objTheme.style.colorscheme = [1, "#eeeeff", "#0000dd"];
 		objTheme.style.editor = true;
 		ixmaps.editor.themeObj = objTheme;
