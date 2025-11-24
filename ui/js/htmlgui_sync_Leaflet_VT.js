@@ -152,6 +152,11 @@ $Log: htmlgui_sync_Leaflet.js,v $
 				duration: ixmaps.scrollsafesilent ? 0 : 1000
 			}
 		});
+		
+		// For orthographic projections, allow zooming below level 2
+		// Check SVG map projection and set Leaflet map minZoom accordingly
+		// This needs to be done after SVG map is loaded, so we'll set it in htmlgui_synchronizeMap
+		// For now, set a default that will be overridden if needed
 
 		// ---------------------
 		// define event handler
@@ -717,6 +722,12 @@ $Log: htmlgui_sync_Leaflet.js,v $
 	htmlMap_getZoom = function () {
 		return LMap.getZoom();
 	}
+	htmlMap_setMinZoom = function (nMinZoom) {
+		if (LMap && LMap.setMinZoom) {
+			LMap.setMinZoom(nMinZoom);
+		}
+	}
+
 	htmlMap_setZoom = function (nZoom) {
 		return LMap.setZoom(nZoom, {
 			animate: true
@@ -772,7 +783,6 @@ $Log: htmlgui_sync_Leaflet.js,v $
 	htmlMap_setBounds = function (arrayPtLatLon, fZoomTo) { 
 		
 		if (arrayPtLatLon && (arrayPtLatLon.length == 2)) {
-			console.log("here we go");
 
 			ixmaps.embeddedSVG.window._TRACE("<========= htmlgui: do adapt HTML map ! to sw:" + arrayPtLatLon[0].lat + "," + arrayPtLatLon[0].lng + " ne:" + arrayPtLatLon[1].lat + "," + arrayPtLatLon[1].lng);
 

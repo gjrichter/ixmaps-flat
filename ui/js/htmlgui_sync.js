@@ -109,10 +109,33 @@ $Log: htmlgui_sync.js,v $
 		} catch (e) {}
 	}
 
-	function setBoundsLatLon(latSW, lonSW, latNE, lonNE) {
+	function setBoundsLatLon(latSW, lonSW, latNE, lonNE, fSkipZoomForNonMercator) {
 		try {
 			__timer_reset();
-			ixmaps.embeddedSVG.window.map.Api.doSetMapToGeoBounds(latSW, lonSW, latNE, lonNE);
+			
+			// Check if projection is orthographic (or albers/lambert) - these projections should not calculate zoom from bounds
+			// because the underlying Leaflet map uses Mercator projection, which leads to incorrect zoom calculations
+			// However, we still need to handle zoom events properly
+			var szProjection = null;
+			try {
+				if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
+				    ixmaps.embeddedSVG.window.map.Scale && ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
+					szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
+				}
+			} catch (e) {}
+			
+			// For orthographic, albers, and lambert projections:
+			// - On pan events (when fSkipZoomForNonMercator is true): skip zoom calculation, only set center
+			// - On zoom events (when fSkipZoomForNonMercator is false): calculate zoom from bounds as normal
+			if (szProjection && szProjection.match(/orthographic|albers|lambert/i) && fSkipZoomForNonMercator) {
+				// This is a pan event for non-Mercator projection - only set center, don't calculate zoom
+				// Get HTML map center
+				var ptLatLon = htmlMap_getCenter();
+				setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
+			} else {
+				// For Mercator, or for zoom events on any projection, calculate zoom from bounds as before
+				ixmaps.embeddedSVG.window.map.Api.doSetMapToGeoBounds(latSW, lonSW, latNE, lonNE);
+			}
 		} catch (e) {}
 	}
 
@@ -551,10 +574,10 @@ $Log: htmlgui_sync.js,v $
 	 */
 
 	// hide SVG while panning the map
-	ixmaps.panHidden = true;
+	ixmaps.panHidden = false;
 	
 	// freeze SVG while panning the map
-	ixmaps.panFreezed = true;
+	ixmaps.panFreezed = false;
 
 	// if set to true, all maps on one html page will be synchronized (zoom and pan)
 	// ! every map and containing iframe must have the same unique name 
@@ -595,7 +618,8 @@ $Log: htmlgui_sync.js,v $
 			lat: (ptSW.lat + ptNE.lat) / 2,
 			lng: (ptSW.lng + ptNE.lng) / 2
 		}, nZoom);
-		ixmaps.htmlgui_synchronizeSVG(false);
+		ixmaps.htmlgui_synchronizeSVG
+		(false);
 
 		clearTimeout(ixmaps.slaveTimeout);
 		ixmaps.slaveTimeout = setTimeout("ixmaps.szSlave = null", 100);
@@ -652,6 +676,29 @@ $Log: htmlgui_sync.js,v $
 					});
 				}
 				ixmaps.fSynchronized = true;
+				
+				// For non-Mercator projections, sync SVG map zoom from HTML map after HTML map is set
+				// This ensures initial zoom is applied to SVG map
+				try {
+					var szProjection = null;
+					if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
+					    ixmaps.embeddedSVG.window.map.Scale && ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
+						szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
+					}
+					if (szProjection && szProjection.match(/orthographic|albers|lambert/i)) {
+						// For orthographic projections, set Leaflet map minZoom to 0 to allow zooming below level 2
+						// The underlying Leaflet map is just a reference, so lower zoom levels are fine
+						try {
+							if (typeof htmlMap_setMinZoom === 'function') {
+								htmlMap_setMinZoom(0);
+							}
+						} catch (e) {}
+						// Sync SVG map zoom from HTML map for non-Mercator projections
+						setTimeout(function() {
+							ixmaps.htmlgui_synchronizeSVG(false);
+						}, 100);
+					}
+				} catch (e) {}
 			}
 		} catch (e) {}
 
@@ -781,18 +828,64 @@ $Log: htmlgui_sync.js,v $
 		
 		ixmaps.fInSVGSync = true;
 
+		// Check if projection is orthographic (or albers/lambert) - these projections need special zoom handling
+		var szProjection = null;
+		try {
+			if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
+			    ixmaps.embeddedSVG.window.map.Scale && ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
+				szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
+			}
+		} catch (e) {}
+		var isOrthographic = szProjection && szProjection.match(/orthographic/i);
+		
 		// set SVG map bounds
 		if (fPanOnly) {
-			setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
+			//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
 
 		} else {
 			
 			console.log("==== >>> sync <<< === "+ixmaps.tmp.inZoom);
-			setBoundsLatLon(
-				arrayPtLatLon[0].lat,
-				arrayPtLatLon[0].lng,
-				arrayPtLatLon[1].lat,
-				arrayPtLatLon[1].lng);
+			// Check if this is a zoom event
+			var isZoomEvent = !fPanOnly || (ixmaps.tmp && ixmaps.tmp.inZoom);
+			
+			// For orthographic projections, never calculate zoom from bounds (even on zoom events)
+			// Instead, convert Leaflet zoom level directly to SVG zoom scale
+			if (isOrthographic && isZoomEvent) {
+				// Convert Leaflet zoom to SVG zoom scale using exponential relationship
+				// Leaflet zoom is exponential: each level doubles the scale (2^zoom)
+				// For orthographic, we use exponential scaling to maintain consistent panning speed
+				// Formula: svgZoomScale = baseScale * 2^(zoom - referenceZoom)
+				// This ensures panning feels consistent across zoom levels
+				var leafletZoom = htmlMap_getZoom();
+				var referenceZoom = 2.0;  // Reference zoom level
+				var baseScale = 5.0;     // Scale at reference zoom level (reduced to make map smaller)
+				var svgZoomScale = baseScale * Math.pow(2, leafletZoom - referenceZoom);
+				// Ensure minimum zoom scale
+				if (svgZoomScale < 5.0) {
+					svgZoomScale = 5.0;
+				}
+				// Set center first
+				//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
+				// Then set zoom directly
+				try {
+					if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
+					    ixmaps.embeddedSVG.window.map.Zoom) {
+						ixmaps.embeddedSVG.window.map.Zoom.setNewZoom(svgZoomScale);
+					}
+				} catch (e) {
+					console.error("Error setting SVG zoom for orthographic:", e);
+				}
+			} else {
+				// For other projections or pan events, use normal bounds calculation
+				// For non-Mercator projections, skip zoom calculation on pan events (moveend), but allow it on zoom events
+				var fSkipZoomForNonMercator = !isZoomEvent;
+				setBoundsLatLon(
+					arrayPtLatLon[0].lat,
+					arrayPtLatLon[0].lng,
+					arrayPtLatLon[1].lat,
+					arrayPtLatLon[1].lng,
+					fSkipZoomForNonMercator);
+			}
 
 			// GR 11.04.2013 same problem, part of the solution
 			// try to set the center explicitly

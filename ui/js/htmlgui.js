@@ -1056,7 +1056,7 @@ $Log: htmlgui.js,v $
 		if (opt) {
 			var szFeatures = "";
 			for (var i in opt) {
-				if ((typeof (i) == "string") && (i.match(/silent/i))) {
+				if ((typeof (i) == "string") && (i.match(/\bsilent\b/i))) {
 					this.fSilent = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
 				} else
 					if ((typeof (i) == "string") && (i.match(/syncMap/i))) {
@@ -1375,6 +1375,11 @@ $Log: htmlgui.js,v $
 				ixmaps.newTheme(szThemeId, theme, flag);
 			}
 		}
+	};
+	ixmaps.redrawTheme = function (szThemeId) {
+		try {
+			ixmaps.embeddedSVG.window.map.Api.redrawTheme(szThemeId);
+		} catch (e) { }
 	};
 	ixmaps.refreshTheme = function (szThemeId) {
 		try {
@@ -2631,6 +2636,7 @@ $Log: htmlgui.js,v $
 		//ixmaps.htmlgui_synchronizeSVG(false);
 		return ixmaps;
 	};
+	
 	/**
 	 * setView
 	 * @param center the new center of the view

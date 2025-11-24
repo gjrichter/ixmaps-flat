@@ -649,8 +649,6 @@ $Log: htmlgui_sync_Leaflet.js,v $
 	htmlMap_setBounds = function (arrayPtLatLon, fZoomTo) {
 
 		if (arrayPtLatLon && (arrayPtLatLon.length == 2)) {
-			console.log("here we go");
-
 			ixmaps.embeddedSVG.window._TRACE("<========= htmlgui: do adapt HTML map ! to sw:" + arrayPtLatLon[0].lat + "," + arrayPtLatLon[0].lng + " ne:" + arrayPtLatLon[1].lat + "," + arrayPtLatLon[1].lng);
 
 			// store old zoom, in case we emulate setCenter() wirth setBounds(), we have to restore it
