@@ -137,7 +137,9 @@ $Log: mapapi.js,v $
      */
     ixMap.Api.prototype.setMapLayer = function (szLayerObj) {
         if (map.fInitializing || map.isLoading()) {
-            this.map.pushAction("map.Api.setMapLayer(\"" + szLayerObj + "\"");
+            this.map.pushAction(() => {
+                map.Api.setMapLayer(szLayerObj);
+            });
             return;
         }
         var layerObj = JSON.parse(szLayerObj);
@@ -303,7 +305,7 @@ $Log: mapapi.js,v $
      * @param lonNE the longitude of the North East point
      */
     ixMap.Api.prototype.doZoomMapToGeoBounds = function (latSW, lonSW, latNE, lonNE) {
-        this.map.Zoom.doZoomMapToGeoBounds(latSW, lonSW, latNE, lonNE);
+         this.map.Zoom.doZoomMapToGeoBounds(latSW, lonSW, latNE, lonNE);
     };
     /**
      * set the map bounds to a rect given in geo coodinates 
@@ -316,6 +318,7 @@ $Log: mapapi.js,v $
         if ((lonNE - lonSW) < 180) {
             this.map.fPreserveMapRatio = false;
         }
+        //this.map.Scale.calculateAlbersParametersFromBounds(latSW, lonSW, latNE, lonNE);
         this.map.Zoom.doSetMapToGeoBounds(latSW, lonSW, latNE, lonNE);
         setTimeout("this.map.fPreserveMapRatio = true;", 5000);
     };
@@ -733,6 +736,8 @@ $Log: mapapi.js,v $
      */
     ixMap.Api.prototype.executeJavascriptWithMessage = function (szJS, szText, nTimeout) {
         // GR 16.07.2011 replace all " with \" in szJS string and call via pushAction
+        // NOTE: This API intentionally accepts string-based JavaScript code for dynamic execution.
+        // This is kept as string-based to support external callers that need to execute arbitrary code.
         if (szJS && typeof (szJS != "undefined")) {
             this.map.pushAction(() => {
                 map.Api.executeWithPush = true;
@@ -1426,6 +1431,10 @@ $Log: mapapi.js,v $
         this.map.Themes.refreshTheme(szId);
     };
 
+    ixMap.Api.prototype.redrawTheme = function (szId) {
+        this.map.Themes.redrawTheme(szId);
+    };
+
     ixMap.Api.prototype.resetTheme = function (szId) {
         this.map.Themes.resetTheme(szId);
     };
@@ -1546,6 +1555,292 @@ $Log: mapapi.js,v $
     ixMap.Api.prototype.getMapThemeDefinitionObj = function (szId) {
         return this.map.Themes.getMapThemeDefinitionObj(szId);
     };
+    
+    /**
+     * Update Albers Equal Area projection parameters based on center and zoom
+     * Calculates appropriate standard parallels and updates map.Scale properties
+     * @param {Array} center - [latitude, longitude] array
+     * @param {Number} zoom - Zoom level
+     * @returns {Object} {params: {lat1, lat2, lat0, lon0}, changed: boolean} or null
+     */
+    ixMap.Api.prototype.updateAlbersParameters = function (center, zoom) {
+        if (!center || zoom === undefined) {
+            return null;
+        }
+        
+        const lat = parseFloat(center[0]);
+        const lng = parseFloat(center[1]);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('updateAlbersParameters: invalid center coordinates', { center, zoom });
+            return null;
+        }
+
+        if (this.map && this.map.Scale && typeof this.map.Scale.calculateAlbersParameters === 'function') {
+            const newParams = this.map.Scale.calculateAlbersParameters(lat, lng, zoom);
+            if (!newParams) {
+                return null;
+            }
+            
+            // Compare with last parameters to detect changes
+            const lastParams = this.map.Scale.lastAlbersParams;
+            let paramsChanged = false;
+            
+            if (!lastParams) {
+                // First time, consider it changed
+                paramsChanged = true;
+            } else {
+                // Check if parameters changed significantly (threshold: 0.5 degrees)
+                const THRESHOLD = 0.5;
+                if (Math.abs(newParams.lat1 - lastParams.lat1) > THRESHOLD ||
+                    Math.abs(newParams.lat2 - lastParams.lat2) > THRESHOLD ||
+                    Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
+                    Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
+                    paramsChanged = true;
+                }
+            }
+            
+            // Store new parameters for next comparison
+            this.map.Scale.lastAlbersParams = {
+                lat1: newParams.lat1,
+                lat2: newParams.lat2,
+                lat0: newParams.lat0,
+                lon0: newParams.lon0
+            };
+            
+            return {
+                params: newParams,
+                changed: paramsChanged
+            };
+        }
+        
+        return null;
+    };
+    /**
+     * Update Lambert Azimuthal Equal Area projection parameters based on center and zoom.
+     * Calculates appropriate center and updates map.Scale properties.
+     * @param {Array|Object} center - Center coordinates [latitude, longitude] or {lat,lng}
+     * @param {Number} zoom - Zoom level (optional for compatibility)
+     * @returns {Object} {params: {lat0, lon0, ...}, changed: boolean} or null
+     */
+    ixMap.Api.prototype.updateLambertParameters = function (center, zoom) {
+        if (!center) {
+            return null;
+        }
+
+        let lat;
+        let lng;
+
+        if (Array.isArray(center) && center.length >= 2) {
+            lat = center[0];
+            lng = center[1];
+        } else if (typeof center === 'object' && center !== null) {
+            lat = center.lat ?? center.latitude ?? (center[0]);
+            lng = center.lng ?? center.lon ?? center.longitude ?? (center[1]);
+        }
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('updateLambertParameters: invalid center coordinates', { center, zoom });
+            return null;
+        }
+
+        if (this.map && this.map.Scale && typeof this.map.Scale.calculateLambertAzimuthalParameters === 'function') {
+            const newParams = this.map.Scale.calculateLambertAzimuthalParameters(lat, lng);
+            if (!newParams) {
+                return null;
+            }
+            
+            // Compare with last parameters to detect changes
+            const lastParams = this.map.Scale.lastLambertParams;
+            let paramsChanged = false;
+            
+            if (!lastParams) {
+                // First time, consider it changed
+                paramsChanged = true;
+            } else {
+                // Check if parameters changed significantly (threshold: 0.5 degrees)
+                const THRESHOLD = 0.5;
+                if (Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
+                    Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
+                    paramsChanged = true;
+                }
+            }
+            
+            // Store new parameters for next comparison
+            this.map.Scale.lastLambertParams = {
+                lat0: newParams.lat0,
+                lon0: newParams.lon0
+            };
+            
+            return {
+                params: newParams,
+                changed: paramsChanged
+            };
+        }
+
+        return null;
+    };
+    /**
+     * Update Lambert Azimuthal Equal Area parameters using a bounding box definition.
+     * @param {Array|Object} bounds - Either [latSW, lonSW, latNE, lonNE] array or object with sw/ne keys
+     * @returns {Object} Projection parameters {lat0, lon0, ...}
+     */
+    ixMap.Api.prototype.updateLambertParametersFromBounds = function (bounds) {
+        if (!bounds || !this.map || !this.map.Scale || typeof this.map.Scale.calculateLambertAzimuthalParametersFromBounds !== 'function') {
+            return null;
+        }
+
+        let latSW;
+        let lonSW;
+        let latNE;
+        let lonNE;
+
+        if (Array.isArray(bounds) && bounds.length >= 4) {
+            [latSW, lonSW, latNE, lonNE] = bounds;
+        } else if (typeof bounds === 'object') {
+            const sw = bounds.sw || bounds.southWest || bounds.SW;
+            const ne = bounds.ne || bounds.northEast || bounds.NE;
+            if (sw && ne) {
+                latSW = sw.lat ?? sw.latitude ?? sw[0];
+                lonSW = sw.lng ?? sw.lon ?? sw.longitude ?? sw[1];
+                latNE = ne.lat ?? ne.latitude ?? ne[0];
+                lonNE = ne.lng ?? ne.lon ?? ne.longitude ?? ne[1];
+            }
+        }
+
+        return this.map.Scale.calculateLambertAzimuthalParametersFromBounds(latSW, lonSW, latNE, lonNE);
+    };
+    /**
+     * Update Orthographic projection parameters based on center and zoom.
+     * Calculates appropriate center and updates map.Scale properties.
+     * @param {Array|Object} center - Center coordinates [latitude, longitude] or {lat,lng}
+     * @param {Number} zoom - Zoom level (optional for compatibility)
+     * @returns {Object} {params: {lat0, lon0, ...}, changed: boolean} or null
+     */
+    ixMap.Api.prototype.updateOrthographicParameters = function (center, zoom) {
+        if (!center) {
+            return null;
+        }
+
+        let lat;
+        let lng;
+
+        if (Array.isArray(center) && center.length >= 2) {
+            lat = center[0];
+            lng = center[1];
+        } else if (typeof center === 'object' && center !== null) {
+            lat = center.lat ?? center.latitude ?? (center[0]);
+            lng = center.lng ?? center.lon ?? center.longitude ?? (center[1]);
+        }
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('updateOrthographicParameters: invalid center coordinates', { center, zoom });
+            return null;
+        }
+
+        // Additional validation: reject [0, 0] center at low zoom as it's likely invalid
+        // (unless explicitly set, [0, 0] usually indicates a calculation error)
+        if (zoom !== undefined && zoom < 2) {
+            if (Math.abs(lat) < 0.1 && Math.abs(lng) < 0.1) {
+                console.warn('updateOrthographicParameters: rejecting [0, 0] center at low zoom', { center, zoom });
+                return null;
+            }
+        }
+
+        if (this.map && this.map.Scale && typeof this.map.Scale.calculateOrthographicParameters === 'function') {
+            const newParams = this.map.Scale.calculateOrthographicParameters(lat, lng);
+            if (!newParams) {
+                return null;
+            }
+            
+            // Additional validation: ensure parameters are not [0, 0] unless explicitly set
+            if (Math.abs(newParams.lat0) < 0.1 && Math.abs(newParams.lon0) < 0.1) {
+                // Check if we have existing valid parameters - if so, don't overwrite with [0, 0]
+                const lastParams = this.map.Scale.lastOrthographicParams;
+                if (lastParams && (Math.abs(lastParams.lat0) > 0.1 || Math.abs(lastParams.lon0) > 0.1)) {
+                    console.warn('updateOrthographicParameters: rejecting [0, 0] parameters when valid ones exist', { 
+                        newParams, 
+                        lastParams, 
+                        zoom 
+                    });
+                    return null;
+                }
+            }
+            
+            // Compare with last parameters to detect changes
+            const lastParams = this.map.Scale.lastOrthographicParams;
+            let paramsChanged = false;
+            
+            if (!lastParams) {
+                // First time, consider it changed
+                paramsChanged = true;
+            } else {
+                // Check if parameters changed significantly
+                // Use a smaller threshold (0.1 degrees) for smoother panning updates
+                // This ensures even small pan movements trigger redraws
+                const THRESHOLD = 0.1;
+                if (Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
+                    Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
+                    paramsChanged = true;
+                }
+            }
+            
+            // Always consider parameters changed for panning updates (even if below threshold)
+            // This ensures smooth rotation during panning
+            // The parameters are already set on Scale object via calculateOrthographicParameters
+            paramsChanged = true;
+            
+            // Store new parameters for next comparison
+            this.map.Scale.lastOrthographicParams = {
+                lat0: newParams.lat0,
+                lon0: newParams.lon0
+            };
+            
+            return {
+                params: newParams,
+                changed: paramsChanged
+            };
+        }
+
+        return null;
+    };
+    /**
+     * Update Orthographic parameters using a bounding box definition.
+     * @param {Array|Object} bounds - Either [latSW, lonSW, latNE, lonNE] array or object with sw/ne keys
+     * @returns {Object} Projection parameters {lat0, lon0, ...}
+     */
+    ixMap.Api.prototype.updateOrthographicParametersFromBounds = function (bounds) {
+        if (!bounds || !this.map || !this.map.Scale || typeof this.map.Scale.calculateOrthographicParametersFromBounds !== 'function') {
+            return null;
+        }
+
+        let latSW;
+        let lonSW;
+        let latNE;
+        let lonNE;
+
+        if (Array.isArray(bounds) && bounds.length >= 4) {
+            [latSW, lonSW, latNE, lonNE] = bounds;
+        } else if (typeof bounds === 'object') {
+            const sw = bounds.sw || bounds.southWest || bounds.SW;
+            const ne = bounds.ne || bounds.northEast || bounds.NE;
+            if (sw && ne) {
+                latSW = sw.lat ?? sw.latitude ?? sw[0];
+                lonSW = sw.lng ?? sw.lon ?? sw.longitude ?? sw[1];
+                latNE = ne.lat ?? ne.latitude ?? ne[0];
+                lonNE = ne.lng ?? ne.lon ?? ne.longitude ?? ne[1];
+            }
+        }
+
+        return this.map.Scale.calculateOrthographicParametersFromBounds(latSW, lonSW, latNE, lonNE);
+    };
+    
     /**
      * wrapper, to show one theme
      */

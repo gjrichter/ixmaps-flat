@@ -1050,7 +1050,7 @@ $Log: maptheme.js,v $
 		if (szFlag && szFlag.match(/fast|silent|direct/)) {
 			map.Themes.execute();
 		} else {
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 
 		return mapTheme;
@@ -1230,6 +1230,9 @@ $Log: maptheme.js,v $
 						mapTheme.getStringValueIndex(mapTheme.szValuesA[i], "set");
 					}
 				}
+			}
+			if (__isdef(styleObj.means)) {
+				mapTheme.szMeansA = this.toArray(styleObj.means);
 			}
 			if (__isdef(styleObj.colorvalues)) {
 				mapTheme.szColorValuesA = this.toArray(styleObj.colorvalues);
@@ -2035,7 +2038,7 @@ $Log: maptheme.js,v $
 			if (mapTheme.animateTimeout) {
 				clearTimeout(mapTheme.animateTimeout);
 			}
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 	};
 	/**
@@ -2156,7 +2159,7 @@ $Log: maptheme.js,v $
 
 				_TRACE("data is already loaded, then make the theme");
 				// data is already loaded, then make the theme 
-				executeWithMessage('map.Themes.execute()', szMessage);
+				executeWithMessage(() => map.Themes.execute(), szMessage);
 
 				// if there is an external data script, get the stored resolved path
 				// need this for sharing URL's
@@ -2231,7 +2234,7 @@ $Log: maptheme.js,v $
 	};
 	ixMap.Themes.prototype.loadExternalDataFinish = function (szMessage) {
 		this.fWaitforData = false;
-		executeWithMessage('map.Themes.execute()', szMessage);
+		executeWithMessage(() => map.Themes.execute(), szMessage);
 	};
 
 	/**
@@ -2270,7 +2273,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fRedraw = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		evt.stopPropagation();
 		evt.preventDefault();
@@ -2284,7 +2287,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fShow = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -2300,7 +2303,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fHide = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -2316,7 +2319,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fToggle = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -2339,7 +2342,7 @@ $Log: maptheme.js,v $
 					mapTheme.fToggle = true;
 				}
 				mapTheme.fRemove = true;
-				executeWithMessage("map.Themes.execute()", "... processing ...");
+				executeWithMessage(() => map.Themes.execute(), "... processing ...");
 			}
 		}
 		if (evt) {
@@ -2396,7 +2399,7 @@ $Log: maptheme.js,v $
 			}
 		}
 		this.fWaitforData = true;
-		executeWithMessage("map.Themes.execute()", "... processing ...");
+		executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		if (evt) {
 			evt.stopPropagation();
 			evt.preventDefault();
@@ -2410,7 +2413,7 @@ $Log: maptheme.js,v $
 		for (var i = 0; i < this.themesA.length; i++) {
 			if (this.themesA[i].szFlag.match(/SELECTION/)) {
 				this.themesA[i].fRemove = true;
-				executeWithMessage("map.Themes.execute()", "... processing ...");
+				executeWithMessage(() => map.Themes.execute(), "... processing ...");
 			}
 		}
 		if (evt) {
@@ -2482,7 +2485,7 @@ $Log: maptheme.js,v $
 		}
 		if (this.fExecuteDelayed) {
 			this.fExecuteDelayed = false;
-			executeWithMessage("map.Themes.execute()", " ... ");
+			executeWithMessage(() => map.Themes.execute(), " ... ");
 			return;
 		}
 		// disable theme widgets, if necessary
@@ -2732,7 +2735,7 @@ $Log: maptheme.js,v $
 			map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(mapTheme.szId);
 		} catch (e) { }
 
-		if (mapTheme.szFlag.match(/TEXTONLY/)) {
+		if (mapTheme.szFlag.match(/TEXTONLY/) || mapTheme.szLabelField) {
 			setTimeout(function () {
 				map.Layer.adaptLabel();
 			}, 10);
@@ -2883,7 +2886,7 @@ $Log: maptheme.js,v $
 	ixMap.Themes.prototype.changeAllChartScaling = function (evt, nDelta) {
 		for (var i = 0; i < this.themesA.length; i++) {
 			this.themesA[i].fResize = 999;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		evt.stopPropagation();
 		evt.preventDefault();
@@ -2898,7 +2901,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fResize = nDelta;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		evt.stopPropagation();
 		evt.preventDefault();
@@ -2913,7 +2916,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fOpacity = nDelta;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		evt.stopPropagation();
 		evt.preventDefault();
@@ -3083,15 +3086,21 @@ $Log: maptheme.js,v $
 
 			// remove old declutter position changes
 			// -------------------------------------
-			for (let i = 0; i < nodesA.length; i++) {
-				var ptPos = nodesA[i].fu.getPosition();
-				var ptPos2 = new point(nodesA[i].getAttributeNS(szMapNs, "xEnd"), nodesA[i].getAttributeNS(szMapNs, "yEnd"));
-				var nDur = nodesA[i].getAttributeNS(szMapNs, "dur");
+		for (let i = 0; i < nodesA.length; i++) {
+			var ptPos = nodesA[i].fu.getPosition();
+			var ptPos2 = new point(nodesA[i].getAttributeNS(szMapNs, "xEnd"), nodesA[i].getAttributeNS(szMapNs, "yEnd"));
+			var nDur = nodesA[i].getAttributeNS(szMapNs, "dur");
 
-				let dx = (ptPos2.x - ptPos.x) / nDur;
-				let dy = (ptPos2.y - ptPos.y) / nDur;
+			// Check if ptPos and ptPos2 are valid before accessing x/y
+			if (!ptPos || ptPos.x === undefined || ptPos.y === undefined ||
+			    !ptPos2 || ptPos2.x === undefined || ptPos2.y === undefined) {
+				continue; // Skip if positions are invalid
+			}
 
-				nodesA[i].fu.setPosition(ptPos.x + dx, ptPos.y + dy);
+			let dx = (ptPos2.x - ptPos.x) / nDur;
+			let dy = (ptPos2.y - ptPos.y) / nDur;
+
+			nodesA[i].fu.setPosition(ptPos.x + dx, ptPos.y + dy);
 
 				nodesA[i].setAttributeNS(szMapNs, "dur", --nDur);
 			}
@@ -3294,7 +3303,7 @@ $Log: maptheme.js,v $
 			if (fFlag) {
 				szNewStyle += "|VALUES";
 			}
-			executeWithMessage("map.Themes.doChangeThemeStyle('" + mapTheme.szId + "','type:" + szNewStyle + "')", "... processing ...");
+			executeWithMessage(() => map.Themes.doChangeThemeStyle(mapTheme.szId, 'type:' + szNewStyle), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -3321,7 +3330,7 @@ $Log: maptheme.js,v $
 			if (fFlag) {
 				szNewStyle += "|DOPACITYMAX";
 			}
-			executeWithMessage("map.Themes.doChangeThemeStyle('" + mapTheme.szId + "','type:" + szNewStyle + "')", "... processing ...");
+			executeWithMessage(() => map.Themes.doChangeThemeStyle(mapTheme.szId, 'type:' + szNewStyle), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -3343,7 +3352,7 @@ $Log: maptheme.js,v $
 			//mapTheme.nDopacityScale = Math.max(mapTheme.nDopacityScale,1);
 
 
-			executeWithMessage("map.Themes.doChangeThemeStyle('" + mapTheme.szId + "','type:" + szNewStyle + "')", "... processing ...");
+			executeWithMessage(() => map.Themes.doChangeThemeStyle(mapTheme.szId, 'type:' + szNewStyle), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -3362,7 +3371,7 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			mapTheme.fToggle = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		evt.stopPropagation();
 		evt.preventDefault();
@@ -3582,7 +3591,7 @@ $Log: maptheme.js,v $
 	 * @param mode the filer mode (tbd)
 	 */
 	ixMap.Themes.prototype.doFilterItems = function (szId, szFilter) {
-		executeWithMessage("map.Themes.doFilterItemsGo('" + szId + "','" + szFilter + "')", "applying filter ...");
+		executeWithMessage(() => map.Themes.doFilterItemsGo(szId, szFilter), "applying filter ...");
 	};
 	/**
 	 * filter the items of a theme
@@ -3722,7 +3731,7 @@ $Log: maptheme.js,v $
 		if (szFlag && szFlag.match(/fast|silent|direct/)) {
 			map.Themes.doChangeThemeStyle(szId, szStyle.replace(/'/g, "\\\'"), szFlag);
 		} else {
-			executeWithMessage("map.Themes.doChangeThemeStyle('" + szId + "','" + szStyle.replace(/'/g, "\\\'") + "','" + szFlag + "')", "... processing ...");
+			executeWithMessage(() => map.Themes.doChangeThemeStyle(szId, szStyle.replace(/'/g, "\\\'"), szFlag), "... processing ...");
 		}
 		if (evt) {
 			evt.stopPropagation();
@@ -3996,7 +4005,7 @@ $Log: maptheme.js,v $
 
 						// redraw the theme and exit 
 
-						executeWithMessage("map.Themes.execute()", "... processing ...");
+						executeWithMessage(() => map.Themes.execute(), "... processing ...");
 						return;
 					}
 
@@ -4797,7 +4806,11 @@ $Log: maptheme.js,v $
 			nChartOffY += bBox.height + map.Scale.normalY(10);
 			// GR 22.06.2019 check also the syntetic id created on aggregation
 			if (this.themesA[i].szFlag.match(/AGGREGATE/)) {
-				var szAggregatedId = szId.split("::")[0] + "::" + this.themesA[i].getNodePosition(szId).x + ',' + this.themesA[i].getNodePosition(szId).y;
+				var ptAggPos = this.themesA[i].getNodePosition(szId);
+				if (!ptAggPos || ptAggPos.x === undefined || ptAggPos.y === undefined) {
+					continue; // Skip if position is invalid
+				}
+				var szAggregatedId = szId.split("::")[0] + "::" + ptAggPos.x + ',' + ptAggPos.y;
 				this.getChart(szAggregatedId, chartGroup, szFlag, this.themesA[i]);
 				var bBox = map.Dom.getBox(chartGroup);
 				if (bBox.width < 0) {
@@ -5144,7 +5157,7 @@ $Log: maptheme.js,v $
 		var allNodes = [];
 		for (var i = 0; i < this.themesA.length; i++) {
 
-			if (this.themesA[i].szFlag.match(/TEXTONLY/) && this.themesA[i].chartGroup) {
+			if ((this.themesA[i].szLabelField || this.themesA[i].szFlag.match(/TEXTONLY/)) && this.themesA[i].chartGroup) {
 
 				// class highlighting active ? exclude text switched of by class highlighting
 				if ((typeof (this.themesA[i].markedClass) != "undefined") && (this.themesA[i].markedClass != null)) {
@@ -6012,12 +6025,12 @@ $Log: maptheme.js,v $
 			}
 			if (this.themesA[i].szFlag.match(/WMS/)) {
 				this.themesA[i].fRealize = true;
-				executeWithMessage("map.Themes.execute()", "...", 100);
+				executeWithMessage(() => map.Themes.execute(), "...", 100);
 				continue;
 			}
 			if (this.themesA[i].szFlag.match(/FEATURE/) && this.themesA[i].szFlag.match(/CLIPTOGEOBOUNDS|CLIPTOVIEW/)) {
 				this.themesA[i].fRealize = true;
-				executeWithMessage("map.Themes.execute()", "...", 100);
+				executeWithMessage(() => map.Themes.execute(), "...", 100);
 				continue;
 			}
 
@@ -6127,7 +6140,7 @@ $Log: maptheme.js,v $
 			lastExecutionTime += this.themesA[i].timeAggregating;
 		}
 
-		executeWithMessage("map.Themes.execute()", "working ...", 100);
+		executeWithMessage(() => map.Themes.execute(), "working ...", 100);
 		//map.Themes.execute();
 
 		return null;
@@ -6276,6 +6289,7 @@ $Log: maptheme.js,v $
 			return false;
 		}
 		if (this.dbTable) {
+			
 			try {
 				eval("this.dbFields = " + szTableName + ".fields");
 			} catch (e) {
@@ -7313,11 +7327,11 @@ $Log: maptheme.js,v $
 		this.initValues();
 
 		if (!this.getFields()) {
-			this.fRemove = true;
+			//this.fRemove = true;
 			return;
 		}
 		if (!this.loadValues()) {
-			this.fRemove = true;
+			//this.fRemove = true;
 			return;
 		}
 
@@ -7353,7 +7367,7 @@ $Log: maptheme.js,v $
 		this.timeLoading = new Date() - x;
 
 		if (((this.timeLoading > 1000) || this.szFlag.match(/VERBOSE/)) && !this.szFlag.match(/SILENT/)) {
-			executeWithMessage("map.Themes.executeContinue();", this.szFlag.match(/AGGREGATE/) ? "aggregating" : "parsing data");
+			executeWithMessage(() => map.Themes.executeContinue(), this.szFlag.match(/AGGREGATE/) ? "aggregating" : "parsing data");
 		} else {
 			map.Themes.executeContinue();
 		}
@@ -7398,7 +7412,7 @@ $Log: maptheme.js,v $
 		this.timeAggregating = new Date() - x;
 		//this.fDraw = true;
 		if ((this.timeLoading > 1000 || this.szFlag.match(/VERBOSE/)) && !this.szFlag.match(/SILENT/)) {
-			executeWithMessage("map.Themes.executeContinue();", "drawing");
+			executeWithMessage(() => map.Themes.executeContinue(), "drawing");
 		} else {
 			map.Themes.executeContinue();
 		}
@@ -7463,6 +7477,20 @@ $Log: maptheme.js,v $
 		if (this.szFlag.match(/FEATURE/)) {
 			this.mapSleep = null;
 			this.unpaintMap();
+			// Ensure chartGroup exists before clearing
+			if (!this.chartGroup) {
+				this.createChartGroup(map.Layer.objectGroup);
+			}
+			// Clear chartGroup before redrawing chart themes when redraw is caused by projection parameter change
+			// This applies to all chart themes (not just FEATURE) to ensure maxcharts themes clear properly
+			// This avoids flicker while preserving incremental redraws (CLIPTOGEOBOUNDS/CLIPTOVIEW)
+			if (this.chartGroup && this.fClearOnProjectionChange) {
+				this.chartGroup.style.setProperty("display", "inline", "");
+				_TRACE("Clearing chartGroup in realize_draw() - fRedraw: " + this.fRedraw + " (projection parameter change)");
+				map.Dom.clearGroup(this.chartGroup);
+				// Clear the flag after use
+				this.fClearOnProjectionChange = false;
+			}
 			this.chartMap();
 		} else
 			if (this.szFlag.match(/CHART/)) {
@@ -9022,7 +9050,9 @@ $Log: maptheme.js,v $
 							) {
 								szId = this.objTheme.dbRecords[j][this.objTheme.nFieldSelectionIndex];
 								var szMA = szId.match(positionRegExp);
-								ptPos = map.Scale.getMapPositionOfLatLon(parseFloat(szMA[2]), parseFloat(szMA[1]));
+								if (szMA) {
+									ptPos = map.Scale.getMapPositionOfLatLon(parseFloat(szMA[2]), parseFloat(szMA[1]));
+								}
 							} else {
 								szId = this.objTheme.dbRecords[j][this.objTheme.nFieldSelectionIndex];
 								if (this.fSelectionFieldToUpper) {
@@ -9030,7 +9060,8 @@ $Log: maptheme.js,v $
 								}
 								ptPos = this.getNodePosition(szThemeLayer + "::" + szId);
 							}
-					if (ptPos) {
+					// Check if ptPos is valid and has x/y properties (can be null for orthographic projection)
+					if (ptPos && ptPos.x !== undefined && ptPos.y !== undefined) {
 						this.itemA[(szThemeLayer + "::" + String(ptPos.x) + ',' + String(ptPos.y))] = {
 							ptPos: ptPos
 						};
@@ -9327,6 +9358,10 @@ $Log: maptheme.js,v $
 					}
 
 			if (this.szFlag.match(/DUMP/)) {
+				// Check if ptPos is valid before accessing x/y
+				if (!ptPos || ptPos.x === undefined || ptPos.y === undefined) {
+					continue; // Skip if position is invalid
+				}
 				var shapeGroup = map.Dom.newGroup(this.chartGroup, this.szId + ":" + szId + ":chart");
 				shapeGroup.fu.setMatrix([this.nChartGroupScale, 0, 0, this.nChartGroupScale, ptPos.x, ptPos.y]);
 				map.Dom.newShape('circle', shapeGroup, 0, 0, map.Scale.normalX(3), "fill:blue;fill-opacity:0.2;stroke:none;");
@@ -9355,7 +9390,7 @@ $Log: maptheme.js,v $
 				} else
 					if (this.fSelection2 == "LatLon") {
 						ptPos2 = map.Scale.getMapPositionOfLatLon(parseFloat(String(this.objTheme.dbRecords[j][this.nSelection2_0]).replace(/\,/g, ".")), parseFloat(String(this.objTheme.dbRecords[j][this.nSelection2_1]).replace(/\,/g, ".")));
-						szId2 = ptPos ? (String(ptPos.x) + ',' + String(ptPos.y)) : "";
+						szId2 = (ptPos && ptPos.x !== undefined && ptPos.y !== undefined) ? (String(ptPos.x) + ',' + String(ptPos.y)) : "";
 					} else
 						if (this.fSelection == "Point" ||
 							this.fSelection == "MultiPoint" ||
@@ -9364,7 +9399,9 @@ $Log: maptheme.js,v $
 						) {
 							szId2 = this.objTheme.dbRecords[j][this.objTheme.nFieldSelection2Index];
 							var szMA = szId.match(positionRegExp);
-							ptPos2 = map.Scale.getMapPositionOfLatLon(parseFloat(szMA[2]), parseFloat(szMA[1]));
+							if (szMA) {
+								ptPos2 = map.Scale.getMapPositionOfLatLon(parseFloat(szMA[2]), parseFloat(szMA[1]));
+							}
 						} else {
 							szId2 = this.objTheme.dbRecords[j][this.objTheme.nFieldSelection2Index];
 							if (this.nSelectionFieldDigits) {
@@ -11823,6 +11860,11 @@ $Log: maptheme.js,v $
 					}
 					this.nMedianA[i] = quantileA[Math.round(quantileA.length / 2)];
 
+					// GR 24/10/2025 new theme property means[]
+					if (this.szMeansA){
+						this.nMeanA[i] = Number(this.szMeansA[i]);
+					}
+					else
 					if (this.nSum100) {
 						if (this.szFlag.match(/DIFFERENCE/)) {
 							this.nMeanA[i] = this.nSumA[i] / this.nCount;
@@ -12482,7 +12524,7 @@ $Log: maptheme.js,v $
 				}
 
 			if (!xFound) {
-				_TRACE('no value: ' + a + ', ' + this.itemA[a].nValuesA[0] + ', ' + nValue);
+				//_TRACE('no value: ' + a + ', ' + this.itemA[a].nValuesA[0] + ', ' + nValue);
 				this.itemA[a].szColor = this.szNoDataColor ? this.szNoDataColor : "white";
 				tilesNodesA = this.getItemNodes(a);
 				for (j = 0; j < tilesNodesA.length; j++) {
@@ -12646,6 +12688,24 @@ $Log: maptheme.js,v $
 
 		switch (this.szShapeType) {
 			case "line":
+				// GR 15.11.2025 grichter/cursor Save original style if not already saved (for restoring when unpainting)
+				// Check if save-style exists, if not, check if current style is a CHOROPLETH style
+				var savedStyle = shapeNode.getAttributeNS(szMapNs, "save-style");
+				if (!savedStyle) {
+					var currentStyle = shapeNode.getAttributeNS(null, "style");
+					// Check if current style looks like a CHOROPLETH style (has stroke with color, not "none")
+					// If it's a CHOROPLETH style, the original FEATURE style was likely "none" or empty
+					if (currentStyle && currentStyle.match(/stroke:\s*[^;n]/) && !currentStyle.match(/stroke:\s*none/)) {
+						// Current style is a CHOROPLETH style, original was likely "none"
+						shapeNode.setAttributeNS(szMapNs, "save-style", "none");
+					} else if (currentStyle) {
+						// Current style exists and is not CHOROPLETH, save it
+						shapeNode.setAttributeNS(szMapNs, "save-style", currentStyle);
+					} else {
+						// No current style, mark as having no style (for FEATURE layers with colorscheme: none)
+						shapeNode.setAttributeNS(szMapNs, "save-style", "none");
+					}
+				}
 				shapeNode.setAttributeNS(null, "style", "fill:none;stroke:" + szColor + ";" + this.szStyle);
 				break;
 			case "line+buffer":
@@ -12712,7 +12772,39 @@ $Log: maptheme.js,v $
 			}
 		}
 
-		shapeNode.removeAttributeNS(null, "style");
+		// GR 15.11.2025 grichter/cursor Restore original style if it was saved
+		var savedStyle = shapeNode.getAttributeNS(szMapNs, "save-style");
+		if (savedStyle) {
+			if (savedStyle == "none" || savedStyle.match(/stroke:\s*none/i)) {
+				// Original had no style (FEATURE layer with colorscheme: none)
+				// For lines, set stroke: none to make them invisible
+				if (this.szShapeType == "line") {
+					shapeNode.setAttributeNS(null, "style", "stroke:none;");
+				} else {
+					shapeNode.removeAttributeNS(null, "style");
+				}
+			} else {
+				// Restore the original style
+				shapeNode.setAttributeNS(null, "style", savedStyle);
+			}
+			// Don't remove save-style attribute - keep it for future redraws
+			// This ensures the original FEATURE style is preserved across zoom/pan redraws
+		} else {
+			// No saved style - check if current style is CHOROPLETH style
+			// If so, assume original was "none" (FEATURE layer with colorscheme: none)
+			var currentStyle = shapeNode.getAttributeNS(null, "style");
+			if (currentStyle && currentStyle.match(/stroke:\s*[^;n]/) && !currentStyle.match(/stroke:\s*none/i)) {
+				// Current style is CHOROPLETH, set to "none" for FEATURE layers
+				if (this.szShapeType == "line") {
+					shapeNode.setAttributeNS(null, "style", "stroke:none;");
+				} else {
+					shapeNode.removeAttributeNS(null, "style");
+				}
+			} else {
+				// No saved style and not CHOROPLETH - remove style attribute (fallback to original behavior)
+				shapeNode.removeAttributeNS(null, "style");
+			}
+		}
 
 		// GR 24.10.2017 remove class
 		shapeNode.removeAttributeNS(szMapNs, "class");
@@ -14372,6 +14464,21 @@ $Log: maptheme.js,v $
 
 		_TRACE("== MapTheme.chartMap()  ");
 
+		// Clear existing chart elements when redraw is caused by projection parameter change
+		// Only clear on first call (startIndex is 0 or undefined) to avoid clearing during incremental drawing
+		// This preserves incremental redraws (CLIPTOGEOBOUNDS/CLIPTOVIEW) while avoiding flicker on projection changes
+		// Applies to ALL chart themes (not just FEATURE) to ensure maxcharts themes clear properly
+		if (this.chartGroup && this.szFlag && this.szFlag.match(/CHART/) && 
+		    this.fClearOnProjectionChange && (!startIndex || startIndex === 0)) {
+			// Make sure group is visible before clearing
+			this.chartGroup.style.setProperty("display", "inline", "");
+			// Clear synchronously right before drawing to minimize flicker
+			_TRACE("Clearing chartGroup at start of chartMap() - startIndex: " + startIndex + " (projection parameter change)");
+			map.Dom.clearGroup(this.chartGroup);
+			// Clear the flag after use
+			this.fClearOnProjectionChange = false;
+		}
+
 		// check if chart is scaledependent
 		if (this.nChartUpper || this.nChartLower) {
 			if ((this.nChartUpper && (map.Scale.nTrueMapScale * map.Scale.nZoomScale > this.nChartUpper)) ||
@@ -14417,6 +14524,15 @@ $Log: maptheme.js,v $
 		}
 
 		var mapGeoBounds = map.Zoom.getBoundsOfMapInGeoBounds();
+
+		// Check if bounds are valid (can be null for orthographic projection when corners are outside visible hemisphere)
+		if (!mapGeoBounds || !mapGeoBounds[0] || !mapGeoBounds[1] || 
+		    mapGeoBounds[0].x === undefined || mapGeoBounds[0].y === undefined ||
+		    mapGeoBounds[1].x === undefined || mapGeoBounds[1].y === undefined) {
+			// Use fallback bounds if calculation failed
+			mapGeoBounds = [new point(-180, -90), new point(180, 90)];
+		}
+		
 		var width = (mapGeoBounds[1].x - mapGeoBounds[0].x) / 2;
 		var tile = Math.floor(Math.round(1 / width * 100) / 100);
 
@@ -14434,8 +14550,6 @@ $Log: maptheme.js,v $
 				return;
 			}
 		}
-
-		//alert(mapGeoBounds[0].x+','+mapGeoBounds[0].y+' '+mapGeoBounds[1].x+','+mapGeoBounds[1].y);
 
 		this.mapGeoBounds = new Array(new point(mapGeoBounds[0].x, mapGeoBounds[0].y), new point(mapGeoBounds[1].x, mapGeoBounds[1].y));
 
@@ -15035,10 +15149,8 @@ $Log: maptheme.js,v $
 		// GR 26.12.2020 define FEATURE style outside loop
 		//
 		if (this.szFlag.match(/FEATURE/)) {
-			// GR 21.10.2025 if fRedraw, clear existing FEATURE elements
-			if (this.fRedraw && this.chartGroup) {	
-				map.Dom.clearGroup(this.chartGroup);
-			}
+
+			// Clearing is now done at the start of chartMap() to ensure it happens even on early returns
 
 			this.chartGroup.style.setProperty("fill", this.chart.szColor || "white");
 			this.chartGroup.style.setProperty("fill-opacity", (this.fillOpacity || 0.7));
@@ -15119,8 +15231,13 @@ $Log: maptheme.js,v $
 
 		_TRACE("drawing ...");
 
-		var nRadius = map.Scale.getDeltaXofDistanceInMeter(this.nGridWidth) / 2 * 20;
-		nRadius = nRadius * map.Scale.nZoomScale * 20;
+		var nRadius = 0;
+		if (this.nGridWidth) {
+			nRadius = map.Scale.getDeltaXofDistanceInMeter(this.nGridWidth) / 2 * 20;
+		} else {
+			nRadius = map.Scale.normalX(nChartSize / 3);
+			nRadius = nRadius * map.Scale.nZoomScale * 20;
+		}
 
 		for (var nAi = startIndex; nAi < this.indexA.length; nAi++) {
 
@@ -15168,11 +15285,12 @@ $Log: maptheme.js,v $
 				// check, if we have a position, if not -> no chart
 				ptOff = this.itemA[a].ptPos || this.getNodePosition(selectionId);
 				// tbd maybe a flag to switch this behaviour
-				if (ptOff) {
+				// Check if ptOff is valid and has x/y properties (can be null for orthographic projection)
+				if (ptOff && ptOff.x !== undefined && ptOff.y !== undefined) {
 					ptOff.x = isNaN(ptOff.x) ? 0 : ptOff.x;
 					ptOff.y = isNaN(ptOff.y) ? 0 : ptOff.y;
 				}
-				if (!ptOff || isNaN(ptOff.x) || isNaN(ptOff.y)) {
+				if (!ptOff || ptOff.x === undefined || ptOff.y === undefined || isNaN(ptOff.x) || isNaN(ptOff.y)) {
 					_TRACE("missing position: " + a);
 					this.nMissingPositionCount++;
 					continue;
@@ -15227,8 +15345,12 @@ $Log: maptheme.js,v $
 
 				if (!this.objTheme.dbRecords[this.itemA[a].dbIndex][this.objTheme.nFieldSelectionIndex]) {
 					var ptOff = this.itemA[a].ptPos || this.getNodePosition(selectionId);
-					if (ptOff) {
+					// Check if ptOff is valid and has x/y properties (can be null for orthographic projection when partially culled)
+					if (ptOff && ptOff.x !== undefined && ptOff.y !== undefined) {
 						shapeGroup.fu.setMatrix([this.nChartGroupScaleX, 0, 0, this.nChartGroupScaleY, ptOff.x, ptOff.y]);
+					} else {
+						// Skip this feature if we can't get a valid position
+						continue;
 					}
 					continue;
 				}
@@ -15236,8 +15358,12 @@ $Log: maptheme.js,v $
 				var szGeo = this.objTheme.dbRecords[this.itemA[a].dbIndex][this.objTheme.nFieldSelectionIndex];
 				if (!szGeo.match(/coordinates/i)) {
 					var ptOff = this.itemA[a].ptPos || this.getNodePosition(selectionId);
-					if (ptOff) {
+					// Check if ptOff is valid and has x/y properties (can be null for orthographic projection when partially culled)
+					if (ptOff && ptOff.x !== undefined && ptOff.y !== undefined) {
 						shapeGroup.fu.setMatrix([this.nChartGroupScaleX, 0, 0, this.nChartGroupScaleY, ptOff.x, ptOff.y]);
+					} else {
+						// Skip this feature if we can't get a valid position
+						continue;
 					}
 					continue;
 				}
@@ -15322,7 +15448,71 @@ $Log: maptheme.js,v $
 				shapeGroup.setAttributeNS(szMapNs, "class", (typeof (this.itemA[a].nClass) != "undefined") ? this.itemA[a].nClass : String(this.itemA[a].nValuesA[0] - 1));
 
 				// maximal length of map elements
-				var maxLenX = (map.Scale.getMapPositionOfLatLon(80, 180).x - map.Scale.getMapPositionOfLatLon(80, -180).x);
+				var ptMax1 = map.Scale.getMapPositionOfLatLon(80, 180);
+				var ptMax2 = map.Scale.getMapPositionOfLatLon(80, -180);
+				var maxLenX = (ptMax1 && ptMax2 && ptMax1.x !== undefined && ptMax2.x !== undefined) 
+					? (ptMax1.x - ptMax2.x) 
+					: 10000000; // Fallback value if calculation fails
+
+				/**
+				 * Move invisible points to the horizon for Orthographic projection
+				 * Uses binary search to find the intersection point between a segment and the horizon
+				 * @param {number} lat - Latitude of the invisible point
+				 * @param {number} lon - Longitude of the invisible point
+				 * @param {number} prevLat - Latitude of the previous visible point
+				 * @param {number} prevLon - Longitude of the previous visible point
+				 * @param {object} referenceHorizonPoint - Reference point on horizon (for consistency)
+				 * @returns {object|null} Object with {pt, lat, lon} or null if not found
+				 */
+				function movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint) {
+					if (prevLat !== undefined && prevLon !== undefined) {
+						var steps = 12;
+						var t0 = 0, t1 = 1;
+						
+						// Binary search along the segment from prevPoint to currentPoint
+						for (var step = 0; step < steps; step++) {
+							var tMid = (t0 + t1) / 2;
+							var latMid = prevLat + (lat - prevLat) * tMid;
+							var lonMid = prevLon + (lon - prevLon) * tMid;
+							var ptMid = map.Scale.getMapPositionOfLatLon(latMid, lonMid);
+							
+							if (ptMid && ptMid.x !== undefined && ptMid.y !== undefined) {
+								t0 = tMid;
+							} else {
+								t1 = tMid;
+							}
+						}
+						
+						var tFinal = t0;
+						if (tFinal > 0) {
+							var latFinal = prevLat + (lat - prevLat) * tFinal;
+							var lonFinal = prevLon + (lon - prevLon) * tFinal;
+							var ptFinal = map.Scale.getMapPositionOfLatLon(latFinal, lonFinal);
+							if (ptFinal && ptFinal.x !== undefined && ptFinal.y !== undefined) {
+								return {
+									pt: ptFinal,
+									lat: latFinal,
+									lon: lonFinal
+								};
+							}
+						}
+					}
+					
+					// Fallback: use reference horizon point if available
+					if (referenceHorizonPoint && referenceHorizonPoint.lat !== undefined) {
+						var ptRef = map.Scale.getMapPositionOfLatLon(referenceHorizonPoint.lat, referenceHorizonPoint.lon);
+						if (ptRef && ptRef.x !== undefined && ptRef.y !== undefined) {
+							return {
+								pt: ptRef,
+								lat: referenceHorizonPoint.lat,
+								lon: referenceHorizonPoint.lon
+							};
+						}
+					}
+					
+					return null;
+				}
+
 
 				// geojson Point
 				// -------------		
@@ -15330,7 +15520,12 @@ $Log: maptheme.js,v $
 
 					map.Layer.listA[this.szThemesA[0]].szType = "point";
 					var coordinatesA = json.coordinates;
+					
 					var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[1], coordinatesA[0]);
+					// Check if point is null (can happen for orthographic projection when on backside)
+					if (!pt || pt.x === undefined || pt.y === undefined) {
+						continue;
+					}
 					shapeGroup.fu.setMatrix([this.nChartGroupScaleX, 0, 0, this.nChartGroupScaleY, pt.x, pt.y]);
 					var shape = map.Dom.newShape('circle', shapeGroup, 0, 0, map.Scale.normalX(1), "fill:#dd0000;fill-opacity:0.3;stroke:#dd0000;stroke-opacity:1;stroke-width:1");
 				}
@@ -15343,22 +15538,45 @@ $Log: maptheme.js,v $
 
 					map.Layer.listA[this.szThemesA[0]].szType = "line";
 					var coordinatesA = json.coordinates;
-					var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-					var d = "M " + pt.x + "," + pt.y + " l ";
-					var ptAct = new point(pt.x, pt.y);
-					for (i in coordinatesA) {
-						var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[i][1], coordinatesA[i][0]);
+					
+					var dParts = [];
+					var ptAct = null;
+					var fHasSegment = false;
+					for (var coordIdx = 0; coordIdx < coordinatesA.length; coordIdx++) {
+						var lat = coordinatesA[coordIdx][1];
+						var lon = coordinatesA[coordIdx][0];
+						var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+						// Skip backside points; start a new segment afterwards
+						if (!pt || pt.x === undefined || pt.y === undefined) {
+							ptAct = null;
+							continue;
+						}
 						// polygon segments with x length >= 99% of max width 
 						// are most probably caused by coordinate transition (-180 -> 178) or so
 						// we treat them like coordinate overflow and add/subtract max width
-						if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-							//pt.x += (pt.x<0)?maxLenX:-maxLenX;
-							pt = map.Scale.getMapPositionOfLatLon(coordinatesA[i][1], coordinatesA[i][0] + ((pt.x < 0) ? 360 : -360));
+						if (ptAct && Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+							var ptAdjusted = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+							if (ptAdjusted && ptAdjusted.x !== undefined && ptAdjusted.y !== undefined) {
+								pt = ptAdjusted;
+							} else {
+								ptAct = null;
+								continue;
+							}
 						}
-						d += (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y) + " ";
+						if (!ptAct) {
+							dParts.push((dParts.length ? " M " : "M ") + pt.x + "," + pt.y);
+						} else {
+							dParts.push(" l " + (pt.x - ptAct.x) + "," + (pt.y - ptAct.y));
+							fHasSegment = true;
+						}
 						ptAct = new point(pt.x, pt.y);
 					}
 
+					if (!fHasSegment) {
+						continue;
+					}
+
+					var d = dParts.join("");
 					var shape = map.Dom.newShape('path', shapeGroup, d, "");
 				}
 
@@ -15372,84 +15590,155 @@ $Log: maptheme.js,v $
 					var linesA = json.coordinates;
 					for (i in linesA) {
 						var coordinatesA = linesA[i];
+						
+						var dParts = [];
 						var ptAct = null;
+						var fHasSegment = false;
 
-						var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-						var d = "M " + (pt.x) + ',' + (pt.y) + " l ";
-						ptAct = new point(pt.x, pt.y);
-
-						for (var ii in coordinatesA) {
-							var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0]);
+						for (var coordIdx = 0; coordIdx < coordinatesA.length; coordIdx++) {
+							var lat = coordinatesA[coordIdx][1];
+							var lon = coordinatesA[coordIdx][0];
+							var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+							// Skip backside points; start a new segment afterwards
+							if (!pt || pt.x === undefined || pt.y === undefined) {
+								ptAct = null;
+								continue;
+							}
 							// polygon segments with x length >= 99% of max width 
 							// are most probably caused by coordinate transition (-180 -> 178) or so
 							// we treat them like coordinate overflow and add/subtract max width
-							if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-								//pt.x += (pt.x<0)?maxLenX:-maxLenX;
-								pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0] + ((pt.x < 0) ? 360 : -360));
+							if (ptAct && Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+								var ptAdjusted = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+								if (ptAdjusted && ptAdjusted.x !== undefined && ptAdjusted.y !== undefined) {
+									pt = ptAdjusted;
+								} else {
+									ptAct = null;
+									continue;
+								}
 							}
-							d += (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y) + " ";
+							if (!ptAct) {
+								dParts.push((dParts.length ? " M " : "M ") + pt.x + "," + pt.y);
+							} else {
+								dParts.push(" l " + (pt.x - ptAct.x) + "," + (pt.y - ptAct.y));
+								fHasSegment = true;
+							}
 							ptAct = new point(pt.x, pt.y);
 						}
+
+						if (!fHasSegment) {
+							continue;
+						}
+
+						var d = dParts.join("");
 						var shape = map.Dom.newShape('path', shapeGroup, d, "");
 					}
 				}
 
-				// geojson Polygon ...
+				// geojson Polygon
 				// ---------------		
 				if (json.type == "Polygon") {
 
 					map.Layer.listA[this.szThemesA[0]].szType = "polygon";
 					var linesA = json.coordinates;
+					
 					var d = "";
-					var x = 0,
-						y = 0,
-						count = 0;
+					var x = 0, y = 0, count = 0; // For center calculation (visible points only)
+					
 					for (i in linesA) {
 						var coordinatesA = linesA[i];
 						var ptAct = null;
+						var prevLat = null;
+						var prevLon = null;
+						var referenceHorizonPoint = null; // First horizon intersection defines clipping side
 
 						var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-						d += "M " + (pt.x) + ',' + (pt.y) + " l ";
+						var firstVisible = (pt && pt.x !== undefined && pt.y !== undefined);
+						
+						if (!firstVisible) {
+							continue; // Skip ring if first point is invisible
+						}
+						
+						// Start path and initialize tracking
+						d += "M " + (pt.x) + ',' + (pt.y);
 						ptAct = new point(pt.x, pt.y);
+						x += pt.x;
+						y += pt.y;
+						count++;
+						prevLat = coordinatesA[0][1];
+						prevLon = coordinatesA[0][0];
 
-						for (ii in coordinatesA) {
-							var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0]);
-							// polygon segments with x length >= 99% of max width 
-							// are most probably caused by coordinate transition (-180 -> 178) or so
-							// we treat them like coordinate overflow and add/subtract max width
-							if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-								//pt.x += (pt.x<0)?maxLenX:-maxLenX;
-								pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0] + ((pt.x < 0) ? 360 : -360));
+						for (var ii = 1; ii < coordinatesA.length; ii++) {
+							var lat = coordinatesA[ii][1];
+							var lon = coordinatesA[ii][0];
+							var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+							var visible = (pt && pt.x !== undefined && pt.y !== undefined);
+							
+							if (!visible) {
+								// Invisible point - clip to horizon in Orthographic projection
+								if (map.Scale.szMapProjection === "Orthographic") {
+									var horizonResult = movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint);
+									if (horizonResult && horizonResult.pt) {
+										// Validate distance to prevent wild jumps
+										var dx = Math.abs(horizonResult.pt.x - ptAct.x);
+										var dy = Math.abs(horizonResult.pt.y - ptAct.y);
+										var distance = Math.sqrt(dx*dx + dy*dy);
+										var maxReasonableDistance = maxLenX * 0.5;
+										
+										if (distance < maxReasonableDistance) {
+											if (!referenceHorizonPoint) {
+												referenceHorizonPoint = {
+													lat: horizonResult.lat,
+													lon: horizonResult.lon
+												};
+											}
+											
+											d += " l " + (horizonResult.pt.x - ptAct.x) + ',' + (horizonResult.pt.y - ptAct.y);
+											ptAct = new point(horizonResult.pt.x, horizonResult.pt.y);
+										}
+									}
+								}
+							} else {
+								// Visible point - handle coordinate wrapping
+								if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+									pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+									if (!pt || pt.x === undefined || pt.y === undefined) {
+										continue;
+									}
+								}
+
+								x += pt.x;
+								y += pt.y;
+								count++;
+								d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
+								ptAct = new point(pt.x, pt.y);
 							}
-
-							x += pt.x;
-							y += pt.y;
-							d += (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y) + " ";
-							ptAct = new point(pt.x, pt.y);
+							
+							prevLat = lat;
+							prevLon = lon;
 						}
 						d += " z";
-						count += coordinatesA.length;
 					}
-					var shape = map.Dom.newShape('path', shapeGroup, d, "");
-					shapeGroup.setAttributeNS(szMapNs, "center", "x:" + x / count + ",y:" + y / count);
-					shapeGroup.setAttributeNS(szMapNs, "area", this.itemA[a].nSize);
-					shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
+					
+					if (d.length > 0 && count > 0) {
+						var shape = map.Dom.newShape('path', shapeGroup, d, "");
+						shapeGroup.setAttributeNS(szMapNs, "center", "x:" + x / count + ",y:" + y / count);
+						shapeGroup.setAttributeNS(szMapNs, "area", this.itemA[a].nSize);
+						shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
+					}
 				}
 
 				// geojson MultiPolygon
 				// --------------------		
 				if (json.type == "MultiPolygon") {
 
-					var x = [],
-						y = [],
-						count = [];
+					var x = [], y = [], count = []; // For center calculation (visible points only)
 
 					map.Layer.listA[this.szThemesA[0]].szType = "polygon";
 					var polygonA = json.coordinates;
+					
 					for (var p in polygonA) {
 						var linesA = polygonA[p];
 						var d = "";
-
 						x[p] = 0;
 						y[p] = 0;
 						count[p] = 0;
@@ -15457,34 +15746,84 @@ $Log: maptheme.js,v $
 						for (i in linesA) {
 							var coordinatesA = linesA[i];
 							var ptAct = null;
+							var prevLat = null;
+							var prevLon = null;
+							var referenceHorizonPoint = null; // First horizon intersection defines clipping side
 
 							var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-							d += "M " + (pt.x) + ',' + (pt.y) + " l ";
+							var firstVisible = (pt && pt.x !== undefined && pt.y !== undefined);
+							
+							if (!firstVisible) {
+								continue; // Skip ring if first point is invisible
+							}
+							
+							// Start path and initialize tracking
+							d += "M " + (pt.x) + ',' + (pt.y);
 							ptAct = new point(pt.x, pt.y);
+							x[p] += pt.x;
+							y[p] += pt.y;
+							count[p]++;
+							prevLat = coordinatesA[0][1];
+							prevLon = coordinatesA[0][0];
 
-							for (ii in coordinatesA) {
-								var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0]);
-								// polygon segments with x length >= 99% of max width 
-								// are most probably caused by coordinate transition (-180 -> 178) or so
-								// we treat them like coordinate overflow and add/subtract max width
-								if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-									//pt.x += (pt.x<0)?maxLenX:-maxLenX;
-									pt = map.Scale.getMapPositionOfLatLon(coordinatesA[ii][1], coordinatesA[ii][0] + ((pt.x < 0) ? 360 : -360));
+							for (var ii = 1; ii < coordinatesA.length; ii++) {
+								var lat = coordinatesA[ii][1];
+								var lon = coordinatesA[ii][0];
+								var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+								var visible = (pt && pt.x !== undefined && pt.y !== undefined);
+								
+								if (!visible) {
+									// Invisible point - clip to horizon in Orthographic projection
+									if (map.Scale.szMapProjection === "Orthographic") {
+										var horizonResult = movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint);
+										if (horizonResult && horizonResult.pt) {
+											// Validate distance to prevent wild jumps
+											var dx = Math.abs(horizonResult.pt.x - ptAct.x);
+											var dy = Math.abs(horizonResult.pt.y - ptAct.y);
+											var distance = Math.sqrt(dx*dx + dy*dy);
+											var maxReasonableDistance = maxLenX * 0.5;
+											
+											if (distance < maxReasonableDistance) {
+												if (!referenceHorizonPoint) {
+													referenceHorizonPoint = {
+														lat: horizonResult.lat,
+														lon: horizonResult.lon
+													};
+												}
+												
+												d += " l " + (horizonResult.pt.x - ptAct.x) + ',' + (horizonResult.pt.y - ptAct.y);
+												ptAct = new point(horizonResult.pt.x, horizonResult.pt.y);
+											}
+										}
+									}
+								} else {
+									// Visible point - handle coordinate wrapping
+									if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+										pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+										if (!pt || pt.x === undefined || pt.y === undefined) {
+											continue;
+										}
+									}
+
+									x[p] += pt.x;
+									y[p] += pt.y;
+									count[p]++;
+									d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
+									ptAct = new point(pt.x, pt.y);
 								}
-
-								x[p] += pt.x;
-								y[p] += pt.y;
-
-								d += (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y) + " ";
-								ptAct = new point(pt.x, pt.y);
+								
+								prevLat = lat;
+								prevLon = lon;
 							}
 							d += " z";
-							count[p] += coordinatesA.length;
 						}
-						var shape = map.Dom.newShape('path', shapeGroup, d, "");
+						
+						if (d.length > 0 && count[p] > 0) {
+							var shape = map.Dom.newShape('path', shapeGroup, d, "");
+						}
 					}
 
-					// set center of biggest part
+					// Set center based on biggest part
 					var pp = 0;
 					for (p in count) {
 						if (count[p] > pp) {
@@ -15493,7 +15832,9 @@ $Log: maptheme.js,v $
 							pp = count[p];
 						}
 					}
-					shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
+					if (pp > 0) {
+						shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
+					}
 				}
 
 				continue;
@@ -15503,6 +15844,12 @@ $Log: maptheme.js,v $
 			// GR 10.08.2018 most simple rappresentation DOT
 			// ------------------------------------------------
 			if (this.szFlag.match(/\bDOT\b/)) {
+				// Get position - ptOff may not be defined if we're outside the non-FEATURE block
+				var ptOff = this.itemA[a].ptPos || this.getNodePosition(selectionId);
+				// Check if ptOff is valid (can be null for FEATURE themes when partially culled)
+				if (!ptOff || ptOff.x === undefined || ptOff.y === undefined) {
+					continue; // Skip if position is invalid
+				}
 				shapeGroup = map.Dom.newGroup(this.chartGroup, this.szId + ":" + selectionId + ":chartgroup");
 				shapeGroup.fu.setMatrix([this.nChartGroupScaleX, 0, 0, this.nChartGroupScaleY, ptOff.x, ptOff.y]);
 				if (this.szFlag.match(/CATEGORICAL/)) {
@@ -15523,6 +15870,10 @@ $Log: maptheme.js,v $
 			// GR 10.08.2018 most simple rappresentation QUAD
 			// ------------------------------------------------
 			if (this.szFlag.match(/\bQUAD\b/)) {
+				// Check if ptOff is valid (can be null for FEATURE themes when partially culled)
+				if (!ptOff || ptOff.x === undefined || ptOff.y === undefined) {
+					continue; // Skip if position is invalid
+				}
 				shapeGroup = map.Dom.newGroup(this.chartGroup, this.szId + ":" + selectionId + ":chart");
 				shapeGroup.fu.setMatrix([this.nChartGroupScaleX, 0, 0, this.nChartGroupScaleY, ptOff.x, ptOff.y]);
 				if (this.szFlag.match(/CATEGORICAL/)) {
@@ -15939,7 +16290,8 @@ $Log: maptheme.js,v $
 				nAutoScale = map.Themes.autoScale[a] = map.Themes.autoScale[a] || nAutoScale;
 			}
 
-			if (ptNull && ptOff && shapeGroup) {
+			// Check if ptOff is valid and has x/y properties (can be null for FEATURE themes when partially culled)
+			if (ptNull && ptOff && ptOff.x !== undefined && ptOff.y !== undefined && shapeGroup) {
 
 				// GR 05.03.2017 place plots to the center of the plot box
 				if (this.szFlag.match(/PLOT/) && this.nGridSize && this.nAutoScale) {
@@ -16313,8 +16665,6 @@ $Log: maptheme.js,v $
 							// make time stamp
 							// -----------------
 							if (this.szTimeField) {
-								console.log("---------!");
-								console.log("timestamp!");
 								var uTime = new Date(this.itemA[a].szTime).getTime() || this.itemA[a].szTime;
 								boxGroup.setAttributeNS(szMapNs, "time", uTime);
 							}
@@ -17330,7 +17680,7 @@ $Log: maptheme.js,v $
 									}
 				}
 				this.nCenterValue = nPartsA[this.nCenter];
-				this.nCenterSize = this.nCenterValue / __nSum * 100;
+				this.nCenterSize = this.nCenterValue / __nSum * 200;
 			}
 			// --------------------------------------------------
 
@@ -20165,11 +20515,22 @@ $Log: maptheme.js,v $
 														}
 													}
 													if (szFlag.match(/LASTPOP/) && nValue && (i >= nMaxI - (this.nGridX || 1))) {
+														console.log("=== LASTPOP CREATION ===");
+														console.log("szFlag:", szFlag);
+														console.log("nValue:", nValue);
+														console.log("i:", i);
+														console.log("nMaxI:", nMaxI);
+														console.log("this.nGridX:", this.nGridX);
+														console.log("condition (i >= nMaxI - (this.nGridX || 1)):", (i >= nMaxI - (this.nGridX || 1)));
+														console.log("this.szId:", this.szId);
 														plotShape = map.Dom.newShape('circle', plotGroup, nAxis, (-nPValue) * nScale, map.Scale.normalX((this.nLineWidth || 5) * (this.nMarkerSize || 1.5)), "fill:" + szColor + ";stroke:" + szLineColor + ";stroke-width:" + nLineWidth + ";");
 														if (plotShape) {
+															console.log("LASTPOP plotShape created:", plotShape);
 															plotShape.setAttributeNS(szMapNs, "value", String(nValue));
 															//plotShape.setAttributeNS(szMapNs, "class", String(nClass % (this.nGridX || 1000000)));
 															plotShape.setAttributeNS(szMapNs, "time", String(uTime));
+														} else {
+															console.log("LASTPOP plotShape creation FAILED");
 														}
 													}
 
@@ -20194,8 +20555,21 @@ $Log: maptheme.js,v $
 													}
 
 													if (szFlag.match(/\bLASTVALUE\b/) && !szFlag.match(/\bZOOM\b/) && nValue && (i >= nMaxI - (this.nGridX || 1))) {
+														console.log("=== LASTVALUE CREATION ===");
+														console.log("szFlag:", szFlag);
+														console.log("nValue:", nValue);
+														console.log("i:", i);
+														console.log("nMaxI:", nMaxI);
+														console.log("this.nGridX:", this.nGridX);
+														console.log("condition (i >= nMaxI - (this.nGridX || 1)):", (i >= nMaxI - (this.nGridX || 1)));
+														console.log("this.szId:", this.szId);
 														newText = this.createTextLabel(map.SVGDocument, shapeGroup, "", nValue, 3 / this.nScale * this.nValueScale, "", "rgba(255,255,255,0)", this.szTextColor || "#444444", "GLOW");
-														newText.fu.setPosition(nAxis - 2000, (-nPValue) * nScale - 1000);
+														if (newText) {
+															console.log("LASTVALUE newText created:", newText);
+															newText.fu.setPosition(nAxis - 2000, (-nPValue) * nScale - 1000);
+														} else {
+															console.log("LASTVALUE newText creation FAILED");
+														}
 													}
 
 													if (szFlag.match(/PLOTVAR/)) {
@@ -21842,6 +22216,11 @@ $Log: maptheme.js,v $
 				var uTime = new Date(this.itemA[a].szTime).getTime() || this.itemA[a].szTime;
 				labelGroup.setAttributeNS(szMapNs, "time", uTime);
 			}
+
+			if (map.fCheckLabelOverlap) {
+				var cItem = new ixMap.Label.Item(labelGroup);
+			}
+
 		}
 
 		// position the generated chart object
@@ -21968,6 +22347,9 @@ $Log: maptheme.js,v $
 			// GR 18.10.2013 new: lookup field may contain geo position
 			if (a.match(/(-?[0-9\.]+) ?, ?(-?[0-9\.]+)/)) {
 				var ptPos = this.getMapPosition(a);
+				if (!ptPos) {
+					return null;
+				}
 				themeNodesPosA[a] = new point(ptPos.x, ptPos.y);
 				return themeNodesPosA[a];
 			}
@@ -22115,7 +22497,7 @@ $Log: maptheme.js,v $
 				this.enable();
 			}
 			this.fToFront = true;
-			executeWithMessage("map.Themes.execute()", "... processing ...");
+			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 
 			map.Themes.onclickInfo(evt, this.szId);
 		}

@@ -122,7 +122,7 @@ var mapSelection = null;
         mapSelection.fRealize = true;
 
         _TRACE("ok");
-        executeWithMessage("map.Themes.execute()", "please wait ...");
+        executeWithMessage(() => map.Themes.execute(), "please wait ...");
 
         return mapSelection;
     };
@@ -885,7 +885,6 @@ var mapSelection = null;
                             }
                             if (this.activeTheme.szFlag.match(/AGGREGATE/) &&
                                 this.activeTheme.szFlag.match(/CATEGORICAL/)) {
-                                console.log(activeThemeItem.nValuesA);
                                 for (var p = 0; p < this.partsA.length; p++) {
                                     this.partsA[p].nCount += (activeThemeItem.nValuesA[p] ? 1 : 0);
                                     this.partsA[p].nSum += activeThemeItem.nValuesA[p] || 0;

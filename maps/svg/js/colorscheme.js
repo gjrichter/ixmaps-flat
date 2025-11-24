@@ -198,10 +198,10 @@ $Log: colorscheme.js,v $
         nSteps = Number(nSteps);
 
         if (nSteps < 2) {
-            return new Array(cc2);
+            return [cc2];
         }
         if (nSteps < 3) {
-            return new Array(cc1, cc2);
+            return [cc1, cc2];
         }
 
         if (typeof (cc1) != "string") {
@@ -322,7 +322,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             for (var i = 0; i < nSteps; i++) {
                 rr = Math.floor(rr1 + dr * i);
@@ -355,7 +355,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             nnSteps = 0;
             // GR 09.04.2014 +nShift to get a slightly colored first value
@@ -408,7 +408,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             rr = rr1;
             gg = gg1;
@@ -460,7 +460,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             rr = rr1;
             gg = gg1;
@@ -508,7 +508,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             rr = rr1;
             gg = gg1;
@@ -550,7 +550,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             rr = rr1;
             gg = gg1;
@@ -592,7 +592,7 @@ $Log: colorscheme.js,v $
             var rr, gg, bb;
 
             var ss = "";
-            var ssA = new Array(0);
+            var ssA = [];
 
             rr = rr1;
             gg = gg1;
@@ -622,7 +622,7 @@ $Log: colorscheme.js,v $
         }
     }
 
-    var _circ_colorNameA = new Array(0);
+    var _circ_colorNameA = [];
     _circ_colorNameA['aliceblue'] = "#F0F8FF";
     _circ_colorNameA['antiquewhite'] = "#FAEBD7";
     _circ_colorNameA['aqua'] = "#00FFFF";
@@ -771,15 +771,10 @@ $Log: colorscheme.js,v $
         if (szColorName.charAt(0) == "#") {
             return szColorName;
         }
-        if (szColorName.match(/RGBA/i)) {
+        var match = szColorName.match(/(?:rgb|rgba)\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+        if (match) {
             try {
-                szColorName = "#" + eval("__rgb2hex" + szColorName.slice(4));
-            } catch (e) {}
-            return szColorName;
-        }
-        if (szColorName.match(/RGB/i)) {
-            try {
-                szColorName = "#" + eval("__rgb2hex" + szColorName.slice(3));
+                szColorName = "#" + __rgb2hex(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
             } catch (e) {}
             return szColorName;
         }
@@ -819,7 +814,7 @@ $Log: colorscheme.js,v $
         return ssA;
     }
 
-    var __officeColors = new Array(
+    var __officeColors = [
         '#9999FF',
         '#993366',
         '#FFFFCC',
@@ -844,9 +839,9 @@ $Log: colorscheme.js,v $
         '#FF99CC',
         '#CC99FF',
         '#FFCC99'
-    );
+    ];
 
-    var __mineralColors = new Array(
+    var __mineralColors = [
         '#F3898B',
         '#7BFECD',
         '#B3B07B',
@@ -871,9 +866,9 @@ $Log: colorscheme.js,v $
         '#C09671',
         '#87CFFE',
         '#00A7C7'
-    );
+    ];
 
-    var __pastelColors = new Array(
+    var __pastelColors = [
         '#D2D2D2',
         '#9DC0C0',
         '#DFC7AA',
@@ -898,9 +893,9 @@ $Log: colorscheme.js,v $
         '#D2D2D2',
         '#9DC0C0',
         '#DFC7AA'
-    );
+    ];
 
-    var __harvestColors = new Array(
+    var __harvestColors = [
         '#C06549',
         '#FFD700',
         '#BDB76B',
@@ -925,9 +920,9 @@ $Log: colorscheme.js,v $
         '#DB6700',
         '#E5A100',
         '#F7D3B3'
-    );
+    ];
 
-    var __fruitColors = new Array(
+    var __fruitColors = [
         '#1F77B4',
         '#AEC7E8',
         '#FF7F0E',
@@ -950,9 +945,9 @@ $Log: colorscheme.js,v $
         '#9EDAE5',
         '#1F77B4',
         '#AEC7E8'
-    );
+    ];
 
-    var __kmeansColors = new Array(
+    var __kmeansColors = [
         "#c17cd3",
         "#91c15d",
         "#6a70d7",
@@ -975,9 +970,9 @@ $Log: colorscheme.js,v $
         "#a2863e",
         "#ad4248",
         "#9c4629"
-    );
+    ];
 
-    var __kmeanspColors = new Array(
+    var __kmeanspColors = [
         "#ffd1b2",
         "#a5b2e9",
         "#effcc2",
@@ -1000,9 +995,9 @@ $Log: colorscheme.js,v $
         "#a2aead",
         "#e1f3ff",
         "#b5e6ff"
-    );
+    ];
 
-    var __pimpColors = new Array(
+    var __pimpColors = [
         "#b09234",
         "#5f3dc1",
         "#4ca735",
@@ -1025,9 +1020,9 @@ $Log: colorscheme.js,v $
         "#bf7f51",
         "#923432",
         "#d37075"
-    );
+    ];
 
-    var __intenseColors = new Array(
+    var __intenseColors = [
         "#c98ab6",
         "#5bbb42",
         "#6035bd",
@@ -1050,9 +1045,9 @@ $Log: colorscheme.js,v $
         "#4f4b21",
         "#d58873",
         "#79354c"
-    );
+    ];
 
-    var __fluoColors = new Array(
+    var __fluoColors = [
         "#ecd730",
         "#4ddded",
         "#c0ee32",
@@ -1075,9 +1070,9 @@ $Log: colorscheme.js,v $
         "#d1f5a5",
         "#b4db6c",
         "#c1d271"
-    );
+    ];
 
-    var __tableauColors = new Array(
+    var __tableauColors = [
         "#4e79a7",
         "#a0cbe8",
         "#f28e2b",
@@ -1098,9 +1093,9 @@ $Log: colorscheme.js,v $
         "#d4a6c8",
         "#9d7660",
         "#d7b5a6"
-    );
+    ];
 
-    var __tableauColors20 = new Array(
+    var __tableauColors20 = [
         "#1F77B4",
         "#AEC7E8",
         "#FF7F0E",
@@ -1124,9 +1119,9 @@ $Log: colorscheme.js,v $
         "#DBDB8D",
         "#17BECF",
         "#9EDAE5"
-    );
+    ];
 
-    var __tableauColors10 = new Array(
+    var __tableauColors10 = [
         "#1F77B4",
         "#FF7F0E",
         "#2CA02C",
@@ -1150,7 +1145,7 @@ $Log: colorscheme.js,v $
         "#7F7F7F",
         "#BCBD22",
         "#17BECF"
-    );
+    ];
     var __colorPaletteA = [];
     __colorPaletteA["office"] = __officeColors;
     __colorPaletteA["mineral"] = __mineralColors;

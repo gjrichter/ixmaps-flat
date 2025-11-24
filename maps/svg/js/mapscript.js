@@ -17,7 +17,7 @@ $Log: mapscript.js,v $
  * @fileoverview This file is the main JavaScript for SVGGIS Map Applications.<br>
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 1.1 
+ * @version 0.96 
  */
 
 /* jshint funcscope:true, evil:true, eqnull:true, loopfunc:true, shadow: true, laxcomma: true, laxbreak: true, expr: true, sub: true */
@@ -60,12 +60,11 @@ $Log: mapscript.js,v $
      * define function printNode() if not given by the viewer
      */
     if (typeof (printNode) == "undefined") {
-        var szFunct = "function printNode(node)\{";
-        szFunct += "var serializer = new XMLSerializer();";
-        szFunct += "var xml = serializer.serializeToString(node);";
-        szFunct += "return xml;";
-        szFunct += "\}";
-        eval(szFunct);
+        window.printNode = function(node) {
+            var serializer = new XMLSerializer();
+            var xml = serializer.serializeToString(node);
+            return xml;
+        };
     }
 
     /* ...................................................................* 
@@ -725,14 +724,8 @@ $Log: mapscript.js,v $
                 }
             }
         }else{
-            alert("wrong pushInitAction() usage with string: "+szAction)
-            try {
-                eval(szAction);
-            } catch (e) {
-                if (e && (typeof (e) != "undefined") && e.description && (typeof (e.description) != "undefined")) {
-                    alert("Error: " + e.description + ":\n\n" + szAction);
-                }
-            }
+            console.error("map.pushAction: Strings are no longer supported. Please pass a function.");
+            alert("Error: map.pushAction called with string. See console for details.");
         }
         setTimeout("map.popAction()", 10);
     };
@@ -763,10 +756,8 @@ $Log: mapscript.js,v $
                 szAction();
             } catch (e) {}
         }else{
-            alert("wrong pushInitAction() uasge")
-            try {
-                eval(szAction);
-            } catch (e) {}
+            console.error("map.pushInitAction: Strings are no longer supported. Please pass a function.");
+            alert("Error: map.pushInitAction called with string. See console for details.");
         }
         setTimeout("map.popInitAction()", 10);
     };
@@ -923,7 +914,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "0.95";
+    var thisversion = "0.96";
     map = new ixMap();
     map.version = thisversion;
     // and make global
@@ -1256,6 +1247,47 @@ $Log: mapscript.js,v $
 
         //map.Loader.importSVGFile("./maplocal.svg",map.SVGDocument,map.SVGTempGroup,null);
 
+        // For orthographic projections only, center early BEFORE showAll() to prevent visual jump
+        // This must happen before elements are drawn
+        // Albers and Lambert don't need early centering as it causes ugly effects
+        var szProjection = map.Scale.szMapProjection || "";
+        if (szProjection.match(/orthographic/i)) {
+            map.pushInitAction(() => {
+                try {
+                    // For orthographic, always start at (0, 0) to center the globe in SVG space
+                    var centerLat = 0;
+                    var centerLon = 0;
+                    var zoomLevel = 5; // Default zoom
+                    
+                    // Try to get zoom from HTML map or use current zoom scale
+                    if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
+                        try {
+                            var htmlZoom = map.HTMLWindow.ixmaps.getZoom();
+                            if (htmlZoom !== undefined && Number.isFinite(htmlZoom)) {
+                                zoomLevel = htmlZoom;
+                            }
+                        } catch (e) {}
+                    }
+                    if (zoomLevel === 5 && map.Scale.nZoomScale && map.Scale.nZoomScale > 0) {
+                        zoomLevel = Math.max(1, Math.min(20, Math.log2(map.Scale.nZoomScale) + 5));
+                    }
+                    
+                    // For orthographic, also center the zoom node to align projection origin (0,0) with SVG viewport center
+                    // Set flag to allow orthographic centering
+                    map._allowOrthographicCenter = true;
+                    map.Zoom.doCenterMapToGeoPosition(0, 0);
+                    map._allowOrthographicCenter = false;
+                    
+                    // Center the orthographic projection early with small bounds around center point
+                    // This updates projection parameters synchronously before showAll() is called
+                    console.log("Early centering orthographic projection: center:", centerLat, centerLon, "zoom:", zoomLevel);
+                    map.Zoom.doCenterMapToGeoBounds(centerLat - 0.1, centerLon - 0.1, centerLat + 0.1, centerLon + 0.1);
+                } catch (e) {
+                    console.error("Error in early orthographic projection centering:", e);
+                }
+            });
+        }
+
         if (map.HTMLWindow) {
             map.pushInitAction(()=> {
                 map.HTMLWindow.ixmaps.htmlgui_onMapReady(window);
@@ -1388,7 +1420,11 @@ $Log: mapscript.js,v $
     function __doExecuteMethodLater() {
         var exec = __execLaterA.shift();
         if (exec) {
-            eval("exec.obj." + exec.szExec);
+            if (typeof exec.obj[exec.szExec] === 'function') {
+                exec.obj[exec.szExec]();
+            } else {
+                console.warn("__executeMethodLater: Method " + exec.szExec + " not found or not a function on object.");
+            }
         }
     }
 
@@ -1753,7 +1789,6 @@ $Log: mapscript.js,v $
             for (var i = 1; i < words.length; i++) {
                 var len = tspan_element.firstChild.data.length; // Find number of letters in string
                 tspan_element.firstChild.data += " " + words[i]; // Add next word
-
                 if (tspan_element.getComputedTextLength() > nMaxWidth) {
                     tspan_element.firstChild.data = tspan_element.firstChild.data.slice(0, len); // Remove added word
                     var tspan_element = this.newTSpan(textNode, "", words[i]);
@@ -1974,8 +2009,6 @@ $Log: mapscript.js,v $
         this.metadataNode = mNodesA[mNodesA.length - 1];
 
         if (this.metadataNode) {
-            console.log(this.metadataNode);
-
             /** holds metadata information of the map creation @type DOM node */
             this.creationNode = this.metadataNode.getElementsByTagName("xmap:creation").item(0);
 
@@ -2070,6 +2103,70 @@ $Log: mapscript.js,v $
                 this.nCorrectEasting = Number(this.coordsysNode.getAttribute('correcteasting'));
                 /** a correction to be applied to the false northing */
                 this.nCorrectNorthing = Number(this.coordsysNode.getAttribute('correctnorthing'));
+                
+                // Projection parameters (auto-calculated for specific projections)
+                const projParams = map.HTMLWindow.ixmaps.projectionParams || {};
+                
+                /** first standard parallel for Albers projection (degrees) */
+                this.nAlbersLat1 = projParams.lat1 !== undefined ? Number(projParams.lat1) : 
+                                  (this.coordsysNode.getAttribute('lat1') ? Number(this.coordsysNode.getAttribute('lat1')) : null);
+                /** second standard parallel for Albers projection (degrees) */
+                this.nAlbersLat2 = projParams.lat2 !== undefined ? Number(projParams.lat2) : 
+                                  (this.coordsysNode.getAttribute('lat2') ? Number(this.coordsysNode.getAttribute('lat2')) : null);
+                /** latitude of origin for Albers projection (degrees) */
+                this.nAlbersLat0 = projParams.lat0 !== undefined ? Number(projParams.lat0) : 
+                                  (this.coordsysNode.getAttribute('lat0') ? Number(this.coordsysNode.getAttribute('lat0')) : null);
+                /** central meridian for Albers projection (degrees) */
+                this.nAlbersLon0 = projParams.lon0 !== undefined ? Number(projParams.lon0) : 
+                                  (this.coordsysNode.getAttribute('lon0') ? Number(this.coordsysNode.getAttribute('lon0')) : null);
+                
+                // Pre-calculate Albers projection constants for performance
+                // These constants depend only on the projection parameters, not on individual points
+                // Calculating them once and reusing them is much more efficient than recalculating for every point
+                this._albersConstants = null;
+                if (this.nAlbersLat1 !== null && this.nAlbersLat2 !== null && 
+                    this.nAlbersLat0 !== null && this.nAlbersLon0 !== null) {
+                    this._calculateAlbersConstants();
+                }
+                
+                // Initialize storage for last Albers parameters (used for change detection)
+                this.lastAlbersParams = null;
+
+                if (this.szMapProjection === "LambertAzimuthalEqualArea") {
+                    /** latitude of origin for Lambert Azimuthal Equal Area projection (degrees) */
+                    this.nLambertLat0 = projParams.lat0 !== undefined ? Number(projParams.lat0) :
+                                        (this.coordsysNode.getAttribute('lambertlat0') ? Number(this.coordsysNode.getAttribute('lambertlat0')) : null);
+                    /** central meridian for Lambert Azimuthal Equal Area projection (degrees) */
+                    this.nLambertLon0 = projParams.lon0 !== undefined ? Number(projParams.lon0) :
+                                        (this.coordsysNode.getAttribute('lambertlon0') ? Number(this.coordsysNode.getAttribute('lambertlon0')) : null);
+                } else {
+                    this.nLambertLat0 = null;
+                    this.nLambertLon0 = null;
+                }
+
+                // Pre-calculate Lambert Azimuthal Equal Area projection constants for performance
+                this._lambertConstants = null;
+                if (this.nLambertLat0 !== null && this.nLambertLon0 !== null) {
+                    this._calculateLambertAzimuthalConstants();
+                }
+                
+                // Initialize storage for last Lambert parameters (used for change detection)
+                this.lastLambertParams = null;
+
+                if (this.szMapProjection === "Orthographic") {
+                    /** latitude of origin for Orthographic projection (degrees) */
+                    this.nOrthographicLat0 = projParams.lat0 !== undefined ? Number(projParams.lat0) :
+                                            (this.coordsysNode.getAttribute('orthographiclat0') ? Number(this.coordsysNode.getAttribute('orthographiclat0')) : null);
+                    /** central meridian for Orthographic projection (degrees) */
+                    this.nOrthographicLon0 = projParams.lon0 !== undefined ? Number(projParams.lon0) :
+                                            (this.coordsysNode.getAttribute('orthographiclon0') ? Number(this.coordsysNode.getAttribute('orthographiclon0')) : null);
+                } else {
+                    this.nOrthographicLat0 = null;
+                    this.nOrthographicLon0 = null;
+                }
+
+                // Initialize storage for last Orthographic parameters (used for change detection)
+                this.lastOrthographicParams = null;
             }
             /** node that can hold attributes to change the map features (e.g.cliptextpath="true") @type DOM node */
             this.featuresNode = this.metadataNode.getElementsByTagName("xmap:features").item(0);
@@ -2129,6 +2226,652 @@ $Log: mapscript.js,v $
     };
 
     ixMap.Scale.prototype = new ixMap();
+
+    /**
+     * Pre-calculate Albers Equal Area projection constants for performance optimization
+     * These constants depend only on the projection parameters (lat1, lat2, lat0, lon0)
+     * and not on individual points, so calculating them once is much more efficient
+     * than recalculating for every coordinate transformation.
+     */
+    ixMap.Scale.prototype._calculateAlbersConstants = function () {
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+        
+        // Convert parameters to radians
+        const φ1 = degreesToRadians(this.nAlbersLat1);
+        const φ2 = degreesToRadians(this.nAlbersLat2);
+        const φ0 = degreesToRadians(this.nAlbersLat0);
+        const λ0 = degreesToRadians(this.nAlbersLon0);
+        
+        // WGS84 ellipsoid parameters
+        const a = 6378137.0;              // semi-major axis in meters
+        const e = 0.0818191908426;        // eccentricity
+        const e2 = e * e;                 // eccentricity squared
+        
+        // Helper function to calculate authalic latitude parameter q
+        const calcQ = (sinPhi) => {
+            const eSinPhi = e * sinPhi;
+            return (1 - e2) * (
+                sinPhi / (1 - e2 * sinPhi * sinPhi) - 
+                (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+            );
+        };
+        
+        // Helper function to calculate m = cos(φ) / sqrt(1 - e²sin²(φ))
+        const calcM = (phi) => {
+            const sinPhi = Math.sin(phi);
+            return Math.cos(phi) / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+        };
+        
+        // Calculate auxiliary values for standard parallels
+        const q0 = calcQ(Math.sin(φ0));
+        const q1 = calcQ(Math.sin(φ1));
+        const q2 = calcQ(Math.sin(φ2));
+        const m1 = calcM(φ1);
+        const m2 = calcM(φ2);
+        
+        // Calculate projection constants (these are what we want to cache)
+        const n = (m1 * m1 - m2 * m2) / (q2 - q1);
+        const C = m1 * m1 + n * q1;
+        const ρ0 = (a / n) * Math.sqrt(C - n * q0);
+        
+        // Store all constants for reuse
+        this._albersConstants = {
+            // Parameters in radians
+            φ1: φ1,
+            φ2: φ2,
+            φ0: φ0,
+            λ0: λ0,
+            // Ellipsoid constants
+            a: a,
+            e: e,
+            e2: e2,
+            // Projection constants
+            n: n,
+            C: C,
+            ρ0: ρ0,
+            // Helper functions (stored for reuse in inverse projection)
+            calcQ: calcQ,
+            calcM: calcM
+        };
+        
+        // Pre-calculated Albers constants stored in this._albersConstants
+    };
+
+    /**
+     * Pre-calculate Lambert Azimuthal Equal Area projection constants for performance optimization.
+     * These constants depend only on the projection parameters (lat0, lon0) and are reused for all points.
+     */
+    ixMap.Scale.prototype._calculateLambertAzimuthalConstants = function () {
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+        
+        const φ0 = degreesToRadians(this.nLambertLat0);
+        const λ0 = degreesToRadians(this.nLambertLon0);
+        
+        const a = 6378137.0;              // semi-major axis (GRS80 / ETRS89)
+        const f = 1 / 298.257222101;      // flattening (GRS80 / ETRS89)
+        const e2 = 2 * f - f * f;         // eccentricity squared
+        const e = Math.sqrt(e2);          // eccentricity
+        
+        const calcQ = (phi) => {
+            const sinPhi = Math.sin(phi);
+            const eSinPhi = e * sinPhi;
+            return (1 - e2) * (
+                sinPhi / (1 - e2 * sinPhi * sinPhi) -
+                (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+            );
+        };
+
+        const qp = (1 - e2) * (
+            1 / (1 - e2) -
+            (1 / (2 * e)) * Math.log((1 - e) / (1 + e))
+        );
+
+        const q0 = calcQ(φ0);
+        const sinBeta0 = q0 / qp;
+        const cosBeta0 = Math.sqrt(Math.max(0, 1 - sinBeta0 * sinBeta0));
+        const Rq = a * Math.sqrt(0.5 * qp);
+
+        const inverseQ = (q) => {
+            let φ = Math.asin(Math.max(-1, Math.min(1, q / (2))));
+            const maxIterations = 12;
+            const tolerance = 1e-12;
+
+            for (let i = 0; i < maxIterations; i++) {
+                const sinPhi = Math.sin(φ);
+                const eSinPhi = e * sinPhi;
+                const oneMinus = 1 - e2 * sinPhi * sinPhi;
+
+                const qPhi = (1 - e2) * (
+                    sinPhi / oneMinus -
+                    (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                );
+
+                const dqDphi = (1 - e2) / oneMinus;
+                const delta = (q - qPhi) / dqDphi;
+                φ += delta;
+
+                if (Math.abs(delta) < tolerance) {
+                    break;
+                }
+            }
+
+            return φ;
+        };
+
+        this._lambertConstants = {
+            a,
+            e,
+            e2,
+            λ0,
+            φ0,
+            qp,
+            q0,
+            sinBeta0,
+            cosBeta0,
+            Rq,
+            calcQ,
+            inverseQ
+        };
+
+        // Normalize map bounds to maintain aspect ratio when using Lambert projection
+        const maxRadius = Rq * Math.sqrt(2);
+        if (Number.isFinite(maxRadius) && maxRadius > 0) {
+            this.minBoundX = -maxRadius;
+            this.maxBoundX = maxRadius;
+            this.minBoundY = -maxRadius;
+            this.maxBoundY = maxRadius;
+
+            if ((this.maxX - this.minX) !== 0 && (this.maxY - this.minY) !== 0) {
+                this.mapUnitsPPX = (this.maxBoundX - this.minBoundX) / (this.maxX - this.minX);
+                this.mapUnitsPPY = (this.maxBoundY - this.minBoundY) / (this.maxY - this.minY);
+            }
+        }
+
+        // Pre-calculated Lambert Azimuthal constants stored in this._lambertConstants
+    };
+
+    /**
+     * Calculate Albers Equal Area projection parameters from center coordinates and zoom level.
+     * Implemented on the scale prototype so the map runtime owns the logic.
+     * @param {number|string} lat - Center latitude
+     * @param {number|string} lng - Center longitude
+     * @param {number|string} zoom - Zoom level (higher = more zoomed in)
+     * @returns {Object|null} Projection parameters {lat1, lat2, lat0, lon0, _n} or null on invalid input
+     */
+    ixMap.Scale.prototype.calculateAlbersParameters = function (lat, lng, zoom) {
+        const originalArgs = { lat, lng, zoom };
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+        zoom = parseFloat(zoom);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('calculateAlbersParameters: invalid center coordinates', originalArgs);
+            return null;
+        }
+
+        if (!Number.isFinite(zoom)) {
+            console.warn('calculateAlbersParameters: invalid zoom, defaulting to 5', originalArgs);
+            zoom = 5;
+        }
+
+        let normalizedZoom = zoom;
+
+        const DEG_TO_RAD = Math.PI / 180;
+
+        let powFactor = Math.pow(2, normalizedZoom - 5);
+        if (!Number.isFinite(powFactor) || powFactor === 0) {
+            console.warn('calculateAlbersParameters: invalid powFactor, enforcing zoom=5', { originalArgs, normalizedZoom, powFactor });
+            normalizedZoom = 5;
+            powFactor = Math.pow(2, normalizedZoom - 5);
+        }
+
+        let latitudeSpacing = 15 / powFactor;
+        if (!Number.isFinite(latitudeSpacing)) {
+            console.warn('calculateAlbersParameters: invalid latitudeSpacing, enforcing zoom=5', { originalArgs, normalizedZoom, powFactor, latitudeSpacing });
+            normalizedZoom = 5;
+            powFactor = Math.pow(2, normalizedZoom - 5);
+            latitudeSpacing = 15 / powFactor;
+        }
+
+        if (!Number.isFinite(latitudeSpacing)) {
+            latitudeSpacing = 15;
+        }
+
+        console.debug('calculateAlbersParameters: normalized inputs', {
+            originalArgs,
+            lat,
+            lng,
+            zoom: normalizedZoom,
+            latitudeSpacing
+        });
+
+        let lat1 = lat + latitudeSpacing;
+        let lat2 = lat - latitudeSpacing;
+
+        lat1 = Math.max(-89, Math.min(89, lat1));
+        lat2 = Math.max(-89, Math.min(89, lat2));
+
+        if (lat2 > lat1) {
+            const tmp = lat1;
+            lat1 = lat2;
+            lat2 = tmp;
+        }
+
+        const phi1 = lat1 * DEG_TO_RAD;
+        const phi2 = lat2 * DEG_TO_RAD;
+        const phi0 = lat * DEG_TO_RAD;
+
+        // Calculate cone constant n using correct ellipsoid-based formula
+        // This matches the calculation in _calculateAlbersConstants() for consistency
+        const a = 6378137.0;              // semi-major axis (WGS84)
+        const e = 0.0818191908426;        // eccentricity (WGS84)
+        const e2 = e * e;                 // eccentricity squared
+        
+        // Helper function to calculate authalic latitude parameter q
+        const calcQ = (sinPhi) => {
+            const eSinPhi = e * sinPhi;
+            return (1 - e2) * (
+                sinPhi / (1 - e2 * sinPhi * sinPhi) - 
+                (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+            );
+        };
+        
+        // Helper function to calculate m = cos(φ) / sqrt(1 - e²sin²(φ))
+        const calcM = (phi) => {
+            const sinPhi = Math.sin(phi);
+            return Math.cos(phi) / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+        };
+        
+        // Calculate auxiliary values for standard parallels
+        const q1 = calcQ(Math.sin(phi1));
+        const q2 = calcQ(Math.sin(phi2));
+        const m1 = calcM(phi1);
+        const m2 = calcM(phi2);
+        
+        // Calculate cone constant n using correct ellipsoid formula
+        // Check for division by zero (would occur if lat1 == lat2)
+        const qDiff = q2 - q1;
+        if (Math.abs(qDiff) < 1e-10) {
+            console.warn('calculateAlbersParameters: standard parallels too close, adjusting', { lat1, lat2 });
+            // Use sphere approximation as fallback if parallels are too close
+            const n = (Math.sin(phi1) + Math.sin(phi2)) / 2;
+            const result = {
+                lat1: Math.round(lat1 * 10) / 10,
+                lat2: Math.round(lat2 * 10) / 10,
+                lat0: Math.round(lat * 10) / 10,
+                lon0: Math.round(lng * 10) / 10,
+                _n: Math.round(n * 10000) / 10000
+            };
+            if (!Number.isFinite(result.lat1) || !Number.isFinite(result.lat2) || !Number.isFinite(result._n)) {
+                console.warn('calculateAlbersParameters: produced invalid result', {
+                    result,
+                    intermediate: { lat1, lat2, n },
+                    inputs: { lat, lng, normalizedZoom, latitudeSpacing }
+                });
+            } else {
+                console.debug('calculateAlbersParameters: result', result);
+            }
+            this.nAlbersLat1 = result.lat1;
+            this.nAlbersLat2 = result.lat2;
+            this.nAlbersLat0 = result.lat0;
+            this.nAlbersLon0 = result.lon0;
+            if (typeof this._calculateAlbersConstants === 'function') {
+                this._calculateAlbersConstants();
+            }
+            return result;
+        }
+        
+        const n = (m1 * m1 - m2 * m2) / qDiff;
+
+        const result = {
+            lat1: Math.round(lat1 * 10) / 10,
+            lat2: Math.round(lat2 * 10) / 10,
+            lat0: Math.round(lat * 10) / 10,
+            lon0: Math.round(lng * 10) / 10,
+            _n: Math.round(n * 10000) / 10000
+        };
+
+        if (!Number.isFinite(result.lat1) || !Number.isFinite(result.lat2) || !Number.isFinite(result._n)) {
+            console.warn('calculateAlbersParameters: produced invalid result', {
+                result,
+                intermediate: { lat1, lat2, n },
+                inputs: { lat, lng, normalizedZoom, latitudeSpacing }
+            });
+        } else {
+            console.debug('calculateAlbersParameters: result', result);
+        }
+
+        this.nAlbersLat1 = result.lat1;
+        this.nAlbersLat2 = result.lat2;
+        this.nAlbersLat0 = result.lat0;
+        this.nAlbersLon0 = result.lon0;
+
+        if (typeof this._calculateAlbersConstants === 'function') {
+            this._calculateAlbersConstants();
+        }
+
+        return result;
+    };
+
+    /**
+     * Calculate Lambert Azimuthal Equal Area projection parameters from center coordinates.
+     * @param {number|string} lat - Center latitude
+     * @param {number|string} lng - Center longitude
+     * @returns {Object|null} Projection parameters {lat0, lon0, _Rq, _sinBeta0} or null on invalid input
+     */
+    ixMap.Scale.prototype.calculateLambertAzimuthalParameters = function (lat, lng) {
+        const originalArgs = { lat, lng };
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('calculateLambertAzimuthalParameters: invalid center coordinates', originalArgs);
+            return null;
+        }
+
+        const clampedLat = Math.max(-89.9999, Math.min(89.9999, lat));
+        const normalizedLng = ((lng + 180) % 360 + 360) % 360 - 180;
+
+        this.nLambertLat0 = clampedLat;
+        this.nLambertLon0 = normalizedLng;
+
+        if (typeof this._calculateLambertAzimuthalConstants === 'function') {
+            this._calculateLambertAzimuthalConstants();
+        }
+
+        const result = {
+            lat0: Math.round(this.nLambertLat0 * 10) / 10,
+            lon0: Math.round(this.nLambertLon0 * 10) / 10
+        };
+
+        if (this._lambertConstants) {
+            result._sinBeta0 = Math.round(this._lambertConstants.sinBeta0 * 10000) / 10000;
+            result._Rq = Math.round(this._lambertConstants.Rq);
+        }
+
+        console.debug('calculateLambertAzimuthalParameters: result', result);
+
+        return result;
+    };
+
+    /**
+     * Calculate Lambert Azimuthal Equal Area projection parameters from NE/SW bounds.
+     * @param {number|string} latSW - Southwest latitude
+     * @param {number|string} lonSW - Southwest longitude
+     * @param {number|string} latNE - Northeast latitude
+     * @param {number|string} lonNE - Northeast longitude
+     * @returns {Object|null} Projection parameters {lat0, lon0, ...}
+     */
+    ixMap.Scale.prototype.calculateLambertAzimuthalParametersFromBounds = function (latSW, lonSW, latNE, lonNE) {
+        latSW = parseFloat(latSW);
+        lonSW = parseFloat(lonSW);
+        latNE = parseFloat(latNE);
+        lonNE = parseFloat(lonNE);
+
+        if (!Number.isFinite(latSW) || !Number.isFinite(lonSW) ||
+            !Number.isFinite(latNE) || !Number.isFinite(lonNE)) {
+            console.warn('calculateLambertAzimuthalParametersFromBounds: invalid bounds', { latSW, lonSW, latNE, lonNE });
+            return null;
+        }
+
+        const northLat = Math.max(latSW, latNE);
+        const southLat = Math.min(latSW, latNE);
+        const eastLng = Math.max(lonSW, lonNE);
+        const westLng = Math.min(lonSW, lonNE);
+
+        const centerLat = (northLat + southLat) / 2;
+        let centerLng = (eastLng + westLng) / 2;
+
+        if (Math.abs(lonNE - lonSW) > 180) {
+            const adjustedEast = (eastLng < 0 ? eastLng + 360 : eastLng);
+            const adjustedWest = (westLng < 0 ? westLng + 360 : westLng);
+            centerLng = (((adjustedEast + adjustedWest) / 2) % 360);
+            if (centerLng > 180) {
+                centerLng -= 360;
+            }
+        }
+
+        console.debug('calculateLambertAzimuthalParametersFromBounds: derived center', {
+            latSW,
+            lonSW,
+            latNE,
+            lonNE,
+            centerLat,
+            centerLng
+        });
+
+        return this.calculateLambertAzimuthalParameters(centerLat, centerLng);
+    };
+
+    /**
+     * Calculate Orthographic projection parameters from center coordinates.
+     * Orthographic is an azimuthal projection that shows the Earth as seen from space.
+     * @param {number|string} lat - Center latitude
+     * @param {number|string} lng - Center longitude
+     * @returns {Object|null} Projection parameters {lat0, lon0} or null on invalid input
+     */
+    ixMap.Scale.prototype.calculateOrthographicParameters = function (lat, lng) {
+        const originalArgs = { lat, lng };
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            console.warn('calculateOrthographicParameters: invalid center coordinates', originalArgs);
+            return null;
+        }
+
+        const clampedLat = Math.max(-89.9999, Math.min(89.9999, lat));
+        const normalizedLng = ((lng + 180) % 360 + 360) % 360 - 180;
+
+        this.nOrthographicLat0 = clampedLat;
+        this.nOrthographicLon0 = normalizedLng;
+
+        // Note: Orthographic projection doesn't require pre-calculated constants
+        // like Lambert Azimuthal, as it's a simpler azimuthal projection
+
+        const result = {
+            lat0: Math.round(this.nOrthographicLat0 * 10) / 10,
+            lon0: Math.round(this.nOrthographicLon0 * 10) / 10
+        };
+
+        console.debug('calculateOrthographicParameters: result', result);
+
+        return result;
+    };
+
+    /**
+     * Calculate Orthographic projection parameters from NE/SW bounds.
+     * @param {number|string} latSW - Southwest latitude
+     * @param {number|string} lonSW - Southwest longitude
+     * @param {number|string} latNE - Northeast latitude
+     * @param {number|string} lonNE - Northeast longitude
+     * @returns {Object|null} Projection parameters {lat0, lon0, ...}
+     */
+    ixMap.Scale.prototype.xxxcalculateOrthographicParametersFromBounds = function (latSW, lonSW, latNE, lonNE) {
+        latSW = parseFloat(latSW);
+        lonSW = parseFloat(lonSW);
+        latNE = parseFloat(latNE);
+        lonNE = parseFloat(lonNE);
+        
+        if (!Number.isFinite(latSW) || !Number.isFinite(lonSW) ||
+            !Number.isFinite(latNE) || !Number.isFinite(lonNE)) {
+            console.warn('calculateOrthographicParametersFromBounds: invalid bounds', { latSW, lonSW, latNE, lonNE });
+            return null;
+        }
+
+        const northLat = Math.max(latSW, latNE);
+        const southLat = Math.min(latSW, latNE);
+        const eastLng = Math.max(lonSW, lonNE);
+        const westLng = Math.min(lonSW, lonNE);
+
+        const centerLat = (northLat + southLat) / 2;
+        let centerLng = (eastLng + westLng) / 2;
+
+        if (Math.abs(lonNE - lonSW) > 180) {
+            const adjustedEast = (eastLng < 0 ? eastLng + 360 : eastLng);
+            const adjustedWest = (westLng < 0 ? westLng + 360 : westLng);
+            centerLng = (((adjustedEast + adjustedWest) / 2) % 360);
+            if (centerLng > 180) {
+                centerLng -= 360;
+            }
+        }
+
+        console.debug('calculateOrthographicParametersFromBounds: derived center', {
+            latSW,
+            lonSW,
+            latNE,
+            lonNE,
+            centerLat,
+            centerLng
+        });
+
+        return this.calculateOrthographicParameters(centerLat, centerLng);
+    };
+
+    /**
+     * Calculate Albers parameters using a bounding box defined by NE and SW coordinates.
+     * Derives the center and an approximate zoom level from the bounds and delegates
+     * to calculateAlbersParameters for the actual projection parameter computation.
+     * @param {Array|Object} northEast - [lat, lng] array or {lat, lng} object representing the northeast corner
+     * @param {Array|Object} southWest - [lat, lng] array or {lat, lng} object representing the southwest corner
+     * @returns {Object|null} Projection parameters {lat1, lat2, lat0, lon0, _n} or null on invalid input
+     */
+    ixMap.Scale.prototype.calculateAlbersParametersFromBounds = function (latSW, lonSW, latNE, lonNE) {
+        latSW = parseFloat(latSW);
+        lonSW = parseFloat(lonSW);
+        latNE = parseFloat(latNE);
+        lonNE = parseFloat(lonNE);
+
+        if (!Number.isFinite(latSW) || !Number.isFinite(lonSW) ||
+            !Number.isFinite(latNE) || !Number.isFinite(lonNE)) {
+            console.warn('calculateAlbersParametersFromBounds: invalid bounds', { latSW, lonSW, latNE, lonNE });
+            return null;
+        }
+
+        const northLat = Math.max(latSW, latNE);
+        const southLat = Math.min(latSW, latNE);
+        const eastLng = Math.max(lonSW, lonNE);
+        const westLng = Math.min(lonSW, lonNE);
+        
+
+        const centerLat = (northLat + southLat) / 2;
+        let centerLng = (eastLng + westLng) / 2;
+
+        if (Math.abs(lonNE - lonSW) > 180) {
+            const adjustedEast = (eastLng < 0 ? eastLng + 360 : eastLng);
+            const adjustedWest = (westLng < 0 ? westLng + 360 : westLng);
+            centerLng = (((adjustedEast + adjustedWest) / 2) % 360);
+            if (centerLng > 180) {
+                centerLng -= 360;
+            }
+        }
+
+        let lat1 = northLat;
+        let lat2 = southLat;
+
+        if (lat1 === lat2) {
+            lat1 = Math.min(89, lat1 + 0.5);
+            lat2 = Math.max(-89, lat2 - 0.5);
+        }
+
+        const DEG_TO_RAD = Math.PI / 180;
+        const phi1 = lat1 * DEG_TO_RAD;
+        const phi2 = lat2 * DEG_TO_RAD;
+        const phi0 = centerLat * DEG_TO_RAD;
+
+        // Calculate cone constant n using correct ellipsoid-based formula
+        // This matches the calculation in _calculateAlbersConstants() for consistency
+        const a = 6378137.0;              // semi-major axis (WGS84)
+        const e = 0.0818191908426;        // eccentricity (WGS84)
+        const e2 = e * e;                 // eccentricity squared
+        
+        // Helper function to calculate authalic latitude parameter q
+        const calcQ = (sinPhi) => {
+            const eSinPhi = e * sinPhi;
+            return (1 - e2) * (
+                sinPhi / (1 - e2 * sinPhi * sinPhi) - 
+                (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+            );
+        };
+        
+        // Helper function to calculate m = cos(φ) / sqrt(1 - e²sin²(φ))
+        const calcM = (phi) => {
+            const sinPhi = Math.sin(phi);
+            return Math.cos(phi) / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+        };
+        
+        // Calculate auxiliary values for standard parallels
+        const q1 = calcQ(Math.sin(phi1));
+        const q2 = calcQ(Math.sin(phi2));
+        const m1 = calcM(phi1);
+        const m2 = calcM(phi2);
+        
+        // Calculate cone constant n using correct ellipsoid formula
+        // Check for division by zero (would occur if lat1 == lat2)
+        const qDiff = q2 - q1;
+        if (Math.abs(qDiff) < 1e-10) {
+            console.warn('calculateAlbersParametersFromBounds: standard parallels too close, adjusting', { lat1, lat2 });
+            // Use sphere approximation as fallback if parallels are too close
+            const n = (Math.sin(phi1) + Math.sin(phi2)) / 2;
+            const result = {
+                lat1: Math.round(lat1 * 10) / 10,
+                lat2: Math.round(lat2 * 10) / 10,
+                lat0: Math.round(centerLat * 10) / 10,
+                lon0: Math.round(centerLng * 10) / 10,
+                _n: Math.round(n * 10000) / 10000
+            };
+            this.nAlbersLat1 = result.lat1;
+            this.nAlbersLat2 = result.lat2;
+            this.nAlbersLat0 = result.lat0;
+            this.nAlbersLon0 = result.lon0;
+            if (typeof this._calculateAlbersConstants === 'function') {
+                this._calculateAlbersConstants();
+            }
+            console.debug('calculateAlbersParametersFromBounds: derived inputs', {
+                latSW,
+                lonSW,
+                latNE,
+                lonNE,
+                centerLat,
+                centerLng,
+                lat1,
+                lat2
+            });
+            return result;
+        }
+        
+        const n = (m1 * m1 - m2 * m2) / qDiff;
+        
+        const result = {
+            lat1: Math.round(lat1 * 10) / 10,
+            lat2: Math.round(lat2 * 10) / 10,
+            lat0: Math.round(centerLat * 10) / 10,
+            lon0: Math.round(centerLng * 10) / 10,
+            _n: Math.round(n * 10000) / 10000
+        };
+
+        this.nAlbersLat1 = result.lat1;
+        this.nAlbersLat2 = result.lat2;
+        this.nAlbersLat0 = result.lat0;
+        this.nAlbersLon0 = result.lon0;
+
+        if (typeof this._calculateAlbersConstants === 'function') {
+            this._calculateAlbersConstants();
+        }
+
+        console.debug('calculateAlbersParametersFromBounds: derived inputs', {
+            latSW,
+            lonSW,
+            latNE,
+            lonNE,
+            result
+        });
+
+        return result;
+    };
 
     /**
      * reset map scale to initial values
@@ -2321,6 +3064,9 @@ $Log: mapscript.js,v $
                 mapCoord1 = map.Scale.getGeoCoordinateOfPoint(mapCoord1.x, mapCoord1.y);
                 mapCoord2 = map.Scale.getGeoCoordinateOfPoint(mapCoord2.x, mapCoord2.y);
 
+                if (!mapCoord1 || !mapCoord2) {
+                    return 0;
+                }
                 // Haversine Function ( correct for all distances )
                 var nLat1 = mapCoord1.y / 180 * Math.PI;
                 var nLat2 = mapCoord2.y / 180 * Math.PI;
@@ -2438,6 +3184,26 @@ $Log: mapscript.js,v $
         if (this.szMapProjection == "EqualEarth") {
             ptCoord = _LLtoEqualEarth(ptCoord.y, ptCoord.x);
         } else
+        if (this.szMapProjection == "AlbersEqualArea") {
+            ptCoord = _LLtoAlbersEqualArea(ptCoord.y, ptCoord.x, {
+                lat1: this.nAlbersLat1,
+                lat2: this.nAlbersLat2,
+                lat0: this.nAlbersLat0,
+                lon0: this.nAlbersLon0
+            });
+        } else
+        if (this.szMapProjection == "LambertAzimuthalEqualArea") {
+            ptCoord = _LLtoLambertAzimuthalEqualArea(ptCoord.y, ptCoord.x, {
+                lat0: this.nLambertLat0,
+                lon0: this.nLambertLon0
+            });
+        } else
+        if (this.szMapProjection == "Orthographic") {
+            ptCoord = _LLtoOrthographic(ptCoord.y, ptCoord.x, {
+                lat0: this.nOrthographicLat0,
+                lon0: this.nOrthographicLon0
+            });
+        } else
         if (this.szMapUnits != "feet" && this.szMapUnits != "meter" && this.szMapUnits != "meters") {
             ptCoord = _LLtoUTM("WGS84", ptCoord.y, ptCoord.x);
         }
@@ -2470,8 +3236,18 @@ $Log: mapscript.js,v $
      * @return the map coordinates as point object
      */
     ixMap.Scale.prototype.getMapPositionOfLatLon = function (lat, lon) {
+        // For Orthographic projection, check if point is on backside of globe (>90° from center)
+        // If so, return null to indicate the point should not be rendered
+        if (this.szMapProjection === "Orthographic" && 
+            this.isPointOnBacksideOrthographic && 
+            this.isPointOnBacksideOrthographic(lat, lon)) {
+            return null;
+        }
 
         var ptOff = map.Scale.getMapCoordinateOfLatLon(lat, lon);
+        if (!ptOff) {
+            return null;
+        }
         var nX = (ptOff.x - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
         var nY = map.Scale.bBox.height - (ptOff.y - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
         return {
@@ -2497,6 +3273,26 @@ $Log: mapscript.js,v $
         } else
         if (this.szMapProjection == "EqualEarth") {
             ptCoord = _LLtoEqualEarth(lat, lon);
+        } else
+        if (this.szMapProjection == "AlbersEqualArea") {
+            ptCoord = _LLtoAlbersEqualArea(lat, lon, {
+                lat1: this.nAlbersLat1,
+                lat2: this.nAlbersLat2,
+                lat0: this.nAlbersLat0,
+                lon0: this.nAlbersLon0
+            });
+        } else
+        if (this.szMapProjection == "LambertAzimuthalEqualArea") {
+            ptCoord = _LLtoLambertAzimuthalEqualArea(lat, lon, {
+                lat0: this.nLambertLat0,
+                lon0: this.nLambertLon0
+            });
+        } else
+        if (this.szMapProjection == "Orthographic") {
+            ptCoord = _LLtoOrthographic(lat, lon, {
+                lat0: this.nOrthographicLat0,
+                lon0: this.nOrthographicLon0
+            });
         } else
         if (this.szMapUnits == "feet" || this.szMapUnits == "meter" || this.szMapUnits == "meters") {
             if (!this.szDatum && !this.szUTMZone) {
@@ -2528,6 +3324,26 @@ $Log: mapscript.js,v $
         if (this.szMapProjection == "EqualEarth") {
             return _EqualEarthtoLL(y, x);
         }
+        if (this.szMapProjection == "AlbersEqualArea") {
+            return _AlbersEqualAreatoLL(x, y, {
+                lat1: this.nAlbersLat1,
+                lat2: this.nAlbersLat2,
+                lat0: this.nAlbersLat0,
+                lon0: this.nAlbersLon0
+            });
+        }
+        if (this.szMapProjection == "LambertAzimuthalEqualArea") {
+            return _LambertAzimuthalEqualAreatoLL(x, y, {
+                lat0: this.nLambertLat0,
+                lon0: this.nLambertLon0
+            });
+        }
+        if (this.szMapProjection == "Orthographic") {
+            return _OrthographicToLL(x, y, {
+                lat0: this.nOrthographicLat0,
+                lon0: this.nOrthographicLon0
+            });
+        }
         if (this.szMapUnits != "feet" && this.szMapUnits != "meter" && this.szMapUnits != "meters") {
             return new point(x, y);
         } else {
@@ -2545,6 +3361,36 @@ $Log: mapscript.js,v $
 
             return _UTMtoLL(this.szDatum, ptCoord.y, ptCoord.x, this.szUTMZone);
         }
+    };
+    /**
+     * Check if a geographic point is on the backside of the globe for Orthographic projection.
+     * A point is on the backside if its angular distance from the projection center is > 90°.
+     * @param {number} lat - Latitude in decimal degrees
+     * @param {number} lon - Longitude in decimal degrees
+     * @returns {boolean} true if point is on backside, false otherwise
+     */
+    ixMap.Scale.prototype.isPointOnBacksideOrthographic = function (lat, lon) {
+        // Only check for Orthographic projection
+        if (this.szMapProjection !== "Orthographic" || 
+            this.nOrthographicLat0 === null || 
+            this.nOrthographicLon0 === null) {
+            return false; // Not orthographic or params not set
+        }
+        
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+        const φ0 = degreesToRadians(this.nOrthographicLat0);
+        const λ0 = degreesToRadians(this.nOrthographicLon0);
+        const φ = degreesToRadians(lat);
+        const λ = degreesToRadians(lon);
+        const Δλ = λ - λ0;
+        
+        // Calculate cos(angular_distance) using spherical law of cosines
+        // cos(angular_distance) = sin(φ0)*sin(φ) + cos(φ0)*cos(φ)*cos(Δλ)
+        const cosAngularDist = Math.sin(φ0) * Math.sin(φ) + 
+                              Math.cos(φ0) * Math.cos(φ) * Math.cos(Δλ);
+        
+        // If cos(angular_distance) < 0, point is >90° away (on backside)
+        return cosAngularDist < 0;
     };
     /**
      * returns the map coordinates of a point given in widget coordinates (antizoomandpan).
@@ -4065,7 +4911,7 @@ $Log: mapscript.js,v $
     }
 
     function __doSetRotation(nAngle) {
-        executeWithMessage("map.Scale.setRotation(null," + nAngle + ")", "...");
+        executeWithMessage(() => map.Scale.setRotation(null, nAngle), "...");
         __idSetRotationTimeout = null;
     }
 
@@ -4915,7 +5761,7 @@ $Log: mapscript.js,v $
     var debugLine = 0;
     var lastDate = new Date();
 
-    function _TRACE(szMessage) {
+    function _TRACE(szMessage) { return;
 
         if (typeof (console) != "undefined" && typeof (console.log) != "undefined") {
             var x = new Date();
@@ -4954,7 +5800,7 @@ $Log: mapscript.js,v $
      * console log with time stamp of the givven text   
      * @param szMessage	the text to display
      */
-    function _LOG(szMessage) {
+    function _LOG(szMessage) { return;
 
         if (typeof (console) != "undefined" && typeof (console.log) != "undefined") {
             var x = new Date();
@@ -5089,18 +5935,28 @@ $Log: mapscript.js,v $
     @ -----------------------------------------------------------------------------
     */
     function executeWithMessage(szFu, szMessage, nTimeout) {
-        if (map.fExecuteSilent) {
-            setTimeout("doExecuteWithMessage(\"" + __encodeDoubleQuotes(szFu) + "\")", nTimeout);
-            //doExecuteWithMessage(szFu);
-            return;
-        }
-
         if (typeof (nTimeout) == "undefined") {
             nTimeout = 250;
         }
+        
+        if (map.fExecuteSilent) {
+            if (typeof szFu === 'function') {
+                setTimeout(function() { doExecuteWithMessage(szFu); }, nTimeout);
+            } else {
+                setTimeout("doExecuteWithMessage(\"" + __encodeDoubleQuotes(szFu) + "\")", nTimeout);
+            }
+            return;
+        }
+
         // GR 18.06.2014 displayMessage with 3. parameter true -> alert style -> centered
         displayMessage(szMessage, null, map.szMessagePosition);
-        setTimeout("doExecuteWithMessage(\"" + __encodeDoubleQuotes(szFu) + "\")", nTimeout);
+        
+        if (typeof szFu === 'function') {
+            setTimeout(function() { doExecuteWithMessage(szFu); }, nTimeout);
+        } else {
+            console.warn("executeWithMessage: String-based execution is deprecated. Please pass a function.");
+            setTimeout("doExecuteWithMessage(\"" + __encodeDoubleQuotes(szFu) + "\")", nTimeout);
+        }
     }
 
     function doExecuteWithMessage(szFu) {
@@ -5112,7 +5968,12 @@ $Log: mapscript.js,v $
         // setTimeout("map.SVGMessageGroup.fu.clear()",500);
 
         try {
-            eval(szFu);
+            if (typeof szFu === 'function') {
+                szFu();
+            } else {
+                console.warn("doExecuteWithMessage: Executing string via eval. This is unsafe. Please pass a function.");
+                eval(szFu);
+            }
         } catch (e) {
             alert("error '" + e + "' on: " + szFu);
         }
@@ -6383,11 +7244,19 @@ $Log: mapscript.js,v $
             }
             this.szUrl = szUrl;
             if (this.pool.isScriptError(this.szUrl)) {
-                eval(this.errorCallback);
+                if (typeof this.errorCallback === 'function') {
+                    this.errorCallback();
+                } else {
+                    eval(this.errorCallback);
+                }
                 return;
             }
             if (this.pool.isScriptLoaded(this.szUrl)) {
-                eval(this.finishedCallback);
+                if (typeof this.finishedCallback === 'function') {
+                    this.finishedCallback();
+                } else {
+                    eval(this.finishedCallback);
+                }
                 return;
             }
             if (!this.pool.isScriptLoading(this.szUrl)) {
@@ -6411,7 +7280,11 @@ $Log: mapscript.js,v $
             this.pool.setScriptError(this.szUrl);
             if (this.errorCallback) {
                 this.finishedCallback = null;
-                eval(this.errorCallback);
+                if (typeof this.errorCallback === 'function') {
+                    this.errorCallback();
+                } else {
+                    eval(this.errorCallback);
+                }
             }
         } else {
             _TRACE('JS-Loader: ' + this.szUrl + ' (loaded)');
@@ -6438,7 +7311,11 @@ $Log: mapscript.js,v $
         //evalScripts(this.loadedScripts.join("\n");
         this.isLoading = false;
         if (this.finishedCallback) {
-            eval(this.finishedCallback);
+            if (typeof this.finishedCallback === 'function') {
+                this.finishedCallback();
+            } else {
+                eval(this.finishedCallback);
+            }
         }
     };
     /**
@@ -6974,6 +7851,490 @@ $Log: mapscript.js,v $
         );
     };
 
+    /**
+     * converts lat/long to Albers Equal Area coords using WGS84 ellipsoid.
+     * East Longitudes are positive, West longitudes are negative. 
+     * North latitudes are positive, South latitudes are negative
+     * Lat and Long are in decimal degrees
+     * @param  lat latitude in decimal degrees
+     * @param  lon longitude in decimal degrees
+     * @param  params optional projection parameters: {lat1, lat2, lat0, lon0}
+     *                if not provided, uses pre-calculated constants from map.Scale
+     * @type   point
+     */
+    const _LLtoAlbersEqualArea = function (lat, lon, params) {
+        
+        // Use pre-calculated constants from map.Scale if available (much faster!)
+        // Otherwise fall back to on-the-fly calculation (slower, for compatibility)
+        const usePreCalc = map && map.Scale && map.Scale._albersConstants;
+        
+        let a, e, e2, n, C, ρ0, λ0, calcQ;
+        
+        if (usePreCalc) {
+            // Fast path: use pre-calculated constants
+            const c = map.Scale._albersConstants;
+            a = c.a;
+            e = c.e;
+            e2 = c.e2;
+            n = c.n;
+            C = c.C;
+            ρ0 = c.ρ0;
+            λ0 = c.λ0;
+            calcQ = c.calcQ;
+        } else {
+            // Slow path: calculate on-the-fly (for backwards compatibility)
+            const degreesToRadians = (deg) => deg * Math.PI / 180;
+            params = params || {};
+            const φ1 = degreesToRadians(params.lat1 !== undefined ? params.lat1 : 29.5);
+            const φ2 = degreesToRadians(params.lat2 !== undefined ? params.lat2 : 45.5);
+            const φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 23);
+            λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : -96);
+            
+            a = 6378137.0;
+            e = 0.0818191908426;
+            e2 = e * e;
+            
+            calcQ = function(sinPhi) {
+                const eSinPhi = e * sinPhi;
+                return (1 - e2) * (
+                    sinPhi / (1 - e2 * sinPhi * sinPhi) - 
+                    (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                );
+            };
+            
+            const calcM = (phi) => {
+                const sinPhi = Math.sin(phi);
+                return Math.cos(phi) / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+            };
+            
+            const q0 = calcQ(Math.sin(φ0));
+            const q1 = calcQ(Math.sin(φ1));
+            const q2 = calcQ(Math.sin(φ2));
+            const m1 = calcM(φ1);
+            const m2 = calcM(φ2);
+            
+            n = (m1 * m1 - m2 * m2) / (q2 - q1);
+            C = m1 * m1 + n * q1;
+            ρ0 = (a / n) * Math.sqrt(C - n * q0);
+        }
+        
+        // Convert input coordinates to radians
+        const φ = (lat * Math.PI / 180);
+        const λ = (lon * Math.PI / 180);
+        
+        // Calculate q for the point (this varies per point, cannot be pre-calculated)
+        const q = calcQ(Math.sin(φ));
+        
+        // Calculate ρ and θ for the point (per-point calculations)
+        const ρ = (a / n) * Math.sqrt(C - n * q);
+        const θ = n * (λ - λ0);
+        
+        // Calculate projected coordinates (x, y)
+        const x = ρ * Math.sin(θ);
+        const y = ρ0 - ρ * Math.cos(θ);
+        
+        return new point(x, y);
+    };
+
+    /**
+     * converts lat/long to Lambert Azimuthal Equal Area coords using WGS84 ellipsoid.
+     * @param  lat latitude in decimal degrees
+     * @param  lon longitude in decimal degrees
+     * @param  params optional projection parameters: {lat0, lon0}
+     * @type   point
+     */
+    const _LLtoLambertAzimuthalEqualArea = function (lat, lon, params) {
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+
+        const usePreCalc = map && map.Scale && map.Scale._lambertConstants;
+
+        let a, e, e2, λ0, qp, sinBeta0, cosBeta0, Rq, calcQ;
+
+        if (usePreCalc) {
+            const c = map.Scale._lambertConstants;
+            a = c.a;
+            e = c.e;
+            e2 = c.e2;
+            λ0 = c.λ0;
+            qp = c.qp;
+            sinBeta0 = c.sinBeta0;
+            cosBeta0 = c.cosBeta0;
+            Rq = c.Rq;
+            calcQ = c.calcQ;
+        } else {
+            params = params || {};
+            const φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 0);
+            λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : 0);
+
+            a = 6378137.0;
+            const f = 1 / 298.257222101;
+            e2 = 2 * f - f * f;
+            e = Math.sqrt(e2);
+
+            calcQ = (phi) => {
+                const sinPhi = Math.sin(phi);
+                const eSinPhi = e * sinPhi;
+                return (1 - e2) * (
+                    sinPhi / (1 - e2 * sinPhi * sinPhi) -
+                    (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                );
+            };
+
+            qp = (1 - e2) * (
+                1 / (1 - e2) -
+                (1 / (2 * e)) * Math.log((1 - e) / (1 + e))
+            );
+
+            const q0 = calcQ(φ0);
+            sinBeta0 = q0 / qp;
+            cosBeta0 = Math.sqrt(Math.max(0, 1 - sinBeta0 * sinBeta0));
+            Rq = a * Math.sqrt(0.5 * qp);
+        }
+
+        const φ = degreesToRadians(lat);
+        const λ = degreesToRadians(lon);
+        const Δλ = λ - λ0;
+
+        const q = calcQ(φ);
+        const sinBeta = q / qp;
+        const cosBeta = Math.sqrt(Math.max(0, 1 - sinBeta * sinBeta));
+
+        const sinDelta = Math.sin(Δλ);
+        const cosDelta = Math.cos(Δλ);
+
+        const denominator = 1 + sinBeta0 * sinBeta + cosBeta0 * cosBeta * cosDelta;
+        const k = Math.sqrt(Math.max(0, 2 / Math.max(1e-15, denominator)));
+
+        const x = Rq * k * cosBeta * sinDelta;
+        const y = Rq * k * (cosBeta0 * sinBeta - sinBeta0 * cosBeta * cosDelta);
+
+        return new point(x, y);
+    };
+
+    /**
+     * converts Albers Equal Area coords to lat/long using WGS84 ellipsoid (inverse transformation).
+     * @param  x projected x coordinate in meters
+     * @param  y projected y coordinate in meters
+     * @param  params optional projection parameters: {lat1, lat2, lat0, lon0}
+     *                if not provided, uses pre-calculated constants from map.Scale
+     * @type   point
+     * @return point with lon (x) and lat (y) in decimal degrees
+     */
+    const _AlbersEqualAreatoLL = function (x, y, params) {
+        const radiansToDegrees = (rad) => rad * 180 / Math.PI;
+        
+        // Use pre-calculated constants from map.Scale if available (much faster!)
+        // Otherwise fall back to on-the-fly calculation (slower, for compatibility)
+        const usePreCalc = map && map.Scale && map.Scale._albersConstants;
+        
+        let a, e, e2, n, C, ρ0, λ0;
+        
+        if (usePreCalc) {
+            // Fast path: use pre-calculated constants
+            const c = map.Scale._albersConstants;
+            a = c.a;
+            e = c.e;
+            e2 = c.e2;
+            n = c.n;
+            C = c.C;
+            ρ0 = c.ρ0;
+            λ0 = c.λ0;
+        } else {
+            // Slow path: calculate on-the-fly (for backwards compatibility)
+            const degreesToRadians = (deg) => deg * Math.PI / 180;
+            params = params || {};
+            const φ1 = degreesToRadians(params.lat1 !== undefined ? params.lat1 : 29.5);
+            const φ2 = degreesToRadians(params.lat2 !== undefined ? params.lat2 : 45.5);
+            const φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 23);
+            λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : -96);
+            
+            a = 6378137.0;
+            const f = 1 / 298.257222101;
+            e2 = 2 * f - f * f;
+            e = Math.sqrt(e2);
+            
+            const calcQ = function(sinPhi) {
+                const eSinPhi = e * sinPhi;
+                return (1 - e2) * (
+                    sinPhi / (1 - e2 * sinPhi * sinPhi) - 
+                    (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                );
+            };
+            
+            const calcM = (phi) => {
+                const sinPhi = Math.sin(phi);
+                return Math.cos(phi) / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+            };
+            
+            const q0 = calcQ(Math.sin(φ0));
+            const q1 = calcQ(Math.sin(φ1));
+            const q2 = calcQ(Math.sin(φ2));
+            const m1 = calcM(φ1);
+            const m2 = calcM(φ2);
+            
+            n = (m1 * m1 - m2 * m2) / (q2 - q1);
+            C = m1 * m1 + n * q1;
+            ρ0 = (a / n) * Math.sqrt(C - n * q0);
+        }
+        
+        // Calculate ρ and θ from x, y
+        const ρ = Math.sqrt(x * x + (ρ0 - y) * (ρ0 - y));
+        const θ = Math.atan2(x, ρ0 - y);
+        
+        // Calculate longitude
+        const λ = λ0 + θ / n;
+        
+        // Calculate q from ρ
+        const q = (C - (ρ * n / a) * (ρ * n / a)) / n;
+        
+        // Calculate latitude from q using iterative method
+        // Initial approximation
+        let φ = Math.asin(q / 2);
+        
+        // Newton-Raphson iteration to solve for latitude
+        const maxIterations = 10;
+        const tolerance = 1e-10;
+        
+        for (let i = 0; i < maxIterations; i++) {
+            const sinPhi = Math.sin(φ);
+            const eSinPhi = e * sinPhi;
+            const oneMinus = 1 - e2 * sinPhi * sinPhi;
+            
+            // Calculate q for current φ
+            const qPhi = (1 - e2) * (
+                sinPhi / oneMinus - 
+                (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+            );
+            
+            // Calculate derivative dq/dφ
+            const dqDphi = (1 - e2) / oneMinus;
+            
+            // Newton-Raphson update
+            const delta = (q - qPhi) / dqDphi;
+            φ += delta;
+            
+            if (Math.abs(delta) < tolerance) {
+                break;
+            }
+        }
+        
+        // Convert to degrees
+        const lon = radiansToDegrees(λ);
+        const lat = radiansToDegrees(φ);
+        
+        return new point(lon, lat);
+    };
+
+    /**
+     * converts Lambert Azimuthal Equal Area coords to lat/long using WGS84 ellipsoid.
+     * @param  x projected x coordinate in meters
+     * @param  y projected y coordinate in meters
+     * @param  params optional projection parameters: {lat0, lon0}
+     * @type   point
+     */
+    const _LambertAzimuthalEqualAreatoLL = function (x, y, params) {
+        const radiansToDegrees = (rad) => rad * 180 / Math.PI;
+
+        const usePreCalc = map && map.Scale && map.Scale._lambertConstants;
+
+        let a, e, e2, λ0, qp, sinBeta0, cosBeta0, Rq, calcQ, inverseQ, φ0;
+
+        if (usePreCalc) {
+            const c = map.Scale._lambertConstants;
+            a = c.a;
+            e = c.e;
+            e2 = c.e2;
+            λ0 = c.λ0;
+            qp = c.qp;
+            sinBeta0 = c.sinBeta0;
+            cosBeta0 = c.cosBeta0;
+            Rq = c.Rq;
+            calcQ = c.calcQ;
+            inverseQ = c.inverseQ;
+            φ0 = c.φ0;
+        } else {
+            params = params || {};
+            const degreesToRadians = (deg) => deg * Math.PI / 180;
+            φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 0);
+            λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : 0);
+
+            a = 6378137.0;
+            const f = 1 / 298.257222101;
+            e2 = 2 * f - f * f;
+            e = Math.sqrt(e2);
+
+            calcQ = (phi) => {
+                const sinPhi = Math.sin(phi);
+                const eSinPhi = e * sinPhi;
+                return (1 - e2) * (
+                    sinPhi / (1 - e2 * sinPhi * sinPhi) -
+                    (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                );
+            };
+
+            qp = (1 - e2) * (
+                1 / (1 - e2) -
+                (1 / (2 * e)) * Math.log((1 - e) / (1 + e))
+            );
+
+            const q0 = calcQ(φ0);
+            sinBeta0 = q0 / qp;
+            cosBeta0 = Math.sqrt(Math.max(0, 1 - sinBeta0 * sinBeta0));
+            Rq = a * Math.sqrt(0.5 * qp);
+
+            inverseQ = (q) => {
+                let φ = Math.asin(Math.max(-1, Math.min(1, q / 2)));
+                const maxIterations = 12;
+                const tolerance = 1e-12;
+
+                for (let i = 0; i < maxIterations; i++) {
+                    const sinPhi = Math.sin(φ);
+                    const eSinPhi = e * sinPhi;
+                    const oneMinus = 1 - e2 * sinPhi * sinPhi;
+
+                    const qPhi = (1 - e2) * (
+                        sinPhi / oneMinus -
+                        (1 / (2 * e)) * Math.log((1 - eSinPhi) / (1 + eSinPhi))
+                    );
+
+                    const dqDphi = (1 - e2) / oneMinus;
+                    const delta = (q - qPhi) / dqDphi;
+                    φ += delta;
+
+                    if (Math.abs(delta) < tolerance) {
+                        break;
+                    }
+                }
+
+                return φ;
+            };
+        }
+
+        const ρ = Math.sqrt(x * x + y * y);
+
+        if (ρ < 1e-12) {
+            return new point(radiansToDegrees(λ0), radiansToDegrees(φ0));
+        }
+
+        const Ce = 2 * Math.asin(Math.min(1, ρ / (2 * Rq)));
+        const sinCe = Math.sin(Ce);
+        const cosCe = Math.cos(Ce);
+
+        const sinBeta = cosCe * sinBeta0 + (y * sinCe * cosBeta0) / ρ;
+        const cosBeta = Math.sqrt(Math.max(0, 1 - sinBeta * sinBeta));
+
+        const λ = λ0 + Math.atan2(
+            x * sinCe,
+            (ρ * cosBeta0 * cosCe) - (y * sinBeta0 * sinCe)
+        );
+
+        const q = qp * sinBeta;
+        const φ = inverseQ(q);
+
+        const lon = radiansToDegrees(λ);
+        const lat = radiansToDegrees(φ);
+
+        return new point(lon, lat);
+    };
+
+    /**
+     * converts lat/long to Orthographic coords using WGS84 ellipsoid.
+     * Orthographic projection shows the Earth as seen from space (azimuthal perspective).
+     * @param  lat latitude in decimal degrees
+     * @param  lon longitude in decimal degrees
+     * @param  params optional projection parameters: {lat0, lon0}
+     * @type   point
+     * @return point with x, y in meters
+     */
+    const _LLtoOrthographic = function (lat, lon, params) {
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+        
+        params = params || {};
+        const φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 0);
+        const λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : 0);
+        
+        // WGS84 Earth radius in meters
+        const R = 6378137.0;
+        
+        // Convert input coordinates to radians
+        const φ = degreesToRadians(lat);
+        const λ = degreesToRadians(lon);
+        
+        // Calculate angular distance from center
+        const Δλ = λ - λ0;
+        
+        // Calculate trigonometric values
+        const cosφ = Math.cos(φ);
+        const sinφ = Math.sin(φ);
+        const cosφ0 = Math.cos(φ0);
+        const sinφ0 = Math.sin(φ0);
+        const cosΔλ = Math.cos(Δλ);
+        const sinΔλ = Math.sin(Δλ);
+        
+        // Orthographic projection formulas
+        // x = R * cos(φ) * sin(λ - λ0)
+        // y = R * (cos(φ0) * sin(φ) - sin(φ0) * cos(φ) * cos(λ - λ0))
+        const x = R * cosφ * sinΔλ;
+        const y = R * (cosφ0 * sinφ - sinφ0 * cosφ * cosΔλ);
+        
+        return new point(x, y);
+    };
+
+    /**
+     * converts Orthographic coords to lat/long using WGS84 ellipsoid (inverse transformation).
+     * @param  x projected x coordinate in meters
+     * @param  y projected y coordinate in meters
+     * @param  params optional projection parameters: {lat0, lon0}
+     * @type   point
+     * @return point with lon (x) and lat (y) in decimal degrees
+     */
+    const _OrthographicToLL = function (x, y, params) {
+        const radiansToDegrees = (rad) => rad * 180 / Math.PI;
+        const degreesToRadians = (deg) => deg * Math.PI / 180;
+        
+        params = params || {};
+        const φ0 = degreesToRadians(params.lat0 !== undefined ? params.lat0 : 0);
+        const λ0 = degreesToRadians(params.lon0 !== undefined ? params.lon0 : 0);
+        
+        // WGS84 Earth radius in meters
+        const R = 6378137.0;
+        
+        // Calculate distance from center
+        const ρ = Math.sqrt(x * x + y * y);
+        
+        // Check if point is beyond the visible hemisphere
+        if (ρ > R) {
+            // Point is outside the visible hemisphere, return null or edge point
+            return null;
+        }
+        
+        // Calculate angular distance from center
+        const c = Math.asin(ρ / R);
+        
+        // Calculate trigonometric values
+        const cosc = Math.cos(c);
+        const sinc = Math.sin(c);
+        const cosφ0 = Math.cos(φ0);
+        const sinφ0 = Math.sin(φ0);
+        
+        // Handle edge case when ρ is very small (near center)
+        if (ρ < 1e-10) {
+            return new point(radiansToDegrees(λ0), radiansToDegrees(φ0));
+        }
+        
+        // Inverse orthographic projection formulas
+        // φ = asin(cos(c) * sin(φ0) + (y * sin(c) * cos(φ0)) / ρ)
+        // λ = λ0 + atan2(x * sin(c), ρ * cos(φ0) * cos(c) - y * sin(φ0) * sin(c))
+        const φ = Math.asin(cosc * sinφ0 + (y * sinc * cosφ0) / ρ);
+        const λ = λ0 + Math.atan2(x * sinc, ρ * cosφ0 * cosc - y * sinφ0 * sinc);
+        
+        // Convert to degrees
+        const lon = radiansToDegrees(λ);
+        const lat = radiansToDegrees(φ);
+        
+        return new point(lon, lat);
+    };
+
     // ========================================
     // EXPORT TO GLOBAL SCOPE - ONLY ixMap    *
     // ========================================
@@ -7025,6 +8386,8 @@ $Log: mapscript.js,v $
     //window._LLtoWinkelTripel = _LLtoWinkelTripel;
     //window._LLtoEqualEarth = _LLtoEqualEarth;
     //window._EqualEarthtoLL = _EqualEarthtoLL;
+    //window._LLtoAlbersEqualArea = _LLtoAlbersEqualArea;
+    //window._AlbersEqualAreatoLL = _AlbersEqualAreatoLL;
 
     // Export utility functions
     //window.sinh = sinh;

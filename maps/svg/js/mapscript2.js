@@ -223,7 +223,7 @@ $Log: mapscript2.js,v $
      * @param nDeltyY the y panning amount in pixel
      */
     ixMap.Viewport.prototype.doPanMap = function (nDeltaX, nDeltaY) {
-        executeWithMessage("map.Viewport.panMap(" + nDeltaX + "," + nDeltaY + ")", "please wait ...", 100);
+        executeWithMessage(() => map.Viewport.panMap(nDeltaX, nDeltaY), "please wait ...", 100);
     };
     /**
      * helper for the execution of the panning buttons; needed to get a message displayed  
@@ -313,12 +313,12 @@ $Log: mapscript2.js,v $
     };
     ixMap.Viewport.prototype.onClick = function (evt) {
         if (this.northArrowObj) {
-            executeWithMessage("map.Scale.setRotation(null," + 0 + ")", "...");
+            executeWithMessage(() => map.Scale.setRotation(null, 0), "...");
         }
     };
     ixMap.Viewport.prototype.onMouseUp = function (evt) {
         if (this.northArrowObj && !map.fRotateOnMouseMove) {
-            executeWithMessage("map.Scale.setRotation(null," + this.northArrowObj.getAngle() + ")", "...");
+            executeWithMessage(() => map.Scale.setRotation(null, this.northArrowObj.getAngle()), "...");
         }
     };
     ixMap.Viewport.prototype.onMouseMove = function (evt) {
@@ -339,7 +339,7 @@ $Log: mapscript2.js,v $
         if (this.northGroup && (this.northGroup.style.getPropertyValue("display") != "none")) {
             this.northGroup.style.setProperty("display", "none", "");
             if (this.northArrowObj) {
-                executeWithMessage("map.Scale.setRotation(null," + 0 + ")", "...");
+                executeWithMessage(() => map.Scale.setRotation(null, 0), "...");
             }
         }
     };
@@ -764,10 +764,30 @@ $Log: mapscript2.js,v $
         var canvasMatrixA = getMatrix(this.canvasNode);
         var mapCanvas = new point(canvasMatrixA[4], canvasMatrixA[5]);
 
-        var nNewZoom = Math.min(map.Scale.bBox.width / rectArea.width, map.Scale.bBox.height / rectArea.height);
-
+        // For orthographic projections, circular feature bounds need special handling:
+        // - For landscape viewports (width > height): use height-based zoom to fit circle in height
+        // - For portrait viewports (height > width): use width-based zoom to fit circle in width
+        // - For square viewports: either works
+        // For other projections, use Math.min() to ensure features fit within viewport
         var nNewZoomX = map.Scale.bBox.width / rectArea.width;
         var nNewZoomY = map.Scale.bBox.height / rectArea.height;
+        var nNewZoom;
+        if (0 && map.Scale.szMapProjection && map.Scale.szMapProjection.match(/orthographic/i)) {
+            // For orthographic, check viewport aspect ratio
+            var viewportAspectRatio = map.Scale.bBox.width / map.Scale.bBox.height;
+            var featureAspectRatio = rectArea.width / rectArea.height;
+            // If viewport is landscape (wider than tall), use height-based zoom
+            // If viewport is portrait (taller than wide), use width-based zoom
+            if (viewportAspectRatio > 1) {
+                // Landscape: circle limited by height
+                nNewZoom = nNewZoomY;
+            } else {
+                // Portrait or square: circle limited by width
+                nNewZoom = nNewZoomX;
+            }
+        } else {
+            nNewZoom = Math.min(nNewZoomX, nNewZoomY);
+        }
 
         nNewZoom = Math.round(nNewZoom * 1000000) / 1000000;
 
@@ -954,6 +974,17 @@ $Log: mapscript2.js,v $
      * @param maxBoundY the y value of the max geo coordinate  
      */
     ixMap.Zoom.prototype.doCenterMapToEnvelope = function (minBoundX, maxBoundX, minBoundY, maxBoundY) {
+        // For orthographic projections, skip visual panning - projection parameters are updated in setCenterLatLon
+        // EXCEPTION: Allow initial centering if _allowOrthographicCenter flag is set
+        if (0 && map.Scale.szMapProjection && map.Scale.szMapProjection.match(/orthographic/i)) {
+            if (map._allowOrthographicCenter) {
+                // Allow this one-time centering to position the globe in the SVG viewport
+            } else {
+                // Don't apply visual panning for orthographic - projection parameters handle the rotation
+                // The actual projection parameter update happens in setCenterLatLon (htmlgui_sync.js)
+                return;
+            }
+        }
 
         if (this.doCheckEnvelope(minBoundX, maxBoundX, minBoundY, maxBoundY)) {
             var nLeft = (minBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
@@ -970,12 +1001,18 @@ $Log: mapscript2.js,v $
      * @param lon the longitude of the geo position
      */
     ixMap.Zoom.prototype.doCenterMapToGeoPosition = function (lat, lon) {
+        
         var ptCenter = map.Scale.getMapCoordinateOfLatLon(lat, lon);
+        
         if (ptCenter) {
-            if (!this.doSetCenterByParentMap(ptCenter.x, ptCenter.y)) {
+            // For initial orthographic centering, skip doSetCenterByParentMap to ensure centering happens
+            if (map._allowOrthographicCenter) {
+                this.doCenterMapToEnvelope(ptCenter.x, ptCenter.x, ptCenter.y, ptCenter.y);
+            } else if (1 || !this.doSetCenterByParentMap(ptCenter.x, ptCenter.y)) {
                 this.doCenterMapToEnvelope(ptCenter.x, ptCenter.x, ptCenter.y, ptCenter.y);
             }
         } else {
+            console.warn("getMapCoordinateOfLatLon returned null for lat=" + lat + ", lon=" + lon);
             displayMessage("missing projection ! lat/lon could not be resolved", 1000);
         }
     };
@@ -987,6 +1024,179 @@ $Log: mapscript2.js,v $
      * @param lonNE the longitude of the North East point
      */
     ixMap.Zoom.prototype.doCenterMapToGeoBounds = function (latSW, lonSW, latNE, lonNE) {
+        // For adaptive projections (Orthographic, Albers, Lambert), update projection parameters instead of visual panning
+        var projectionType = null;
+        var szProjection = map.Scale.szMapProjection || "";
+        if (szProjection.match(/orthographic/i)) {
+            projectionType = 'orthographic';
+        } else if (szProjection.match(/albers/i)) {
+            projectionType = 'albers';
+        } else if (szProjection.match(/lambert/i)) {
+            projectionType = 'lambert';
+        }
+        
+        if (projectionType) {
+            var result = null;
+            
+            // Albers projection needs bounds-based calculation (uses actual bounds for standard parallels)
+            // Lambert and Orthographic use center + zoom
+            if (projectionType === 'albers') {
+                // For Albers, use bounds directly to calculate standard parallels
+                if (map.Scale && typeof map.Scale.calculateAlbersParametersFromBounds === 'function') {
+                    var newParams = map.Scale.calculateAlbersParametersFromBounds(latSW, lonSW, latNE, lonNE);
+                    if (newParams) {
+                        // Compare with last parameters to detect changes
+                        var lastParams = map.Scale.lastAlbersParams;
+                        var paramsChanged = false;
+                        
+                        if (!lastParams) {
+                            paramsChanged = true;
+                        } else {
+                            var THRESHOLD = 0.5;
+                            if (Math.abs(newParams.lat1 - lastParams.lat1) > THRESHOLD ||
+                                Math.abs(newParams.lat2 - lastParams.lat2) > THRESHOLD ||
+                                Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
+                                Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
+                                paramsChanged = true;
+                            }
+                        }
+                        
+                        // Store new parameters
+                        map.Scale.lastAlbersParams = {
+                            lat1: newParams.lat1,
+                            lat2: newParams.lat2,
+                            lat0: newParams.lat0,
+                            lon0: newParams.lon0
+                        };
+                        
+                        result = {
+                            params: newParams,
+                            changed: paramsChanged
+                        };
+                    }
+                }
+            } else {
+                // For Lambert and Orthographic, use center + zoom approach
+                // Calculate center from bounds
+                var centerLat = (latSW + latNE) / 2;
+                var centerLon = (lonSW + lonNE) / 2;
+                
+                // Get current zoom level
+                var zoomLevel = null;
+                if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
+                    var htmlZoom = map.HTMLWindow.ixmaps.getZoom();
+                    if (htmlZoom !== undefined && Number.isFinite(htmlZoom)) {
+                        zoomLevel = htmlZoom;
+                    }
+                }
+                if (zoomLevel === null && map.Scale.nZoomScale && map.Scale.nZoomScale > 0) {
+                    zoomLevel = Math.max(1, Math.min(20, Math.log2(map.Scale.nZoomScale) + 5));
+                }
+                if (zoomLevel === null) {
+                    zoomLevel = 5; // Default
+                }
+                
+                // Determine which API function to call based on projection type
+                var apiFunction = null;
+                var apiFunctionName = null;
+                if (projectionType === 'orthographic') {
+                    apiFunction = map.Api.updateOrthographicParameters;
+                    apiFunctionName = 'updateOrthographicParameters';
+                } else if (projectionType === 'lambert') {
+                    apiFunction = map.Api.updateLambertParameters;
+                    apiFunctionName = 'updateLambertParameters';
+                }
+                
+                // Update projection parameters
+                if (map.Api && apiFunction && typeof apiFunction === 'function') {
+                    var newCenter = [centerLat, centerLon]; // [lat, lon]
+                    result = apiFunction.call(map.Api, newCenter, zoomLevel);
+                }
+            }
+            
+            // Handle result and trigger redraw (common for all projection types)
+            if (result && result.params) {
+                // Clear global position cache (map.Themes.themeNodesPosA) for affected layers
+                map.Themes.themeNodesPosA = [];
+                map.Themes.themeNodesA = [];
+
+                // Mark ALL themes for redraw with the flag to clear on projection change
+                // For adaptive projections, all themes need to be redrawn after projection parameter update
+                var featureThemeCount = 0;
+                for (var i = 0; i < map.Themes.themesA.length; i++) {
+                    var theme = map.Themes.themesA[i];
+                    if (theme.szFlag) {
+                        theme.fRealize = true; // Use fRealize to trigger full redraw for all themes
+                        theme.fActualize = true;
+                        theme.fClearOnProjectionChange = true;
+                        featureThemeCount++;
+
+                        // Clear position cache for this theme
+                        if (theme.themeNodesPosA) {
+                            theme.themeNodesPosA = [];
+                        }
+                        
+                        // Clear node cache (shape references) for this theme
+                        // This ensures getNodePosition() will re-fetch shapes after FEATURE redraw
+                        if (theme.themeNodesA) {
+                            theme.themeNodesA = [];
+                        }
+                    }
+                }
+                
+                // Recalculate nScaleX and nScaleY to ensure headers render with correct stroke-width
+                // This is important for adaptive projections where the viewBox might have changed
+                if (map.Scale && typeof map.Scale.getEmbedWidth === 'function' && typeof map.Scale.getEmbedHeight === 'function') {
+                    map.Scale.nScaleX = (map.Scale.viewBox.width / map.Scale.getEmbedWidth() * map.Scale.getEmbedScale());
+                    map.Scale.nScaleY = (map.Scale.viewBox.height / map.Scale.getEmbedHeight() * map.Scale.getEmbedScale());
+                }
+                
+                // Trigger execute asynchronously to avoid blocking
+                // Use setTimeout(0) to allow browser to render and prevent blocking
+                var self = this;
+                setTimeout(function() {
+                    if (map.Themes && typeof map.Themes.execute === 'function') {
+                        map.Themes.execute();
+                    } else {
+                        console.warn("map.Themes.execute() not available");
+                    }
+                }, 0);
+            } else {
+                console.warn("No " + projectionType + " parameter update - result is null or missing params:", result);
+                // Even if result is null, try to trigger redraw if parameters might have changed
+                // This handles cases where validation rejects the update but parameters were still set
+                var hasParams = false;
+                if (projectionType === 'orthographic') {
+                    hasParams = map.Scale && map.Scale.nOrthographicLat0 !== undefined && map.Scale.nOrthographicLon0 !== undefined;
+                } else if (projectionType === 'albers') {
+                    hasParams = map.Scale && map.Scale.lastAlbersParams !== undefined;
+                } else if (projectionType === 'lambert') {
+                    hasParams = map.Scale && map.Scale.lastLambertParams !== undefined;
+                }
+                
+                if (hasParams) {
+                    var featureThemeCount = 0;
+                    for (var i = 0; i < map.Themes.themesA.length; i++) {
+                        var theme = map.Themes.themesA[i];
+                        if (theme.szFlag){ // && theme.szFlag.match(/FEATURE/)) {
+                            theme.fRealize = true;
+                            theme.fActualize = true;
+                            theme.fClearOnProjectionChange = true;
+                            featureThemeCount++;
+                        }
+                    }
+                    if (featureThemeCount > 0 && map.Themes && typeof map.Themes.execute === 'function') {
+                        setTimeout(function() {
+                            map.Themes.execute();
+                        }, 0);
+                    }
+                }
+            }
+            
+            // Don't apply visual panning for adaptive projections - projection parameters handle the transformation
+            return;
+        }
+        
         this.fExternalZoom = false;
         var ptSW = map.Scale.getMapCoordinateOfLatLon(latSW, lonSW);
         var ptNE = map.Scale.getMapCoordinateOfLatLon(latNE, lonNE);
@@ -1167,6 +1377,27 @@ $Log: mapscript2.js,v $
         var ptNE = map.Scale.getMapCoordinate(rectArea.x + rectArea.width, rectArea.y);
         ptSW = map.Scale.getGeoCoordinateOfPoint(ptSW.x, ptSW.y);
         ptNE = map.Scale.getGeoCoordinateOfPoint(ptNE.x, ptNE.y);
+        
+        // For orthographic projection, corners might be outside visible hemisphere (return null)
+        // If either corner is null, use center point as fallback
+        if (!ptSW || !ptNE) {
+            var ptCenter = map.Zoom.getCenterOfMapInGeoPosition();
+            if (ptCenter) {
+                // Use center point with a small buffer as bounds if corners are invalid
+                var buffer = 0.1; // degrees
+                if (!ptSW) {
+                    ptSW = new point(ptCenter.x - buffer, ptCenter.y - buffer);
+                }
+                if (!ptNE) {
+                    ptNE = new point(ptCenter.x + buffer, ptCenter.y + buffer);
+                }
+            } else {
+                // Last resort: return default bounds
+                ptSW = ptSW || new point(-180, -90);
+                ptNE = ptNE || new point(180, 90);
+            }
+        }
+        
         return (new Array(ptSW, ptNE));
     };
     /**
@@ -1255,7 +1486,6 @@ $Log: mapscript2.js,v $
      * @return true, if new envelope has been set 
      */
     ixMap.Zoom.prototype.doSetCenterByParentMap = function (minBoundX, minBoundY) {
-
         try {
             var ptCenter = map.Scale.getGeoCoordinateOfPoint(minBoundX, minBoundY);
             return map.HTMLWindow.ixmaps.htmlgui_setCurrentCenterByGeoBounds(ptCenter);
@@ -1306,7 +1536,7 @@ $Log: mapscript2.js,v $
      * @param nDeltaX pan map for this dx 
      * @param nDeltaY pan map for this dy
      */
-    ixMap.Zoom.prototype.doPanMap = function (nDeltaX, nDeltaY) {
+    ixMap.Zoom.prototype.doPanMap = function (nDeltaX, nDeltaY) { return;
 
         var zoomMatrixA = getMatrix(this.zoomNode);
         var nZoomX = zoomMatrixA[0];
@@ -1323,6 +1553,154 @@ $Log: mapscript2.js,v $
         newX += map.Scale.embedX(zoomMatrixA[4]);
         newY += map.Scale.embedY(zoomMatrixA[5]);
 
+        // For orthographic projections: calculate new center immediately from pan offset
+        // Instead of applying visual pan offset, update projection parameters to rotate the globe
+        // This prevents the globe from jumping when projection parameters update
+        // IMPORTANT: Only apply this logic for orthographic projections, not for Mercator or other projections
+        var isOrthographic = map.Scale.szMapProjection && 
+                             typeof map.Scale.szMapProjection === 'string' && 
+                             map.Scale.szMapProjection.toLowerCase().indexOf('orthographic') !== -1;
+        if (0 && isOrthographic) {
+            // Only process orthographic panning logic
+            // Throttle pan-based projection updates to avoid too frequent redraws
+            if (!map.Zoom._lastPanOrthographicUpdate) {
+                map.Zoom._lastPanOrthographicUpdate = 0;
+            }
+            var now = Date.now();
+            var PAN_ORTHOGRAPHIC_UPDATE_INTERVAL = 50; // Update max 20 times per second (50ms) for smooth rotation
+            if (now - map.Zoom._lastPanOrthographicUpdate < PAN_ORTHOGRAPHIC_UPDATE_INTERVAL) {
+                // Too soon since last update - prevent visual pan but don't update parameters yet
+                if (map.fPanByViewer) {
+                    return; // Exit early, don't apply pan offset
+                } else {
+                    var ptOld = getTranslate(this.zoomNode);
+                    this.zoomNode.setAttributeNS(null, "transform", "matrix(" + nZoomX + " 0 0 " + nZoomY + " " + ptOld.x + " " + ptOld.y + ")");
+                    return; // Exit early, don't apply pan offset
+                }
+            }
+            map.Zoom._lastPanOrthographicUpdate = now;
+            
+            try {
+                // Get current geographic center
+                var currentGeoCenter = map.Zoom.getCenterOfMapInGeoPosition();
+                if (!currentGeoCenter) {
+                    // Fallback: get from HTML map if available
+                    if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
+                        var htmlCenter = map.HTMLWindow.ixmaps.getCenter();
+                        if (htmlCenter) {
+                            currentGeoCenter = new point(htmlCenter.lng, htmlCenter.lat); // x=lon, y=lat
+                        }
+                    }
+                }
+                
+                if (!currentGeoCenter) {
+                    // Can't get current center, fall back to normal pan behavior
+                    throw new Error("Cannot get current geo center");
+                }
+                
+                // Get current viewport center in screen coordinates
+                var rectArea = this.getBox();
+                var currentCenterScreenX = rectArea.x + rectArea.width / 2;
+                var currentCenterScreenY = rectArea.y + rectArea.height / 2;
+                
+                // Convert pan offset to map coordinates (accounting for zoom)
+                var panOffsetMapX = nDeltaX / nZoomX;
+                var panOffsetMapY = nDeltaY / nZoomY;
+                
+                // Calculate what the new center screen position would be after pan
+                var newCenterScreenX = currentCenterScreenX + panOffsetMapX;
+                var newCenterScreenY = currentCenterScreenY + panOffsetMapY;
+                
+                // Convert new center screen position to map coordinates
+                var newCenterMap = map.Scale.getMapCoordinate(newCenterScreenX, newCenterScreenY);
+                
+                if (newCenterMap) {
+                    // Convert map coordinates to geo coordinates
+                    var newCenterGeo = map.Scale.getGeoCoordinateOfPoint(newCenterMap.x, newCenterMap.y);
+                    
+                    // If conversion fails or returns invalid, use current center plus estimated delta
+                    if (!newCenterGeo || !Number.isFinite(newCenterGeo.x) || !Number.isFinite(newCenterGeo.y)) {
+                        // Estimate geo delta from pan offset
+                        // For orthographic: approximate conversion (rough estimate)
+                        // This is a fallback if precise conversion fails
+                        var viewportWidth = rectArea.width;
+                        var viewportHeight = rectArea.height;
+                        var estimatedLatDelta = -(panOffsetMapY / viewportHeight) * 180; // Rough estimate
+                        var estimatedLonDelta = (panOffsetMapX / viewportWidth) * 360; // Rough estimate
+                        newCenterGeo = new point(
+                            currentGeoCenter.x + estimatedLonDelta,
+                            currentGeoCenter.y + estimatedLatDelta
+                        );
+                    }
+                    
+                    if (newCenterGeo && Number.isFinite(newCenterGeo.x) && Number.isFinite(newCenterGeo.y) &&
+                        newCenterGeo.x >= -180 && newCenterGeo.x <= 180 &&
+                        newCenterGeo.y >= -90 && newCenterGeo.y <= 90) {
+                        
+                        // Get current zoom level
+                        var zoomLevel = null;
+                        if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
+                            var htmlZoom = map.HTMLWindow.ixmaps.getZoom();
+                            if (htmlZoom !== undefined && Number.isFinite(htmlZoom)) {
+                                zoomLevel = htmlZoom;
+                            }
+                        }
+                        if (zoomLevel === null && map.Scale.nZoomScale && map.Scale.nZoomScale > 0) {
+                            zoomLevel = Math.max(1, Math.min(20, Math.log2(map.Scale.nZoomScale) + 5));
+                        }
+                        if (zoomLevel === null) {
+                            zoomLevel = 5; // Default
+                        }
+                        
+                        // Update projection parameters immediately with new center
+                        // This rotates the globe instead of panning it visually
+                        var newCenter = [newCenterGeo.y, newCenterGeo.x]; // [lat, lon]
+                        if (map.Api && typeof map.Api.updateOrthographicParameters === 'function') {
+                            // Always try to update projection parameters, even if they don't change
+                            // This ensures smooth rotation without visual pan offset
+                            var result = map.Api.updateOrthographicParameters(newCenter, zoomLevel);
+                            
+                            // If parameters were updated, trigger immediate redraw
+                            if (result && result.params) {
+                                // Mark FEATURE themes for redraw with the flag to clear on projection change
+                                for (var i = 0; i < map.Themes.themesA.length; i++) {
+                                    var theme = map.Themes.themesA[i];
+                                    if (theme.szFlag && theme.szFlag.match(/FEATURE/)) {
+                                        theme.fRedraw = true;
+                                        theme.fActualize = true;
+                                        theme.fClearOnProjectionChange = true;
+                                    }
+                                }
+                                // Trigger immediate execute to redraw with new parameters
+                                // Use setTimeout(0) to allow browser to render, but execute immediately
+                                var self = this;
+                                setTimeout(function() {
+                                    if (map.Themes && typeof map.Themes.execute === 'function') {
+                                        map.Themes.execute();
+                                    }
+                                }, 0);
+                            }
+                            
+                            // Always prevent visual pan offset for orthographic projections
+                            // The globe rotates via projection parameter update, not visual panning
+                            if (map.fPanByViewer) {
+                                // Don't apply pan offset - let projection handle the rotation
+                                // Keep current translate values unchanged
+                                return; // Exit early, don't apply pan offset
+                            } else {
+                                // Reset zoom node transform to current position (no pan offset)
+                                var ptOld = getTranslate(this.zoomNode);
+                                this.zoomNode.setAttributeNS(null, "transform", "matrix(" + nZoomX + " 0 0 " + nZoomY + " " + ptOld.x + " " + ptOld.y + ")");
+                                return; // Exit early, don't apply pan offset
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // If calculation fails, fall back to normal behavior
+                console.warn("Error calculating orthographic center from pan offset:", e);
+            }
+        }
 
         if (map.fPanByViewer) {
             map.SVGRootElement.currentTranslate.x = newX;
@@ -3651,6 +4029,35 @@ $Log: mapscript2.js,v $
         }
     };
     /**
+     * add one text node to the check item list
+     * @param textNode the DOM (SVG text) node to add  
+     */
+    ixMap.Label.prototype.addCheckItemTheme = function (textNode, fScale) {
+
+        if (textNode.firstChild) {
+
+            // GR 04.05.2011 check if visible
+            var m = getMatrix(textNode);
+            var ptOff = new point(Number(m[4]), Number(m[5]));
+            var ptMapOffset = map.Scale.getMapOffset(textNode);
+            ptOff.x += ptMapOffset.x;
+            ptOff.y += ptMapOffset.y;
+            if (ptOff.x < this.zoomBox.x ||
+                ptOff.x > this.zoomBox.x + this.zoomBox.width ||
+                ptOff.y < this.zoomBox.y ||
+                ptOff.y > this.zoomBox.y + this.zoomBox.height) {
+                return;
+            }
+
+            var cItem = new ixMap.Label.Item(textNode);
+            cItem.fRef = false;
+            cItem.fScale = false;
+            this.checkItemA[this.checkItemA.length] = cItem;
+        }
+    };
+
+
+    /**
      * get all text elements to check for overlapping; calls getBoxCheckOverlap() if ready
      */
     ixMap.Label.prototype.collectCheckOverlap = function () {
@@ -3767,7 +4174,7 @@ $Log: mapscript2.js,v $
         if (1) {
             var textObj = map.Themes.getTextObjects();
             for (var i = 0; i < textObj.length; i++) {
-                this.addCheckItem(textObj[i], true);
+                this.addCheckItemTheme(textObj[i]);
             }
         }
 
@@ -5260,7 +5667,6 @@ $Log: mapscript2.js,v $
             __simpleHighlight(evt, onoverShape);
 
             try {
-                console.log(mapObject.szId)
                 if (map.HTMLWindow.ixmaps.htmlgui_onItemOver(evt, mapObject.szId)) {
                     return null;
                 }
@@ -5758,6 +6164,79 @@ $Log: mapscript2.js,v $
             __fShiftDone = false;
         }
     };
+    /**
+     * Check if map view changed significantly (zoom or significant pan)
+     * Used to determine when to update adaptive projection parameters
+     * @return {Object} {changed: boolean, zoomChanged: boolean, panChanged: boolean}
+     */
+    ixMap.Event.prototype._checkSignificantViewChange = function () {
+        var result = {
+            changed: false,
+            zoomChanged: false,
+            panChanged: false
+        };
+        
+        // Check zoom change (always significant)
+        result.zoomChanged = (map.Scale.oldZoomScale != map.Scale.nZoomScale);
+        
+        if (result.zoomChanged) {
+            result.changed = true;
+            return result;
+        }
+        
+        // Check if pan moved significantly in geographic terms
+        // Only check if projection is Albers, Lambert, or Orthographic
+        var szProjection = map.Scale.szMapProjection || "";
+        if (!szProjection.match(/albers|lambert|orthographic/i)) {
+            return result; // Not a projection that needs adaptive parameters
+        }
+        
+        // Convert map center change to geographic coordinates
+        try {
+            // Ensure oldMapCenter exists before accessing its properties
+            if (!map.Scale.oldMapCenter || !map.Scale.mapCenter) {
+                return result;
+            }
+            var oldGeoCenter = map.Scale.getGeoCoordinateOfPoint(
+                map.Scale.oldMapCenter.x, 
+                map.Scale.oldMapCenter.y
+            );
+            var newGeoCenter = map.Scale.getGeoCoordinateOfPoint(
+                map.Scale.mapCenter.x, 
+                map.Scale.mapCenter.y
+            );
+            
+            if (oldGeoCenter && newGeoCenter) {
+                // Calculate geographic distance (rough approximation)
+                var latDiff = Math.abs(oldGeoCenter.y - newGeoCenter.y);
+                var lonDiff = Math.abs(oldGeoCenter.x - newGeoCenter.x);
+                // Normalize longitude difference for wraparound
+                if (lonDiff > 180) {
+                    lonDiff = 360 - lonDiff;
+                }
+                
+                // Threshold: 0.5 degrees (~55km) - configurable
+                // This prevents updates on tiny pan movements
+                var GEOGRAPHIC_THRESHOLD = 0.5;
+                if (latDiff > GEOGRAPHIC_THRESHOLD || lonDiff > GEOGRAPHIC_THRESHOLD) {
+                    result.panChanged = true;
+                    result.changed = true;
+                }
+            }
+        } catch (e) {
+            // If coordinate conversion fails, fall back to pixel threshold
+            // (less accurate but better than nothing)
+            if (map.Scale.oldMapCenter && map.Scale.mapCenter &&
+                (Math.abs(map.Scale.oldMapCenter.x - map.Scale.mapCenter.x) > 50 ||
+                Math.abs(map.Scale.oldMapCenter.y - map.Scale.mapCenter.y) > 50)) {
+                result.panChanged = true;
+                result.changed = true;
+            }
+        }
+        
+        return result;
+    };
+    
     /**
      * called to adapt the map zoom and pan on various events
      * @param evt the event
@@ -10761,7 +11240,7 @@ $Log: mapscript2.js,v $
                     if (szThemeId.match(/\'/)) {
                         map.Layer.switchLayer(evt, szThemeId, szClassName, false);
                     } else {
-                        executeWithMessage("map.Layer.switchLayer(null,'" + szThemeId + "','" + szClassName + "',false)", "...");
+                        executeWithMessage(() => map.Layer.switchLayer(null, szThemeId, szClassName, false), "...");
                     }
                 }
                 clickNode.style.setProperty('display', 'none', "");
@@ -10777,7 +11256,7 @@ $Log: mapscript2.js,v $
                     if (szThemeId.match(/\'/)) {
                         map.Layer.switchLayer(evt, szThemeId, szClassName, true);
                     } else {
-                        executeWithMessage("map.Layer.switchLayer(null,'" + szThemeId + "','" + szClassName + "',true)", "...");
+                        executeWithMessage(() => map.Layer.switchLayer(null, szThemeId, szClassName, true), "...");
                     }
                 }
                 var szId = "legend:off:" + szThemeId;
