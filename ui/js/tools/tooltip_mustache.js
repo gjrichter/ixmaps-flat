@@ -216,10 +216,6 @@ window.ixmaps = window.ixmaps || {};
 		// ------------------------------------
 		// get the theme object from item id
 		// ------------------------------------
-		
-		console.log("=== item over ===");
-		console.log(szId);
-		
 
 		// 1.try
 		var themeObj = ixmaps.getThemeObj(szId.split(":")[0]);
@@ -237,12 +233,6 @@ window.ixmaps = window.ixmaps || {};
 			
 			szId = themeObj.szId+":"+szId;
 		}
-		
-		console.log("=== tooltip_mustache ===");
-		console.log("=== theme ===");
-		console.log(themeObj.szId);
-		console.log(themeObj.szFlag);
-		console.log(themeObj);
 
 		// ------------------------------------------
 		// start creating the tooltip content
@@ -278,8 +268,6 @@ window.ixmaps = window.ixmaps || {};
 			}
 			szItem = szChartId;
 		}
-		console.log("=== item ===");
-		console.log(szItem);
 		
 		// get data and tooltip (mustache) template
 		
@@ -288,8 +276,6 @@ window.ixmaps = window.ixmaps || {};
 		
 		var data = ixmaps.map().getData(szId);
 		
-		console.log("=== item data ===");
-		console.log(data);
 		var nValue = themeObj.itemA[szItem].nValue || themeObj.itemA[szItem].nValuesA[0];
 		if (themeObj.itemA[szItem].nValuesA.length > 1){
 			nValue = 0;
@@ -303,11 +289,6 @@ window.ixmaps = window.ixmaps || {};
 			szLabel = themeObj.szXaxisA[themeObj.nActualFrame];
 		}
 		var szTitle = themeObj.itemA[szItem].szTitle;
-        
-        console.log("-----------------------------");
-        console.log(themeObj);
-        console.log(themeObj.itemA[szItem]);
-        console.log("-----------------------------");
 	
 		// make data object to feed mustache rendering
 		
@@ -403,20 +384,118 @@ window.ixmaps = window.ixmaps || {};
 			// request chart from map 
 			// -----------------------
 			if (themeObj.szFlag.match(/BAR/) && themeObj.szFlag.match(/STACKED/)){
-				themeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 60, "VALUES|XAXIS|NOSIZE|BOX|GRID");
+				var szFlag = "VALUES|XAXIS|NOSIZE|BOX|GRID";
+				// Check both szFlag (current) and szOrigFlag (original definition) for modifiers
+				var themeFlag = themeObj.szOrigFlag || themeObj.szFlag;
+				if (themeFlag.match(/\bLASTPOP\b/)) {
+					szFlag += "|LASTPOP";
+				}
+				if (themeFlag.match(/\bLASTVALUE\b/)) {
+					szFlag += "|LASTVALUE";
+				}
+				if (themeFlag.match(/\bLASTARROW\b/)) {
+					szFlag += "|LASTARROW";
+				}
+				themeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 60, szFlag);
 			} else
 			if (themeObj.szFlag.match(/CHART|COMPOSECOLOR|DOMINANT|SUBTHEME/)){
-				themeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 30, "VALUES|XAXIS|ZOOM|BOX|GRID");
+				var szFlag = "VALUES|XAXIS|ZOOM|BOX|GRID";
+				// Check both szFlag (current) and szOrigFlag (original definition) for modifiers
+				var themeFlag = themeObj.szOrigFlag || themeObj.szFlag;
+				if (themeFlag.match(/\bLASTPOP\b/)) {
+					szFlag += "|LASTPOP";
+				}
+				if (themeFlag.match(/\bLASTVALUE\b/)) {
+					szFlag += "|LASTVALUE";
+				}
+				if (themeFlag.match(/\bLASTARROW\b/)) {
+					szFlag += "|LASTARROW";
+				}
+				themeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 30, szFlag);
 			}else{
 				var themesA = ixmaps.getThemes();
+				var baseLayerName = origThemeObj.szThemes || szItem.split("::")[0];
 				for (var t = themesA.length-1; t >= 0; t--) {
-					var themeObj = themesA[t];
-					if (themeObj.szFlag.match(/CHART|COMPOSECOLOR/)){
-						themeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 30, "VALUES|XAXIS|NORMSIZE|ZOOM|BOX|GRID");
-						break;
+					var chartThemeObj = themesA[t];
+					if (chartThemeObj.szFlag.match(/CHART|COMPOSECOLOR/) && chartThemeObj.szThemes == baseLayerName){
+						// Ensure theme is realized (items are created)
+						if (!chartThemeObj.fRealizeDone) {
+							chartThemeObj.realize();
+						}
+						
+						// Check if item exists in chart theme (try different case variations)
+						var chartSzItem = szItem;
+						if (!chartThemeObj.itemA || !chartThemeObj.itemA[chartSzItem]) {
+							// Try uppercase version
+							var aA = chartSzItem.split('::');
+							if (aA.length > 1) {
+								chartSzItem = aA[0] + "::" + String(aA[1]).toUpperCase();
+							}
+						}
+						
+						// If still not found, try to find by matching title/geo value
+						if (!chartThemeObj.itemA || !chartThemeObj.itemA[chartSzItem]) {
+							var geoValue = szItem.split("::")[1];
+							if (geoValue && chartThemeObj.itemA) {
+								for (var itemId in chartThemeObj.itemA) {
+									if (itemId.split("::")[1] == geoValue || 
+									    (chartThemeObj.itemA[itemId].szTitle && chartThemeObj.itemA[itemId].szTitle == geoValue)) {
+										chartSzItem = itemId;
+										break;
+									}
+								}
+							}
+						}
+						
+						if (chartThemeObj.itemA && chartThemeObj.itemA[chartSzItem]) {
+							// Build szFlag including theme's LASTPOP and LASTVALUE modifiers
+							// Use the theme's original flag and merge with tooltip-specific flags
+							var szFlag = "VALUES|XAXIS|NORMSIZE|ZOOM|BOX|GRID";
+							// Check both szFlag (current) and szOrigFlag (original definition) for modifiers
+							var themeFlag = chartThemeObj.szOrigFlag || chartThemeObj.szFlag;
+							// Add LINES if theme has PLOT (needed for plot rendering code path)
+							if (themeFlag.match(/\bPLOT\b/)) {
+								szFlag += "|LINES";
+							}
+							if (themeFlag.match(/\bLASTPOP\b/)) {
+								szFlag += "|LASTPOP";
+							}
+							if (themeFlag.match(/\bLASTVALUE\b/)) {
+								szFlag += "|LASTVALUE";
+							}
+							if (themeFlag.match(/\bLASTARROW\b/)) {
+								szFlag += "|LASTARROW";
+							}
+							chartThemeObj.getChart(window.document.getElementById("getchartmenutarget"), chartSzItem, 30, szFlag);
+							break;
+						} else {
+							// Try with original szItem if chartSzItem didn't work
+							if (chartSzItem != szItem && chartThemeObj.itemA && chartThemeObj.itemA[szItem]) {
+								// Build szFlag including theme's LASTPOP and LASTVALUE modifiers
+								// Use the theme's original flag and merge with tooltip-specific flags
+								var szFlag = "VALUES|XAXIS|NORMSIZE|ZOOM|BOX|GRID";
+								// Check both szFlag (current) and szOrigFlag (original definition) for modifiers
+								var themeFlag = chartThemeObj.szOrigFlag || chartThemeObj.szFlag;
+								// Add LINES if theme has PLOT (needed for plot rendering code path)
+								if (themeFlag.match(/\bPLOT\b/)) {
+									szFlag += "|LINES";
+								}
+								if (themeFlag.match(/\bLASTPOP\b/)) {
+									szFlag += "|LASTPOP";
+								}
+								if (themeFlag.match(/\bLASTVALUE\b/)) {
+									szFlag += "|LASTVALUE";
+								}
+								if (themeFlag.match(/\bLASTARROW\b/)) {
+									szFlag += "|LASTARROW";
+								}
+								chartThemeObj.getChart(window.document.getElementById("getchartmenutarget"), szItem, 30, szFlag);
+								break;
+							}
+						}
 					} else
-					if (themeObj.szFlag.match(/CHOROPLETH/)){
-                        themeObj.getHistogram(szItem, window.document.getElementById("getchartmenutarget"), "DISTRIBUTION");
+					if (chartThemeObj.szFlag.match(/CHOROPLETH/)){
+                        chartThemeObj.getHistogram(szItem, window.document.getElementById("getchartmenutarget"), "DISTRIBUTION");
 						break;
 					}
 				}
