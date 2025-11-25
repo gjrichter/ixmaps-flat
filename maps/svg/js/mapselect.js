@@ -92,10 +92,8 @@ var mapSelection = null;
         }
 
         // create the new selection
-        _TRACE(szStyle);
         if (styleObj) {
 
-            _TRACE(styleObj.type);
             // if the theme is given generic as 'active theme', get this
             if (szThemes == "activeLayer") {
                 szThemes = getActiveTheme(); // see mapscript.js
@@ -121,7 +119,6 @@ var mapSelection = null;
         map.Themes.addTheme(mapSelection);
         mapSelection.fRealize = true;
 
-        _TRACE("ok");
         executeWithMessage(() => map.Themes.execute(), "please wait ...");
 
         return mapSelection;
@@ -175,7 +172,6 @@ var mapSelection = null;
         /** holds the type of the theme layer (for paint) */
         this.szShapeType = "polygon";
 
-        _TRACE("==> new MapSelection(" + szThemes + "," + szSelectShape + "," + szFlag + ")");
     }
 
     /**
@@ -215,7 +211,6 @@ var mapSelection = null;
                 this.themeRootNodesA = myclone(themeObj.indexA);
             }
             this.nCount = this.nNodes = this.nThemeItems = this.themeRootNodesA ? this.themeRootNodesA.length : 0;
-            _TRACE(this.nCount + " nodes to check");
 
         } else {
 
@@ -225,7 +220,6 @@ var mapSelection = null;
             // get all root nodes (incl. tiles) of the layer
             this.themeRootNodesA = new Array(0);
             for (var i = 0; i < this.szThemesA.length; i++) {
-                _TRACE("Selection: get nodes of theme: " + this.szThemesA[i]);
                 var layerObj = map.Layer.getLayerObj(this.szThemesA[i]);
                 if (layerObj) {
                     if (!layerObj.szSelection || layerObj.szSelection.length === 0) {
@@ -236,7 +230,6 @@ var mapSelection = null;
 
                     var tileRootNodesA = new Array(0);
                     if (layerObj.szFlag.match(/tiled/)) {
-                        _TRACE("Selection: get tile nodes of theme: " + this.szThemesA[i]);
                         tileRootNodesA = map.Tiles.getTileNodes(this.szThemesA[i]);
                     } else {
                         tileRootNodesA[0] = SVGDocument.getElementById(layerObj.szName);
@@ -261,18 +254,14 @@ var mapSelection = null;
             }
 
             if (this.themeRootNodesA.length === 0) {
-                _TRACE("error: no active layer");
                 return false;
             }
             // get the child nodes of the collected root nodes
-            _TRACE(this.themeRootNodesA.length + " root nodes");
             for (var i = 0; i < this.themeRootNodesA.length; i++) {
                 var addNodes = this.themeRootNodesA[i].childNodes;
-                _TRACE(addNodes.length + " nodes in theme");
                 this.nNodes += addNodes.length;
             }
             this.nCount = this.nNodes;
-            _TRACE(this.nCount + " nodes to check");
         }
 
         // init selecting shapes 
@@ -313,7 +302,6 @@ var mapSelection = null;
 
             var mapTheme = map.Themes.activeBuffer;
             if (mapTheme != null) {
-                _TRACE(mapTheme.szThemesA[0]);
                 var nodeA = [];
                 var rootGroup = mapTheme.chartGroup;
                 var childsA = rootGroup.getElementsByTagName('path');
@@ -325,7 +313,6 @@ var mapSelection = null;
                 for (i = 0; i < childsB.length; i++) {
                     nodeA[nodeA.length] = childsB.item(i);
                 }
-                _TRACE(nodeA.length);
                 this.selectCenterA = [];
                 for (i = 0; i < nodeA.length; i++) {
                     this.selectCenterA[this.selectCenterA.length] = map.Scale.getMapOffset(nodeA[i]);
@@ -339,7 +326,6 @@ var mapSelection = null;
                 return true;
             } else {
                 alert("error: no active theme/buffer to select with");
-                _TRACE("error: no active theme");
                 return false;
             }
         } else
@@ -362,7 +348,6 @@ var mapSelection = null;
             // --------------------------------------------------------
 
             this.selectCenterA = [];
-            _TRACE("???? ---- " + this.szSelectShape);
             var bufferNode = map.SVGDocument.getElementById(this.szSelectShape);
             if (!bufferNode) {
                 return false;
@@ -455,7 +440,6 @@ var mapSelection = null;
      */
     MapSelection.prototype.realize = function () {
 
-        _TRACE("MapSelection.prototype.realize");
 
         this.fShowProgressBar = true;
 
@@ -543,7 +527,6 @@ var mapSelection = null;
         else {
             // if no more root node, finish
             if (++this.nRootIndex >= this.themeRootNodesA.length) {
-                _TRACE("finished !!!!");
                 return null;
             } else {
                 // fetch next root node, and return first child
@@ -587,7 +570,6 @@ var mapSelection = null;
      */
     MapSelection.prototype.selectShapes = function (startIndex) {
 
-        _TRACE("== MapTheme.selectShapes(" + startIndex + ")===> " + (this.szId));
 
         if (!startIndex || startIndex === 0) {
             startIndex = 0;
@@ -836,7 +818,6 @@ var mapSelection = null;
                         this.nSelected++;
                         this.nSelectedArea += Number(szArea);
 
-                        _TRACE("! " + this.nSelected + "/" + this.nTested + " " + themeNode.nodeName + " " + themeNode.getAttributeNS(null, "id") + " items:" + themeNode.childNodes.length);
                     }
 
                     if (this.activeTheme) {
@@ -969,8 +950,6 @@ var mapSelection = null;
             }
         }
 
-        _TRACE("== done === ");
-        _TRACE(this.nSelected + "(" + this.nTested + ") = " + 100 / this.nTested * this.nSelected + "%");
         this.isVisible = true;
         this.realizeDone();
 
@@ -988,7 +967,6 @@ var mapSelection = null;
      */
     MapSelection.prototype.showInfo = function (fDone) {
 
-        _TRACE("== MapSelection.showInfo(" + this.szId + ")===> ");
 
         if (this.nCount === 0) {
             displayMessage("Selection: no values found !", 1000);
@@ -1392,12 +1370,10 @@ var mapSelection = null;
                         map.Dom.newText(chartGroup, chartBox.x, chartBox.y + chartBox.height + map.Scale.normalX(6), "font-family:Arial;font-style:italic;font-size:" + map.Scale.normalY(6) + "px;fill:#888888;pointer-events:none", (this.activeTheme.fField100 || this.activeTheme.szAggregation.match(/sum/)) ? map.Dictionary.getLocalText("* summary over selected area") : map.Dictionary.getLocalText("* arithmetic mean over selected area"));
                     }
                 }
-                _TRACE(map.Themes.getSummary(null, this));
             }
             this.szFlag = szThisFlag;
         }
         var szSummary = (this.nSelected + "(" + this.nThemeItems + ") = " + __formatValue(100 / this.nThemeItems * this.nSelected, 2) + "%");
-        _TRACE(szSummary);
 
         __chartArrayReformat(chartsA, map.Scale.normalX(nLineOff), 2);
 

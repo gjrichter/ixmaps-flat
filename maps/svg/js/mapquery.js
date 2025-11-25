@@ -413,7 +413,6 @@ $Log: mapquery.js,v $
      */
     ixMap.Query.prototype.searchItem = function (szSearch, szMethod, szThemes) {
 
-        _TRACE("searchItem(" + szSearch + ',' + szMethod + ',' + szThemes + ")");
         var i;
         this.foundNodesA.length = 0;
         if (szSearch.length === 0) {

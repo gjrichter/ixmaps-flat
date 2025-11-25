@@ -656,7 +656,6 @@ $Log: mapscript.js,v $
             this.fPendingNewGeoBounds = true;
         }
 
-        _TRACE("--- map.pushAction(" + szAction + ")");
         this.actionA.push(szAction);
         this.messageA.push(szMessage);
         if (!this.isInitializing() && this.actionA.length == 1) {
@@ -670,7 +669,6 @@ $Log: mapscript.js,v $
      * @param szAction the (JavaScript) action to be stored  
      */
     ixMap.prototype.pushInitAction = function (szAction, szMessage) {
-        _TRACE("--- map.pushInitAction(" + szAction + ")");
         this.initActionA.push(szAction);
         this.initMessageA.push(szMessage);
         if (this.initActionA.length == 1) {
@@ -683,13 +681,11 @@ $Log: mapscript.js,v $
      * if not, a setTimeout("map.popAction()") is done to recheck later
      */
     ixMap.prototype.popAction = function () {
-        _TRACE("--- map.popAction() " + this.actionA.length + " [" + this.actionA[0] + "]");
         if (this.actionA.length === 0) {
             //clearMessage();
             return;
         }
         if (this.isLoading() || this.isInitializing()) {
-            _TRACE("--- map.popAction() posticipated  isLoading:" + this.isLoading() + " isInitializing:" + this.isInitializing());
             if (!this.isLoading()) {
                 this.npopActionWaitInit++;
             } else {
@@ -735,7 +731,6 @@ $Log: mapscript.js,v $
      * if not, a setTimeout("map.popAction()") is done to recheck later
      */
     ixMap.prototype.popInitAction = function () {
-        _TRACE("--- map.popInitAction()");
         if (this.initActionA.length === 0) {
             map.npopActionWaitInit = 0;
             map.popAction();
@@ -747,7 +742,6 @@ $Log: mapscript.js,v $
         }
         var szAction = this.initActionA.shift();
         var szMessage = this.initMessageA.shift();
-        _TRACE("--- map.popInitAction() - " + szAction);
         if (szMessage) {
             displayMessage(szMessage, 1000);
         }
@@ -932,7 +926,6 @@ $Log: mapscript.js,v $
      */
     function initAll(evt, embedName) {
         console.log("*** iXMaps mapscript version: " + map.version);
-        console.log("*** some .svg or .js files may not be found, this is normal and due to hierarchical location files ***");
         // GR 03.12.2011 new timeout necessary because of cascaded embedding of SVG maps and Firefox ( parent window width was not ready; see below)) 
         // set SVGDocument must be called here !! because evt is lost by setTimeout();
         setSVGDocument(evt, null);
@@ -955,7 +948,6 @@ $Log: mapscript.js,v $
 
         setSVGDocument(evt, null);
 
-        _TRACE("--- initAll() ***********************");
 
         // clear screen during init                                    
         map.hideAll();
@@ -1050,7 +1042,6 @@ $Log: mapscript.js,v $
 
         // GR 30.06.2007 make shadow for the objects
         if (!map.SVGDocument.getElementById(map.szShadowFilterToolsId)) {
-            _TRACE("create shadow filter !");
             var filterNode = map.Dom.newNode('filter', map.rootGroup);
 
             filterNode.setAttributeNS(null, "id", map.szShadowFilterToolsId);
@@ -1122,7 +1113,6 @@ $Log: mapscript.js,v $
      */
     function doInitAll_2(evt) {
 
-        _TRACE("--- initAll_2()");
 
         if (map.HTMLWindow) {
             map.pushInitAction(() => {
@@ -1166,19 +1156,15 @@ $Log: mapscript.js,v $
 
         // initialize zooming                                    
         map.Zoom = new ixMap.Zoom(map.Scale.initScale);
-        _TRACE("--- map.Zoom --- OK");
 
         // initialize tile processing                                   
         map.Tiles = new ixMap.Tiles();
-        _TRACE("--- map.Tiles --- OK");
 
         // initialize label processing                                   
         map.Label = new ixMap.Label();
-        _TRACE("--- map.Label --- OK");
 
         // initialize map viewport
         map.Viewport = new ixMap.Viewport(evt);
-        _TRACE("--- map.Viewport --- OK");
 
         //setTimeout("displayScale(null,'bottom')",100);
         // map.pushAction(() {
@@ -1213,7 +1199,6 @@ $Log: mapscript.js,v $
             map.HTMLWindow.ixmaps.htmlgui_queryMapFeatures();
         } catch (e) {}
 
-        _TRACE("--- map.GUI --- OK");
 
         // if clipping switched off, deactivate clip path
         if (!map.fClipMap || map.fClipMapDynamic) {
@@ -1241,7 +1226,6 @@ $Log: mapscript.js,v $
         // initiate dynamic label, if wanted
         map.Layer.prepareCheckOverlap(evt, map.Layer.layerNode);
 
-        _TRACE("--- all init done ---");
 
         map.fInitializing = false;
 
@@ -1305,7 +1289,6 @@ $Log: mapscript.js,v $
             nothing();
         });
 
-        _TRACE("--- initAll_2 finished !");
     }
 
     /* ...................................................................* 
@@ -1937,7 +1920,6 @@ $Log: mapscript.js,v $
      */
     ixMap.Scale = function () {
 
-        _TRACE("--- init scale");
 
         if (map.fScaleToFullscreen && !map.fPDFEmbed && window.screen) {
             map.SVGRootElement.currentScale = 1;
@@ -2878,7 +2860,6 @@ $Log: mapscript.js,v $
      */
     ixMap.Scale.prototype.reset = function () {
 
-        _TRACE("--- reset scale");
 
         if (map.fScaleToFullscreen && !map.fPDFEmbed && window.screen) {
             map.SVGRootElement.currentScale = 1;
@@ -2907,7 +2888,6 @@ $Log: mapscript.js,v $
      */
     ixMap.Scale.prototype.setCanvasSize = function (x, y, width, height, szMethod) {
 
-        _TRACE("--- setCanvasSize(" + x + "," + y + "," + width + "," + height + "," + szMethod + ")");
 
         if (!width || !height) {
             return false;
@@ -3003,7 +2983,6 @@ $Log: mapscript.js,v $
         if (!szMethod) {
             szMethod = "center";
         }
-        _TRACE("--- resizeCanvas(" + x + "," + y + "," + width + "," + height + "," + szMethod + ") ***");
 
         this.setCanvasSize(x, y, width, height, szMethod);
 
@@ -3018,7 +2997,6 @@ $Log: mapscript.js,v $
             displayScale(null, "bottom");
         } catch (e) {}
 
-        _TRACE("resize Canvas done !");
     };
     /**
      * returns the distance between to map points in meter
@@ -3901,10 +3879,8 @@ $Log: mapscript.js,v $
      */
     ixMap.Scale.prototype.refreshCSSStyles = function () {
         if (this.fCSSStyleNodeChanged) {
-            _TRACE("!! +++ Refresh CSS Styles");
             this.CSSStyleNodes.parentNode.parentNode.appendChild(this.CSSStyleNodes.parentNode);
             this.fCSSStyleNodeChanged = false;
-            _TRACE("!! +++ Refresh CSS Styles done !");
         }
     };
     /**
@@ -4931,7 +4907,6 @@ $Log: mapscript.js,v $
      */
     function AntiZoomAndPan(evt) {
 
-        _TRACE("--- init antizoomandpan");
 
         /** the list of all SVG groups with 'antizoomandpan' property; they will be retransformed on zoom and pan  @type array */
         this.listA = new Array(0);
@@ -5011,7 +4986,6 @@ $Log: mapscript.js,v $
                 setMatrix(nodeGroup, matrixA);
             }
         }
-        _TRACE("@ AntiZoomAndPan.adjustGroups: done");
     };
     /**
      * get the actual correction matrix of the AntiZoomAndPan groups
@@ -5144,7 +5118,6 @@ $Log: mapscript.js,v $
         if (map._activeTheme == szTheme) {
             return;
         }
-        _TRACE('hit:' + szTheme);
 
         // GR 05.06.2012 
         if (szTheme == "mapcanvas") {
@@ -5268,7 +5241,6 @@ $Log: mapscript.js,v $
             szTheme = szTheme.split('::')[0] + '::' + szValue;
         }
 
-        _TRACE("highlightTheme:  " + "legend:ident:" + szTheme);
         __highlightedTheme = map.SVGDocument.getElementById("legend:ident:" + szTheme);
         if (__highlightedTheme) {
             var textNode = __highlightedTheme.nextSibling.nextSibling;
@@ -5511,7 +5483,6 @@ $Log: mapscript.js,v $
      * @param nodeObj the root node to look for contained text nodes
      */
     Dictionary.prototype.applyToNode = function (nodeObj) {
-        _TRACE("--- apply dictionary");
         var textNodesA = nodeObj.getElementsByTagName("text");
         for (var i = 0; i < textNodesA.length; i++) {
             textNodesA.item(i).firstChild.nodeValue = this.getLocalText(textNodesA.item(i).firstChild.nodeValue);
@@ -5761,7 +5732,7 @@ $Log: mapscript.js,v $
     var debugLine = 0;
     var lastDate = new Date();
 
-    function _TRACE(szMessage) { return;
+    function _TRACE(szMessage) {
 
         if (typeof (console) != "undefined" && typeof (console.log) != "undefined") {
             var x = new Date();
@@ -5800,7 +5771,7 @@ $Log: mapscript.js,v $
      * console log with time stamp of the givven text   
      * @param szMessage	the text to display
      */
-    function _LOG(szMessage) { return;
+    function _LOG(szMessage) {
 
         if (typeof (console) != "undefined" && typeof (console.log) != "undefined") {
             var x = new Date();
@@ -5837,7 +5808,6 @@ $Log: mapscript.js,v $
         try {
             map.HTMLWindow.ixmaps.htmlgui_displayInfo(szMessage);
         } catch (e) {
-            _TRACE(szMessage);
             if (map.fDebug) {
                 var fontheight = 12;
                 if (map.SVGDocument && map.SVGMessageGroup) {
@@ -5861,7 +5831,6 @@ $Log: mapscript.js,v $
         try {
             map.HTMLWindow.ixmaps.htmlgui_errorLog(szMessage);
         } catch (e) {
-            _TRACE(szMessage);
             if (map.fDebug) {
                 var fontheight = 12;
                 if (map.SVGDocument && map.SVGMessageGroup) {
@@ -6277,7 +6246,6 @@ $Log: mapscript.js,v $
          */
         this.importSVGFile = function (szUrl, svgDocument, targetGroup, callback) {
 
-            _TRACE("SVGLoader: " + szUrl);
 
             if (this.szUrlA[szUrl] == targetGroup) {
                 return false;
@@ -6292,7 +6260,6 @@ $Log: mapscript.js,v $
          * @param  callback optional function to be called on succeed
          */
         this.push = function (szUrl, svgDocument, targetGroup, callback) {
-            _TRACE("SVGLoader: " + szUrl + " (push!)");
             this.stackA.push({
                 szUrl: szUrl,
                 svgDocument: svgDocument,
@@ -6308,7 +6275,6 @@ $Log: mapscript.js,v $
             if (!this.isWaiting()) {
                 var nextTile = this.stackA.shift();
                 if (nextTile) {
-                    _TRACE("SVGLoader: " + nextTile.szUrl + " (pop)");
                     this.doImportSVGFile(nextTile.szUrl, nextTile.svgDocument, nextTile.targetGroup, nextTile.callback);
                 }
             }
@@ -6329,7 +6295,6 @@ $Log: mapscript.js,v $
             CallbackHandler.prototype.operationComplete = function (status, xmlObject, szText) {
                 this.parent.nPending--;
                 this.parent.pop();
-                _TRACE("SVGLoader: " + szUrl + " (operationComplete) status=" + status);
                 if (xmlObject && status == 200) {
                     this.processImported(xmlObject.documentElement);
                     _LOG("SVGLoader: " + szUrl + " (loaded)");
@@ -6456,7 +6421,6 @@ $Log: mapscript.js,v $
                 var cssStylesA = targetGroup.getElementsByTagName("style");
                 if (cssStylesA.length) {
                     var cssStyleNode = map.SVGDocument.getElementById("mapstyles");
-                    _TRACE("TBD: initCSS in SVGLoader() !!!");
                     return true;
                 }
                 return false;
@@ -6486,7 +6450,6 @@ $Log: mapscript.js,v $
         
         alert("ohhh");
 
-        _TRACE("--- load includes (from " + szPath + ")");
 
         var SVGDoc = evt ? evt.target.ownerDocument : map.SVGDocument;
         var includeGroup = SVGDoc.getElementById("mapinclude");
@@ -6520,7 +6483,6 @@ $Log: mapscript.js,v $
                 }
                 if (szUrl && szUrl.length > 1 && (!szFile || (szUrl == szFile))) {
                     szUrl = szPath + szUrl;
-                    _TRACE("--- .include: " + szUrl);
                     var xLoader = new SVGLoader();
                     map.Loader.importSVGFile(szUrl, SVGDoc, includeNode, null);
                 }
@@ -6664,16 +6626,13 @@ $Log: mapscript.js,v $
                 this.parent.nRequest--;
                 if (xmlObject && (status == 200)) {
                     this.processImported(xmlObject.documentElement);
-                    _TRACE("SVGTilesL: " + szUrl + " (loaded)");
                 }
                 this.parent.pop();
             };
             CallbackHandler.prototype.processImported = function (d) {
 
-                _TRACE("Tiling: -------------------------------------------------------------- " + szUrl + " process !!!");
                 if (targetGroup.childNodes.length) {
                     _STATUS("Tiling: doppio tile !!!");
-                    _TRACE("Tiling: doppio tile !!!");
                     return;
                 }
                 /** GR 01.09.2019 not necessary
@@ -6683,7 +6642,6 @@ $Log: mapscript.js,v $
                 catch (e){
                 }
                 **/
-                _TRACE("Tiling: -------------------------------------------------------------- " + szUrl + " imported !!!");
                 targetGroup.appendChild(d);
 
                 // report state (ddebug)
@@ -6694,10 +6652,8 @@ $Log: mapscript.js,v $
                     for (var a in map.Layer.listA) {
                         var layerItem = map.Layer.listA[a];
                         if (typeof (layerItem.nState) != "undefined") {
-                            _TRACE("layer report:" + layerItem.szName + " " + layerItem.nState);
                             var szTile = targetGroup.getAttributeNS(null, "id");
                             var szTheme = layerItem.szName + "#" + szTile.substr(szTile.length - 6, 6);
-                            _TRACE("layer switch:" + szTheme);
                             map.Layer.switchLayerByFeature(szTheme, layerItem.nState);
                         }
                         // switch sublayer (categories)
@@ -6708,7 +6664,6 @@ $Log: mapscript.js,v $
                         }
                     }
                     if (!map.fSwitchByCSS || !map.Scale.CSSStyleNodes) {
-                        _TRACE('switch scale dependent layer [no css] at loaded tile');
                         map.Layer.switchScaleDependentLayer(null, targetGroup);
                     }
                 }
@@ -6753,7 +6708,6 @@ $Log: mapscript.js,v $
                     }
                 }
             };
-            _TRACE("SVGTilesL: " + szUrl + " ... ");
             if (szUrl.length > 0) {
                 getData(szUrl, new CallbackHandler(this));
                 return true;
@@ -6912,7 +6866,6 @@ $Log: mapscript.js,v $
                 this.parent.nRequest--;
                 if (xmlObject && (status == 200)) {
                     this.processImported(xmlObject.documentElement);
-                    _TRACE("SVGTilesL: " + szUrl + " (loaded)");
                 } else {
                     displayMessage("error loading map");
                 }
@@ -7015,7 +6968,6 @@ $Log: mapscript.js,v $
 
                 return;
             };
-            _TRACE("SVGMapL: " + szUrl + " ... ");
 
             console.log("*** load new map ***");
             console.log(szUrl);
@@ -7087,7 +7039,6 @@ $Log: mapscript.js,v $
                 var loader = this.loaderA[i];
                 for (var ii = 0; ii < loader.loadedScripts.length; ii++) {
                     if (!this.isScriptLoaded(loader.szUrl)) {
-                        _TRACE("**** eval: " + loader.szUrl);
                         this.evalScript(loader.loadedScripts[ii]);
                         this.setScriptLoaded(loader.szUrl);
                     }
@@ -7231,7 +7182,6 @@ $Log: mapscript.js,v $
      */
     JSLoader.prototype.loadScript = function (szUrl, fRefresh) {
 
-        _TRACE('JS-Loader: "' + szUrl + '"');
 
         if (fRefresh) {
             this.pool.resetScriptLoading(szUrl);
@@ -7276,7 +7226,6 @@ $Log: mapscript.js,v $
      */
     JSLoader.prototype.operationComplete = function (status, xmlObject, szText) {
         if (status != 200 || (!xmlObject && !szText)) {
-            _TRACE('JS-Loader: "' + this.szUrl + '" not loaded ! ERROR:' + status);
             this.pool.setScriptError(this.szUrl);
             if (this.errorCallback) {
                 this.finishedCallback = null;
@@ -7287,7 +7236,6 @@ $Log: mapscript.js,v $
                 }
             }
         } else {
-            _TRACE('JS-Loader: ' + this.szUrl + ' (loaded)');
             this.loadedScripts.push(szText);
         }
         this.reqCnt--;
@@ -7325,7 +7273,6 @@ $Log: mapscript.js,v $
      * @return true if the loader is loading (waiting)
      */
     JSLoader.prototype.isLoading = function () {
-        _TRACE("isLoading=" + this.reqCnt);
         return (this.reqCnt > 0);
     };
 
@@ -7502,7 +7449,6 @@ $Log: mapscript.js,v $
 
         if (!_refEllipsoid[szRefEllipsoid]) {
             szRefEllipsoid = "WGS84";
-            _TRACE("_LLtoUTM Datum:'" + szRefEllipsoid + "' not found");
         }
         var a = _refEllipsoid[szRefEllipsoid]._EquatorialRadius;
         var eccSquared = _refEllipsoid[szRefEllipsoid]._eccentricitySquared;
@@ -7640,7 +7586,6 @@ $Log: mapscript.js,v $
     const _UTMtoLL = function (szRefEllipsoid, UTMNorthing, UTMEasting, szUTMZone) {
         if (!_refEllipsoid[szRefEllipsoid]) {
             szRefEllipsoid = "WGS84";
-            _TRACE("_UTMtoLL Datum:'" + szRefEllipsoid + "' not found");
         }
         if (!szUTMZone) {
             return null;
