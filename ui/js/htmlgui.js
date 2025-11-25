@@ -454,8 +454,6 @@ $Log: htmlgui.js,v $
 				$(this.svgDiv).load(ixmaps.szResourceBase + szUrl);
 			}
 
-			console.log("Loading mapscript.js from:", ixmaps.szResourceBase + "maps/svg/js/mapscript.js");
-
 			// Try production mode first (mapscript.min.js)
 			// If it fails, fall back to development mode scripts
 			// Load mapscript.min.js with a small delay to ensure everything is ready
@@ -466,11 +464,11 @@ $Log: htmlgui.js,v $
 						$(deferred.resolve);
 					})
 				).done(function () {
-					console.log("Production mode: mapscript.min.js loaded successfully");
+					console.log("...Production mode: mapscript.min.js loaded successfully");
 					setTimeout("initAll()", 100);
 				}).fail(function (jqXHR, textStatus, errorThrown) {
 					console.warn("Failed to load mapscript.min.js (production):", textStatus, errorThrown);
-					console.log("Falling back to development mode scripts...");
+					console.log("... Falling back to development mode scripts...");
 
 					// Fall back to development mode
 					$.when(
@@ -491,7 +489,7 @@ $Log: htmlgui.js,v $
 								$(deferred.resolve);
 							})
 						).done(function () {
-							console.log("Development mode: all scripts loaded successfully");
+							console.log("... Development mode: all scripts loaded successfully");
 							setTimeout("initAll()", 100);
 						}).fail(function (jqXHR, textStatus, errorThrown) {
 							console.error("Failed to load development mode scripts:", textStatus, errorThrown);
@@ -509,12 +507,6 @@ $Log: htmlgui.js,v $
 		__addEvent(window, "resize", function () {
 			ixmaps.resizeMap(null, false);
 		});
-
-		//window.setTimeout("ixmaps.resizeMap(null,false)", 1000);
-		console.log("**********************");
-		console.log(window);
-
-		//alert("checkpoint");
 
 		return ixmaps;
 	};
@@ -1953,6 +1945,7 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.htmlgui_onMapInit = function (mapwindow) {
 
+		console.log("");
 		_LOG("init ...");
 
 		this.fSVGInitializing = true;
@@ -2022,9 +2015,6 @@ $Log: htmlgui.js,v $
 		console.log("**");
 		console.log("*");
 		_LOG("htmlgui_onMapReady");
-
-		console.log(this);
-		console.log("");
 
 		this.fSVGInitializing = false;
 
@@ -2876,7 +2866,6 @@ $Log: htmlgui.js,v $
 		console.log('');
 		console.log('ixmaps.htmlgui_loadExternalData ******************');
 		console.log('');
-		console.log(Data);
 
 		// Define the main data loading logic
 		const __executeDataLoading = function () {

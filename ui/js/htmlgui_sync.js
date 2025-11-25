@@ -844,7 +844,7 @@ $Log: htmlgui_sync.js,v $
 
 		} else {
 			
-			console.log("==== >>> sync <<< === "+ixmaps.tmp.inZoom);
+			ixmaps.embeddedSVG.window._TRACE("==== >>> sync <<< === "+ixmaps.tmp.inZoom);
 			// Check if this is a zoom event
 			var isZoomEvent = !fPanOnly || (ixmaps.tmp && ixmaps.tmp.inZoom);
 			

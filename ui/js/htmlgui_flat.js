@@ -381,7 +381,7 @@ $Log: htmlgui_api.js,v $
      * @throws {Error} Throws an error if any resource fails to load.
      */
     async function loadResources(urls, target, callback, opt, callback2) {
-        console.log("load resources -->")
+        console.log("... load resources -->")
         try {
             const fetchPromises = urls.map(({
                 url,
@@ -395,7 +395,7 @@ $Log: htmlgui_api.js,v $
                 }
             }
             
-            console.log('- all resources loaded successfully');
+            console.log('... all resources loaded successfully');
             //console.log('');
 
             if (callback) {
@@ -880,13 +880,12 @@ $Log: htmlgui_api.js,v $
 
     ixmaps.embed = async function (szTargetDiv, opt, callback) {
 
-        console.log("ixmaps.embed() ---->");
+        console.log("... ixmaps.embed() ---->");
 
         ixmaps.szResourceBase = "../../";
 
         let scriptsA = document.querySelectorAll("script");
         for (var i in scriptsA) {
-            console.log(scriptsA[i].getAttribute);
             let scr = scriptsA[i].getAttribute("src");
             if (scr && scr.match(/htmlgui_flat.js/)) {
                 ixmaps.szResourceBase = (scr.split("ui/js/htmlgui_flat.js")[0]);
@@ -894,7 +893,7 @@ $Log: htmlgui_api.js,v $
             }
         }   
 
-        console.log("ixmaps.szResourceBase = " + ixmaps.szResourceBase);                        
+        console.log("... ixmaps.szResourceBase = " + ixmaps.szResourceBase);                        
         if (opt.mapCdn) {
             ixmaps.szResourceBase = opt.mapCdn;
         }   
@@ -924,6 +923,7 @@ $Log: htmlgui_api.js,v $
      * @returns {Promise}
      */
     ixmaps.Map = function (szTargetDiv, opt, callback) {
+        console.log("ixmaps.Map() ----> szTargetDiv = " + szTargetDiv + " opt = " + JSON.stringify(opt));
         return ixmaps.embed(szTargetDiv, opt, callback);
     };
 
