@@ -198,7 +198,9 @@
 	 ****************************************************************/
 
 	var themes = ixmaps.getThemes();
-	ixmaps.editorThemeId = themes.pop().szId;     
+	if (themes && themes.length > 0) {
+		ixmaps.editorThemeId = themes[themes.length - 1].szId;
+	}     
         
     // GR 17.10.2019 new: get active legend theme
     var themeObj = ixmaps.getThemeObj(ixmaps.editorThemeId);

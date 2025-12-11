@@ -84,6 +84,10 @@
             white-space: normal;
         }
 
+        .data-body {
+            border-top: #cccccc solid 1px;
+        }
+
     </style>
 
 <head>
@@ -117,9 +121,37 @@
             
             // Set up event listeners for the table
             data.setupTableEventListeners(data.name);
+            
+            // Clear the flag after use
+            if (ixmaps.tmp && ixmaps.tmp.usePreparedTable) {
+                delete ixmaps.tmp.usePreparedTable;
+            }
         }
 
         $(document).ready(function() {
+            // Check if a prepared table object already exists (e.g., from AI query)
+            if (ixmaps.tmp && ixmaps.tmp.tableObj && ixmaps.tmp.usePreparedTable) {
+                // Use the prepared table object instead of getting the last theme
+                let tableObj = ixmaps.tmp.tableObj;
+                let numRows = tableObj.records ? tableObj.records.length : (tableObj.table ? tableObj.table.records : 0);
+                $('#ft-data-name').html(String(numRows) + " records <span style='font-size:smaller'>(please give me some time ...)</span>");
+                
+                const _fileUrls = [
+                    {
+                        url: 'ui/js/tools/dataprocess.js',
+                        type: 'js'
+                    },
+                    {
+                        url: 'ui/js/tools/datafacets.js',
+                        type: 'js'
+                    }
+                ];
+                // this loads the resources and calls ixmaps.loadEditor as callback
+                ixmaps.loadResources(_fileUrls, null, ixmaps.__showTable);
+                return; // Exit early, don't process default theme
+            }
+            
+            // Default behavior: get the last theme
             let themeObj = ixmaps.getThemes().at(-1);
             let tableObj = new Data.Table(null);
             tableObj.table = themeObj.objTheme.dbTable;

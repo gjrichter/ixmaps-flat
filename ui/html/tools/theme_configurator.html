@@ -13,360 +13,7 @@
     <base href="https://gjrichter.github.io/ixmaps_flat/ui/libs/jquery/ui" />
     -->
     <!-- Custom styles will be loaded dynamically -->
-
-    <style type="text/css" media="screen">
-        .theme-configurator .map-config {
-            background-color: #2AA2DE;
-        }
-
-        .theme-configurator hr.separator {
-            display: inlinee;
-            color: black;
-            margin: -0.8em 0.9em 1em 0.9em;
-            height: 2px;
-        }
-
-        .theme-configurator #xcolor-label>span {
-            padding: 6px 12px;
-        }
-
-        .theme-configurator .exact-value {
-            margin: 0.2em 0em;
-            padding: 1em;
-            width: 100%;
-        }
-
-        .theme-configurator option,
-        .theme-configurator optgroup {
-            xxcolor: #666666;
-            font-size: 1.2em;
-        }
-
-        .theme-configurator optgroup,
-        .theme-configurator label {
-            color: #dddddd;
-            padding-left: 0.2em;
-            font-size: 14px;
-        }
-
-        .theme-configurator #chartValueOptions option,
-        .theme-configurator optgroup {
-            color: #bbbbbb;
-        }
-
-        .theme-configurator select.form-control {
-            padding: 5px;
-        }
-
-        .theme-configurator input.form-control {
-            padding: 8px;
-        }
-
-        .theme-configurator input::placeholder {
-            color: #dddddd;
-        }
-
-        .theme-configurator .form-control::placeholder {
-            color: #dddddd;
-        }
-
-        .theme-configurator input,
-        .theme-configurator select,
-        .theme-configurator .form-group {
-            margin-bottom: 1em;
-        }
-
-        .theme-configurator h3 {
-            margin-top: 0.3em;
-            margin-bottom: 0.2em;
-            padding-bottom: 0.2em;
-            padding-left: 0em;
-            xxborder-bottom: solid #ddd 0px;
-            border: solid #ddd 0px;
-            border-radius: 0.1em;
-            xbackground-color: #fff;
-            font-size: 36px;
-        }
-
-        .theme-configurator h5 {
-            color: #ddd;
-            margin-top: -1em;
-            margin-bottom: 0.2em;
-            padding-bottom: 0.2em;
-            padding-left: 0em;
-            font-size: 14px;
-        }
-
-        .theme-configurator .colorlist {
-            padding: 0px;
-            margin: 0px;
-            margin-left: -5px;
-            border: 0;
-        }
-
-        .theme-configurator .colorlistitem {
-            padding: 1px;
-            margin: 3px;
-            border: 0;
-            font-family: monospace;
-            font-size: 12px;
-            line-height: 1em;
-        }
-
-        .theme-configurator .colorlistitem>a {
-            text-decoration: none;
-            border: 0;
-        }
-
-        .theme-configurator .colorlistitem > a > span{
-            padding: 6px 12px;
-        }
-
-        .theme-configurator .colorlistitem>a:hover {
-            text-decoration: none;
-            background: #fd8;
-            xborder: #aaa solid 1px;
-        }
-
-        .theme-configurator .colpick {
-            z-index: 9999;
-        }
-
-        .theme-configurator .colpick_submit {
-            top: 145px;
-        }
-
-        .theme-configurator h3.disabled {
-            color: #dddddd;
-        }
-
-        .theme-configurator h3.enabled {
-            color: #48A542;
-        }
-
-        .theme-configurator .control-alert {
-            border-color: #ff8888;
-            border-width: 1px;
-        }
-
-        .theme-configurator .help {
-            line-height: 1.2em;
-            color: #444444;
-            margin-left: 0px;
-            padding-left: 0;
-            margin-bottom: 10px;
-            display: none;
-        }
-
-        .theme-configurator .calendar {
-            color: black;
-            background-color: transparent;
-            padding: 0;
-            border-radius: 0;
-            border: 0;
-            box-shadow: none;
-            margin-right: 10px;
-        }
-
-        .theme-configurator .calendar .years .plus em,
-        .theme-configurator .calendar .years .minus em {
-            font-size: 1.2em;
-            font-style: normal;
-            user-select: none;
-            position: relative;
-            display: inline-block;
-            width: 32px;
-            height: 32px;
-            margin-top: 2px;
-            padding: 1px 0 0 2px;
-            cursor: pointer;
-            color: #888;
-            border: 1px solid #aaa;
-            border-radius: 50%;
-            -webkit-border-radius: 50%;
-            -moz-border-radius: 50%;
-        }
-
-        .theme-configurator .calendar .years .minus em {
-            font-size: 1.2em;
-            padding: 0px;
-            vertical-align: middle;
-        }
-
-        .theme-configurator .calendar .years .plus em:active,
-        .theme-configurator .calendar .years .plus em:hover,
-        .theme-configurator .calendar .years .minus em:active,
-        .theme-configurator .calendar .years .minus em:hover {
-            border-color: #e9573f
-        }
-        
-        .theme-configurator input.form-control, select.form-control {
-            font-size: 13px;
-        }
-
-        .theme-configurator a:hover {
-            cursor: pointer;
-        }
-
-        .theme-configurator .checkbox {
-            margin: 1.8em 0;
-
-        }
-
-        .theme-configurator .btn-link {
-            --bs-btn-font-weight: 400;
-            --bs-btn-color: #3bafda;
-            text-decoration: none;
-        }
-
-
-        .theme-configurator .rich-select {
-            height: 81px;
-            /* 75px + 6 */
-            position: relative;
-            border: none;
-            margin: 5px 0;
-            padding: 0;
-            background: none;
-        }
-
-        .theme-configurator .rich-select-dropdown {
-            border: solid 1px #888;
-            border-radius: .25rem;
-        }
-
-        .theme-configurator .rich-select-dropdown:focus-within {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
-        }
-
-        .theme-configurator .rich-select-dropdown-button {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            margin: 0;
-            padding: 0;
-        }
-
-        .theme-configurator .rich-select-dropdown-button+label,
-        .theme-configurator .rich-select-option>input[type=radio] {
-            position: absolute;
-            display: block;
-            right: .5rem;
-            width: 2rem;
-            height: 1rem;
-            outline: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-        }
-
-        .theme-configurator .rich-select-dropdown-button+label {
-            top: .5rem;
-            padding: 25px 10px;
-        }
-
-        .theme-configurator .rich-select-dropdown-button+label::before {
-            position: absolute;
-            top: 50%;
-            right: 0;
-            width: 1rem;
-            height: 1rem;
-            content: "";
-            pointer-events: none;
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3e%3cpath fill='%23343a40' d='M2 5L0 3h4z'/%3e%3c/svg%3e");
-        }
-
-        .theme-configurator .rich-select-dropdown>.rich-select-option>.rich-select-option-body {
-            display: none;
-        }
-
-        .theme-configurator .rich-select-dropdown>.rich-select-option input[type=radio]:checked+.rich-select-option-body {
-            display: inline-block;
-            width: 100%;
-        }
-
-        .theme-configurator .rich-select-options {
-            display: none;
-            position: absolute;
-            background-color: #fff;
-            border: solid 1px #DDD;
-            border-top: none;
-            border-radius: .25rem;
-            width: 100%;
-            max-height: 75vh;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: rgba(0, 0, 0, 0.4) 5px 8px 15px;
-        }
-
-        .theme-configurator .rich-select-option {
-            padding: 0 8px;
-        }
-
-        .theme-configurator .rich-select-options>.rich-select-option:hover {
-            background-color: #f1f1f1;
-        }
-
-        .theme-configurator .rich-select-option-body label {
-            width: 100%;
-            padding: 2px;
-            margin-bottom: 0;
-        }
-
-        .theme-configurator .rich-select-option-body img {
-            height: 75px;
-            width: 75px;
-            min-height: 75px;
-            min-width: 75px;
-            object-fit: contain;
-            margin-right: .5rem;
-        }
-
-        .theme-configurator .rich-select-option-body>button {
-            width: 100%;
-            text-align: left;
-            padding: 2px;
-            border: none;
-            outline: none;
-            background: none;
-        }
-
-        .theme-configurator .rich-select-dropdown-button:checked~.rich-select-options {
-            display: inline-block;
-        }
-
-        .theme-configurator .rich-select-option-body div {
-            float: left;
-            margin-top: 1.5em;
-            width: 60px;
-            line-height: 0.9em;
-        }
-
-        .theme-configurator .rich-select-option-body img {
-            float: left;
-        }
-
-        
-        .theme-configurator #color-select-div {
-            xborder: solid black 1px;
-            border-radius: 0.5em;
-            padding: 0;
-        }
-        
-        .theme-configurator .row {
-            width: 100%;
-        }
-        
-        .theme-configurator .apply {
-            font-size: 0.5em;
-        }
-
-    </style>
-    
+    <!-- Inline styles moved to body section to be included by jQuery .load() -->
     
 </head>
 
@@ -4115,6 +3762,360 @@
             });
 
        </script>
+
+    <!-- Inline styles moved here from <head> so they're included when jQuery .load() extracts body content -->
+    <style type="text/css" media="screen">
+        .theme-configurator .map-config {
+            background-color: #2AA2DE;
+        }
+
+        .theme-configurator hr.separator {
+            display: inlinee;
+            color: black;
+            margin: -0.8em 0.9em 1em 0.9em;
+            height: 2px;
+        }
+
+        .theme-configurator #xcolor-label>span {
+            padding: 6px 12px;
+        }
+
+        .theme-configurator .exact-value {
+            margin: 0.2em 0em;
+            padding: 1em;
+            width: 100%;
+        }
+
+        .theme-configurator option,
+        .theme-configurator optgroup {
+            xxcolor: #666666;
+            font-size: 1.2em;
+        }
+
+        .theme-configurator optgroup,
+        .theme-configurator label {
+            color: #dddddd;
+            padding-left: 0.2em;
+            font-size: 14px;
+        }
+
+        .theme-configurator #chartValueOptions option,
+        .theme-configurator optgroup {
+            color: #bbbbbb;
+        }
+
+        .theme-configurator select.form-control {
+            padding: 5px;
+        }
+
+        .theme-configurator input.form-control {
+            padding: 8px;
+        }
+
+        .theme-configurator input::placeholder {
+            color: #dddddd;
+        }
+
+        .theme-configurator .form-control::placeholder {
+            color: #dddddd;
+        }
+
+        .theme-configurator input,
+        .theme-configurator select,
+        .theme-configurator .form-group {
+            margin-bottom: 1em;
+        }
+
+        .theme-configurator h3 {
+            margin-top: 0.3em;
+            margin-bottom: 0.2em;
+            padding-bottom: 0.2em;
+            padding-left: 0em;
+            xxborder-bottom: solid #ddd 0px;
+            border: solid #ddd 0px;
+            border-radius: 0.1em;
+            xbackground-color: #fff;
+            font-size: 36px;
+        }
+
+        .theme-configurator h5 {
+            color: #ddd;
+            margin-top: -1em;
+            margin-bottom: 0.2em;
+            padding-bottom: 0.2em;
+            padding-left: 0em;
+            font-size: 14px;
+        }
+
+        .theme-configurator .colorlist {
+            padding: 0px;
+            margin: 0px;
+            margin-left: -5px;
+            border: 0;
+        }
+
+        .theme-configurator .colorlistitem {
+            padding: 1px;
+            margin: 3px;
+            border: 0;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1em;
+        }
+
+        .theme-configurator .colorlistitem>a {
+            text-decoration: none;
+            border: 0;
+        }
+
+        .theme-configurator .colorlistitem > a > span{
+            padding: 6px 12px;
+        }
+
+        .theme-configurator .colorlistitem>a:hover {
+            text-decoration: none;
+            background: #fd8;
+            xborder: #aaa solid 1px;
+        }
+
+        .theme-configurator .colpick {
+            z-index: 9999;
+        }
+
+        .theme-configurator .colpick_submit {
+            top: 145px;
+        }
+
+        .theme-configurator h3.disabled {
+            color: #dddddd;
+        }
+
+        .theme-configurator h3.enabled {
+            color: #48A542;
+        }
+
+        .theme-configurator .control-alert {
+            border-color: #ff8888;
+            border-width: 1px;
+        }
+
+        .theme-configurator .help {
+            line-height: 1.2em;
+            color: #444444;
+            margin-left: 0px;
+            padding-left: 0;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .theme-configurator .calendar {
+            color: black;
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            border: 0;
+            box-shadow: none;
+            margin-right: 10px;
+        }
+
+        .theme-configurator .calendar .years .plus em,
+        .theme-configurator .calendar .years .minus em {
+            font-size: 1.2em;
+            font-style: normal;
+            user-select: none;
+            position: relative;
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            margin-top: 2px;
+            padding: 1px 0 0 2px;
+            cursor: pointer;
+            color: #888;
+            border: 1px solid #aaa;
+            border-radius: 50%;
+            -webkit-border-radius: 50%;
+            -moz-border-radius: 50%;
+        }
+
+        .theme-configurator .calendar .years .minus em {
+            font-size: 1.2em;
+            padding: 0px;
+            vertical-align: middle;
+        }
+
+        .theme-configurator .calendar .years .plus em:active,
+        .theme-configurator .calendar .years .plus em:hover,
+        .theme-configurator .calendar .years .minus em:active,
+        .theme-configurator .calendar .years .minus em:hover {
+            border-color: #e9573f
+        }
+        
+        .theme-configurator input.form-control, select.form-control {
+            font-size: 13px;
+        }
+
+        .theme-configurator a:hover {
+            cursor: pointer;
+        }
+
+        .theme-configurator .checkbox {
+            margin: 1.8em 0;
+
+        }
+
+        .theme-configurator .btn-link {
+            --bs-btn-font-weight: 400;
+            --bs-btn-color: #3bafda;
+            text-decoration: none;
+        }
+
+
+        .theme-configurator .rich-select {
+            height: 81px;
+            /* 75px + 6 */
+            position: relative;
+            border: none;
+            margin: 5px 0;
+            padding: 0;
+            background: none;
+        }
+
+        .theme-configurator .rich-select-dropdown {
+            border: solid 1px #888;
+            border-radius: .25rem;
+        }
+
+        .theme-configurator .rich-select-dropdown:focus-within {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
+        }
+
+        .theme-configurator .rich-select-dropdown-button {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .theme-configurator .rich-select-dropdown-button+label,
+        .theme-configurator .rich-select-option>input[type=radio] {
+            position: absolute;
+            display: block;
+            right: .5rem;
+            width: 2rem;
+            height: 1rem;
+            outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        .theme-configurator .rich-select-dropdown-button+label {
+            top: .5rem;
+            padding: 25px 10px;
+        }
+
+        .theme-configurator .rich-select-dropdown-button+label::before {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            width: 1rem;
+            height: 1rem;
+            content: "";
+            pointer-events: none;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3e%3cpath fill='%23343a40' d='M2 5L0 3h4z'/%3e%3c/svg%3e");
+        }
+
+        .theme-configurator .rich-select-dropdown>.rich-select-option>.rich-select-option-body {
+            display: none;
+        }
+
+        .theme-configurator .rich-select-dropdown>.rich-select-option input[type=radio]:checked+.rich-select-option-body {
+            display: inline-block;
+            width: 100%;
+        }
+
+        .theme-configurator .rich-select-options {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: solid 1px #DDD;
+            border-top: none;
+            border-radius: .25rem;
+            width: 100%;
+            max-height: 75vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: rgba(0, 0, 0, 0.4) 5px 8px 15px;
+        }
+
+        .theme-configurator .rich-select-option {
+            padding: 0 8px;
+        }
+
+        .theme-configurator .rich-select-options>.rich-select-option:hover {
+            background-color: #f1f1f1;
+        }
+
+        .theme-configurator .rich-select-option-body label {
+            width: 100%;
+            padding: 2px;
+            margin-bottom: 0;
+        }
+
+        .theme-configurator .rich-select-option-body img {
+            height: 75px;
+            width: 75px;
+            min-height: 75px;
+            min-width: 75px;
+            object-fit: contain;
+            margin-right: .5rem;
+        }
+
+        .theme-configurator .rich-select-option-body>button {
+            width: 100%;
+            text-align: left;
+            padding: 2px;
+            border: none;
+            outline: none;
+            background: none;
+        }
+
+        .theme-configurator .rich-select-dropdown-button:checked~.rich-select-options {
+            display: inline-block;
+        }
+
+        .theme-configurator .rich-select-option-body div {
+            float: left;
+            margin-top: 1.5em;
+            width: 60px;
+            line-height: 0.9em;
+        }
+
+        .theme-configurator .rich-select-option-body img {
+            float: left;
+        }
+
+        
+        .theme-configurator #color-select-div {
+            xborder: solid black 1px;
+            border-radius: 0.5em;
+            padding: 0;
+        }
+        
+        .theme-configurator .row {
+            width: 100%;
+        }
+        
+        .theme-configurator .apply {
+            font-size: 0.5em;
+        }
+
+    </style>
 
 </body>
 
