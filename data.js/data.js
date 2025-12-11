@@ -68,7 +68,7 @@ $Log:data.js,v $
  * });
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 1.56 
+ * @version 1.58 
  * @copyright CC BY SA
  * @license MIT
  */
@@ -127,7 +127,7 @@ $Log:data.js,v $
      */
 
     var Data = {
-        version: "1.56",
+        version: "1.58",
         errors: [],
         log: function(message) {
             console.log(message);
@@ -184,7 +184,181 @@ $Log:data.js,v $
             } catch (e) {
                 console.error("❌ Error during cleanup:", e);
             }
-        }
+        },
+        
+        /**
+         * Configurable batch size parameters for parquet reading optimization
+         * These can be adjusted based on available memory and performance requirements
+         */
+        batchConfig: {
+            // Original conservative batch sizes (restored for stability)
+            baseParquetBatchSize: 200000,        // Original parquet loading batch size (100K rows)
+            baseWorkerBatchSize: 500000,         // Original worker processing batch size (500K rows)
+            baseExtractBatchSize: 200000,        // Original data extraction batch size (100K rows)
+            
+            // Memory-based scaling factors (conservative)
+            memoryScalingFactor: 1.0,           // No scaling - use base sizes
+            maxMemoryMB: 512,                   // Conservative memory limit (512MB)
+            
+            // Worker batch size limits (original values)
+            minWorkerBatchSize: 500000,          // Original minimum worker batch size (500K rows)
+            maxWorkerBatchSize: 5000000,         // Original maximum worker batch size (5M rows)
+            maxCellsPerBatch: 10000000,          // Original maximum cells per worker batch (10M cells)
+            
+            // Performance monitoring
+            enablePerformanceMonitoring: false,  // Disable to reduce overhead
+            adaptiveBatchSizing: false,          // Disable adaptive sizing for stability
+        },
+        
+        /**
+         * Get optimized batch size based on available memory and dataset characteristics
+         * @param {string} batchType - Type of batch ('parquet', 'worker', 'extract')
+         * @param {number} datasetRows - Number of rows in dataset
+         * @param {number} columnsCount - Number of columns
+         * @returns {number} Optimized batch size
+         */
+        getOptimizedBatchSize: function(batchType, datasetRows, columnsCount) {
+            const config = this.batchConfig;
+            let baseSize;
+            
+            // Get base batch size for the type (original simple approach)
+            switch (batchType) {
+                case 'parquet':
+                    baseSize = config.baseParquetBatchSize;
+                    break;
+                case 'worker':
+                    baseSize = config.baseWorkerBatchSize;
+                    break;
+                case 'extract':
+                    baseSize = config.baseExtractBatchSize;
+                    break;
+                default:
+                    baseSize = config.baseParquetBatchSize;
+            }
+            
+            // Simple constraint: don't exceed dataset size
+            return Math.min(baseSize, datasetRows);
+        },
+        
+        /**
+         * Performance monitoring for batch processing
+         */
+        performanceMonitor: {
+            batchTimes: [],
+            memoryUsage: [],
+            adaptiveAdjustments: [],
+            
+            /**
+             * Record batch processing performance
+             * @param {string} batchType - Type of batch ('parquet', 'worker', 'extract')
+             * @param {number} batchSize - Size of the batch processed
+             * @param {number} processingTime - Time taken to process batch (ms)
+             * @param {number} memoryUsed - Memory used during processing (MB)
+             */
+            recordBatchPerformance: function(batchType, batchSize, processingTime, memoryUsed) {
+                if (!Data.batchConfig.enablePerformanceMonitoring) return;
+                
+                const record = {
+                    timestamp: Date.now(),
+                    batchType: batchType,
+                    batchSize: batchSize,
+                    processingTime: processingTime,
+                    memoryUsed: memoryUsed,
+                    throughput: batchSize / (processingTime / 1000) // rows per second
+                };
+                
+                this.batchTimes.push(record);
+                this.memoryUsage.push(memoryUsed);
+                
+                // Keep only last 100 records to prevent memory bloat
+                if (this.batchTimes.length > 100) {
+                    this.batchTimes.shift();
+                    this.memoryUsage.shift();
+                }
+                
+                console.log(`Batch performance: ${batchType} batch of ${batchSize.toLocaleString()} rows processed in ${processingTime.toFixed(1)}ms (${record.throughput.toFixed(0)} rows/sec)`);
+            },
+            
+            /**
+             * Get performance statistics for a batch type
+             * @param {string} batchType - Type of batch to analyze
+             * @returns {object} Performance statistics
+             */
+            getPerformanceStats: function(batchType) {
+                const relevantRecords = this.batchTimes.filter(r => r.batchType === batchType);
+                if (relevantRecords.length === 0) return null;
+                
+                const avgThroughput = relevantRecords.reduce((sum, r) => sum + r.throughput, 0) / relevantRecords.length;
+                const avgProcessingTime = relevantRecords.reduce((sum, r) => sum + r.processingTime, 0) / relevantRecords.length;
+                const avgMemoryUsed = relevantRecords.reduce((sum, r) => sum + r.memoryUsed, 0) / relevantRecords.length;
+                
+                return {
+                    batchType: batchType,
+                    recordCount: relevantRecords.length,
+                    avgThroughput: avgThroughput,
+                    avgProcessingTime: avgProcessingTime,
+                    avgMemoryUsed: avgMemoryUsed,
+                    recommendedBatchSize: this.calculateOptimalBatchSize(batchType, relevantRecords)
+                };
+            },
+            
+            /**
+             * Calculate optimal batch size based on performance history
+             * @param {string} batchType - Type of batch
+             * @param {array} records - Performance records
+             * @returns {number} Recommended batch size
+             */
+            calculateOptimalBatchSize: function(batchType, records) {
+                if (records.length < 3) return null;
+                
+                // Find the batch size with best throughput
+                const bestRecord = records.reduce((best, current) => 
+                    current.throughput > best.throughput ? current : best
+                );
+                
+                // If we're consistently hitting memory limits, reduce batch size
+                const recentMemoryUsage = this.memoryUsage.slice(-10);
+                const avgRecentMemory = recentMemoryUsage.reduce((sum, mem) => sum + mem, 0) / recentMemoryUsage.length;
+                
+                if (avgRecentMemory > Data.batchConfig.maxMemoryMB * 0.8) {
+                    return Math.floor(bestRecord.batchSize * 0.8); // Reduce by 20%
+                }
+                
+                // If throughput is good and memory usage is low, we can increase batch size
+                if (bestRecord.memoryUsed < Data.batchConfig.maxMemoryMB * 0.5) {
+                    return Math.floor(bestRecord.batchSize * 1.2); // Increase by 20%
+                }
+                
+                return bestRecord.batchSize;
+            },
+            
+            /**
+             * Log performance summary
+             */
+            logPerformanceSummary: function() {
+                if (!Data.batchConfig.enablePerformanceMonitoring) return;
+                
+                console.log("Batch Processing Performance Summary:");
+                console.log("=====================================");
+                
+                const types = ['parquet', 'worker', 'extract'];
+                types.forEach(type => {
+                    const stats = this.getPerformanceStats(type);
+                    if (stats) {
+                        console.log(`${type.toUpperCase()}:`);
+                        console.log(`  Records: ${stats.recordCount}`);
+                        console.log(`  Avg Throughput: ${stats.avgThroughput.toFixed(0)} rows/sec`);
+                        console.log(`  Avg Processing Time: ${stats.avgProcessingTime.toFixed(1)}ms`);
+                        console.log(`  Avg Memory Used: ${stats.avgMemoryUsed.toFixed(1)}MB`);
+                        if (stats.recommendedBatchSize) {
+                            console.log(`  Recommended Batch Size: ${stats.recommendedBatchSize.toLocaleString()} rows`);
+                        }
+                        console.log("");
+                    }
+                });
+            }
+        },
+        
     };
 
     function expose() {
@@ -281,6 +455,9 @@ $Log:data.js,v $
             } else
             if ((this.options.type == "json") || (this.options.type == "JSON") || (this.options.type == "Json")) {
                 this.feed.__processJsonData(this.options.source, this.options);
+            } else
+            if ((this.options.type == "jsonl") || (this.options.type == "JSONL") || (this.options.type == "ndjson") || (this.options.type == "NDJSON")) {
+                this.feed.__processJSONLinesData(this.options.source, this.options);
             } else
             if ((this.options.type == "geojson") || (this.options.type == "GEOJSON") || (this.options.type == "GeoJson")) {
                 this.feed.__processGeoJsonData(this.options.source, this.options);
@@ -430,7 +607,6 @@ $Log:data.js,v $
             Data.errors.push(e);
         };
     };
-
     Data.Feed.prototype = {
 
         /**
@@ -464,6 +640,13 @@ $Log:data.js,v $
                 _alert("Data.feed(...).load(): no source defined !", 2000);
             }
 
+            if (!option.type && szUrl) {
+                const normalizedUrl = szUrl.split('?')[0].toLowerCase();
+                if (normalizedUrl.endsWith(".jsonl") || normalizedUrl.endsWith(".ndjson")) {
+                    option.type = "jsonl";
+                }
+            }
+
             if ((option.type == "csv") || (option.type == "CSV")) {
                 this.__doCSVImport(szUrl, option);
             } else
@@ -478,6 +661,9 @@ $Log:data.js,v $
             } else
             if ((option.type == "json") || (option.type == "JSON") || (option.type == "Json")) {
                 this.__doJSONImport(szUrl, option);
+            } else
+            if ((option.type == "jsonl") || (option.type == "JSONL") || (option.type == "ndjson") || (option.type == "NDJSON")) {
+                this.__doJSONLinesImport(szUrl, option);
             } else
             if ((option.type == "geojson") || (option.type == "GEOJSON") || (option.type == "GeoJson")) {
                 this.__doGeoJSONImport(szUrl, option);
@@ -536,6 +722,304 @@ $Log:data.js,v $
         error: function (callback) {
             this.options.error = callback;
             return this;
+        },
+        
+        /**
+         * Get the file size (in bytes) of the data file that will be loaded
+         * Makes a HEAD request to retrieve the Content-Length header
+         * @param {function} [callback] Optional callback function that receives the file size in bytes (or null if unavailable)
+         * @returns {Promise<number>|Data.Feed} If callback is provided, returns the Feed object for chaining. 
+         *                                        If no callback, returns a Promise that resolves with the file size (number) or null.
+         * @example
+         * // Using callback
+         * var myfeed = Data.feed({"source":"https://example.com/data.csv","type":"csv"});
+         * myfeed.getFileSize(function(size){
+         *     if (size !== null) {
+         *         console.log("File size: " + size + " bytes (" + (size/1024/1024).toFixed(2) + " MB)");
+         *     } else {
+         *         console.log("File size unavailable");
+         *     }
+         * });
+         * 
+         * // Using Promise
+         * var myfeed = Data.feed({"source":"https://example.com/data.csv","type":"csv"});
+         * myfeed.getFileSize().then(function(size){
+         *     if (size !== null) {
+         *         console.log("File size: " + size + " bytes");
+         *     }
+         * }).catch(function(error){
+         *     console.error("Error getting file size: " + error);
+         * });
+         * 
+         * // Using async/await
+         * var myfeed = Data.feed({"source":"https://example.com/data.csv","type":"csv"});
+         * try {
+         *     var size = await myfeed.getFileSize();
+         *     if (size !== null) {
+         *         console.log("File size: " + size + " bytes");
+         *     }
+         * } catch(error) {
+         *     console.error("Error: " + error);
+         * }
+         */
+        getFileSize: function (callback) {
+            const option = this.options;
+            const szUrl = option.source || option.src || option.url || option.ext;
+            
+            if (!szUrl) {
+                const error = "Data.feed(...).getFileSize(): no source defined!";
+                if (callback && typeof callback === "function") {
+                    callback(null);
+                    return this;
+                } else {
+                    return Promise.reject(new Error(error));
+                }
+            }
+            
+            // Create a promise for the file size request
+            // Use GET request (same as load() method) to avoid CORS preflight issues
+            // We'll read headers without reading the body to minimize data transfer
+            const sizePromise = new Promise((resolve, reject) => {
+                // Try XMLHttpRequest first - it may handle CORS headers better
+                if (typeof XMLHttpRequest !== 'undefined') {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', szUrl, true);
+                    
+                    // Set up event handlers
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 2) { // HEADERS_RECEIVED
+                            // Try to get Content-Length header
+                            // Note: CORS may block this header unless server exposes it
+                            try {
+                                const contentLength = xhr.getResponseHeader('Content-Length');
+                                if (contentLength && contentLength.trim() !== '' && contentLength.trim() !== '0') {
+                                    const size = parseInt(contentLength.trim(), 10);
+                                    if (!isNaN(size) && size > 0) {
+                                        xhr.abort(); // Cancel the request since we got what we need
+                                        resolve(size);
+                                        return;
+                                    }
+                                }
+                            } catch(e) {
+                                // Header might not be accessible due to CORS
+                            }
+                        } else if (xhr.readyState === 4) { // DONE
+                            if (xhr.status === 200 || xhr.status === 206) {
+                                try {
+                                    const contentLength = xhr.getResponseHeader('Content-Length');
+                                    if (contentLength && contentLength.trim() !== '' && contentLength.trim() !== '0') {
+                                        const size = parseInt(contentLength.trim(), 10);
+                                        if (!isNaN(size) && size > 0) {
+                                            resolve(size);
+                                            return;
+                                        }
+                                    }
+                                } catch(e) {
+                                    // Header might not be accessible due to CORS
+                                }
+                            }
+                            // If XMLHttpRequest didn't work, try fetch with Range request
+                            if (typeof fetch !== 'undefined') {
+                                // Try Range request to get Content-Range header
+                                fetch(szUrl, { 
+                                    method: 'GET',
+                                    headers: { 'Range': 'bytes=0-0' }
+                                })
+                                .then(rangeResponse => {
+                                    const contentRange = rangeResponse.headers.get('content-range');
+                                    if (contentRange) {
+                                        const match = contentRange.match(/\/(\d+)/);
+                                        if (match && match[1]) {
+                                            const size = parseInt(match[1], 10);
+                                            if (!isNaN(size) && size > 0) {
+                                                resolve(size);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    // Fallback to regular GET
+                                    return fetch(szUrl, { method: 'GET' });
+                                })
+                                .then(response => {
+                                    if (response) {
+                                        const contentLength = response.headers.get('content-length');
+                                        if (contentLength && contentLength.trim() !== '' && contentLength.trim() !== '0') {
+                                            const size = parseInt(contentLength.trim(), 10);
+                                            if (!isNaN(size) && size > 0) {
+                                                resolve(size);
+                                            } else {
+                                                resolve(null);
+                                            }
+                                        } else {
+                                            resolve(null);
+                                        }
+                                    } else {
+                                        resolve(null);
+                                    }
+                                })
+                                .catch(() => resolve(null));
+                            } else {
+                                resolve(null);
+                            }
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        // Fall back to fetch if XHR fails
+                        if (typeof fetch !== 'undefined') {
+                            fetch(szUrl, { method: 'GET' })
+                            .then(response => {
+                                const contentLength = response.headers.get('content-length');
+                                if (contentLength && contentLength.trim() !== '') {
+                                    const size = parseInt(contentLength.trim(), 10);
+                                    if (!isNaN(size) && size > 0) {
+                                        resolve(size);
+                                    } else {
+                                        resolve(null);
+                                    }
+                                } else {
+                                    resolve(null);
+                                }
+                            })
+                            .catch(() => resolve(null));
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    
+                    xhr.send();
+                } else if (typeof fetch !== 'undefined') {
+                    // Fallback to fetch API if XMLHttpRequest not available
+                    // First try: Regular GET request (same as load() uses)
+                    // Check Content-Length header from the response
+                    fetch(szUrl, { method: 'GET' })
+                    .then(response => {
+                        if (!response.ok) {
+                            // If response is not OK, try Range request
+                            throw new Error('Response not OK');
+                        }
+                        
+                        // Check Content-Length header first (most common)
+                        const contentLength = response.headers.get('content-length');
+                        if (contentLength && contentLength.trim() !== '') {
+                            const size = parseInt(contentLength.trim(), 10);
+                            if (!isNaN(size) && size > 0) {
+                                resolve(size);
+                                return;
+                            }
+                        }
+                        
+                        // If Content-Length not available or invalid, try Range request as fallback
+                        // Range requests return Content-Range header with total size
+                        return fetch(szUrl, { 
+                            method: 'GET',
+                            headers: { 'Range': 'bytes=0-0' }
+                        })
+                        .then(rangeResponse => {
+                            // Check Content-Range header (format: "bytes 0-0/1234567")
+                            const contentRange = rangeResponse.headers.get('content-range');
+                            if (contentRange) {
+                                // Parse Content-Range: bytes 0-0/1234567 or bytes */1234567
+                                const match = contentRange.match(/\/(\d+)/);
+                                if (match && match[1]) {
+                                    const size = parseInt(match[1], 10);
+                                    if (!isNaN(size) && size > 0) {
+                                        resolve(size);
+                                        return;
+                                    }
+                                }
+                            }
+                            
+                            // For 206 Partial Content, Content-Length is the range size, not total
+                            // For 200 OK on Range request, Content-Length should be the full size
+                            if (rangeResponse.status === 200 || rangeResponse.status === 206) {
+                                const rangeContentLength = rangeResponse.headers.get('content-length');
+                                if (rangeContentLength && rangeContentLength.trim() !== '') {
+                                    // For 206, this is just the range size, not helpful
+                                    // For 200, this should be the full size
+                                    if (rangeResponse.status === 200) {
+                                        const size = parseInt(rangeContentLength.trim(), 10);
+                                        if (!isNaN(size) && size > 0) {
+                                            resolve(size);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            resolve(null);
+                        })
+                        .catch(() => resolve(null));
+                    })
+                    .catch(error => {
+                        // If fetch fails, try jQuery as fallback
+                        if (typeof $ !== 'undefined' && $.ajax) {
+                            $.ajax({
+                                url: szUrl,
+                                type: 'GET',
+                                success: function(data, textStatus, jqXHR) {
+                                    const contentLength = jqXHR.getResponseHeader('Content-Length');
+                                    if (contentLength) {
+                                        const size = parseInt(contentLength, 10);
+                                        if (!isNaN(size) && size > 0) {
+                                            resolve(size);
+                                        } else {
+                                            resolve(null);
+                                        }
+                                    } else {
+                                        resolve(null);
+                                    }
+                                },
+                                error: function() {
+                                    resolve(null);
+                                }
+                            });
+                        } else {
+                            resolve(null); // Gracefully return null instead of rejecting
+                        }
+                    });
+                } else if (typeof $ !== 'undefined' && $.ajax) {
+                    // Fallback to jQuery if fetch is not available
+                    // Use GET instead of HEAD to match load() behavior and avoid CORS issues
+                    $.ajax({
+                        url: szUrl,
+                        type: 'GET',
+                        success: function(data, textStatus, jqXHR) {
+                            const contentLength = jqXHR.getResponseHeader('Content-Length');
+                            if (contentLength) {
+                                const size = parseInt(contentLength, 10);
+                                if (!isNaN(size) && size > 0) {
+                                    resolve(size);
+                                } else {
+                                    resolve(null);
+                                }
+                            } else {
+                                resolve(null);
+                            }
+                        },
+                        error: function() {
+                            resolve(null);
+                        }
+                    });
+                } else {
+                    reject(new Error("Neither fetch API nor jQuery available for file size request"));
+                }
+            });
+            
+            // Handle callback or return promise
+            if (callback && typeof callback === "function") {
+                sizePromise
+                    .then(size => callback(size))
+                    .catch(error => {
+                        if (this.options.error && typeof this.options.error === "function") {
+                            this.options.error("getFileSize error: " + error.message);
+                        }
+                        callback(null);
+                    });
+                return this;
+            } else {
+                return sizePromise;
+            }
         }
     };
 
@@ -568,14 +1052,10 @@ $Log:data.js,v $
     Data.import = function (options) {
         return new Data.Object(options).import().feed.dbtable;
     };
-
-
     var ixmaps = ixmaps || {};
-
     // -----------------------------
     // D A T A    L O A D E R 
     // -----------------------------
-
     // ---------------------------------
     // J S O N s t a t  
     // ---------------------------------
@@ -1036,7 +1516,6 @@ $Log:data.js,v $
             }
         }
     };
-
     /**
      * __parseRSSData 
      * parse the loaded RSS xml data and create data object
@@ -1248,6 +1727,34 @@ $Log:data.js,v $
 
     };
 
+    /**
+     * __doJSONLinesImport
+     * reads a JSON Lines (NDJSON) file and processes it line by line
+     * @param {string} szUrl - jsonl file url
+     * @param {Object} opt - optional options
+     * @type void
+     */
+    Data.Feed.prototype.__doJSONLinesImport = function (szUrl, opt) {
+
+        _LOG("__doJSONLinesImport: " + szUrl);
+        const __this = this;
+
+        $.ajax({
+            type: "GET",
+            url: szUrl,
+            cache: opt.cache,
+            dataType: "text",
+            success: function (data) {
+                __this.__processJSONLinesData(data, opt);
+            },
+            error: function (jqxhr, settings, exception) {
+                if ((typeof (opt) != "undefined") && opt.error) {
+                    opt.error("\"" + szUrl + "\" " + exception);
+                }
+            }
+        });
+    };
+
      /**
      * Generates a list of paths for all leaf nodes in a nested data structure,
      * replicating the traversal and path construction logic of the provided JavaScript code.
@@ -1338,7 +1845,6 @@ $Log:data.js,v $
 
         return extractedValues;
     };
-
     /** 
      * __processJsonData 
      * reads a simple JSON table 
@@ -1349,13 +1855,41 @@ $Log:data.js,v $
      */
     Data.Feed.prototype.__processJsonData = function (script, opt) {
 
+        const tryProcessAsJSONLines = () => {
+            if (typeof script !== "string") {
+                return false;
+            }
+
+            const lines = script.split(/\r?\n/).filter(line => line.trim().length);
+            if (lines.length < 2) {
+                return false;
+            }
+
+            const sampleCount = Math.min(lines.length, 5);
+            for (let i = 0; i < sampleCount; i++) {
+                const line = lines[i].trim();
+                try {
+                    JSON.parse(line);
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            this.__processJSONLinesData(script, opt);
+            return true;
+        };
+
         let data = null;
         
         if (typeof (script) == "string") {
             try {
                 data = JSON.parse(script);
             } catch (e) {
+                if (tryProcessAsJSONLines()) {
+                    return;
+                }
                 this.__createDataTableObject([], "json", opt);
+                return;
             }
         } else {
             data = script;
@@ -1444,6 +1978,130 @@ $Log:data.js,v $
 
         // finish the data table object 
         this.__createDataTableObject(dataA, "json", opt);
+    };
+
+    /**
+     * __processJSONLinesData
+     * parses JSON Lines (NDJSON) content and converts it into a tabular structure
+     * @param {string|Array|Object} content - The JSONL content (string or pre-parsed).
+     * @param {Object} opt - Options object.
+     * @type void
+     */
+    Data.Feed.prototype.__processJSONLinesData = function (content, opt) {
+
+        _LOG("__processJSONLinesData - start");
+
+        let records = [];
+        const parseErrors = [];
+
+        if (Array.isArray(content)) {
+            records = content;
+        } else if (typeof content === "string") {
+            const lines = content.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) {
+                    continue;
+                }
+                try {
+                    const parsed = JSON.parse(line);
+                    records.push(parsed);
+                } catch (e) {
+                    parseErrors.push({ lineNumber: i + 1, error: e.message, line: line });
+                }
+            }
+        } else if (content && typeof content === "object") {
+            // some callers might pass a {data: [...] } structure
+            if (Array.isArray(content.data)) {
+                records = content.data;
+            } else {
+                records = [content];
+            }
+        }
+
+        if (parseErrors.length) {
+            console.warn("⚠️ JSONL parse warnings:", parseErrors.slice(0, 5));
+        }
+
+        if (!records.length) {
+            console.warn("⚠️ No records parsed from JSONL source");
+            if (opt && opt.error) {
+                opt.error("JSONL parsing error: no valid records found");
+            }
+            this.__createDataTableObject([], "jsonl", opt);
+            return;
+        }
+
+        // Collect column names preserving first-seen order
+        const columns = [];
+        const columnIndex = {};
+        const registerColumn = function (key) {
+            if (typeof key === "undefined" || key === null) {
+                return;
+            }
+            if (!Object.prototype.hasOwnProperty.call(columnIndex, key)) {
+                columnIndex[key] = columns.length;
+                columns.push(key);
+            }
+        };
+
+        const normalizeRecord = (record) => {
+            if (record === null || typeof record === "undefined") {
+                return {};
+            }
+            if (Array.isArray(record)) {
+                return { value: JSON.stringify(record) };
+            }
+            if (typeof record === "object") {
+                return record;
+            }
+            return { value: record };
+        };
+
+        const formattedRecords = records.map(normalizeRecord);
+
+        formattedRecords.forEach((record) => {
+            for (const key in record) {
+                if (Object.prototype.hasOwnProperty.call(record, key)) {
+                    registerColumn(key);
+                }
+            }
+        });
+
+        if (!columns.length) {
+            columns.push("value");
+        }
+
+        const dataA = [columns];
+
+        const convertCellValue = (value) => {
+            if (value === null || typeof value === "undefined") {
+                return '';
+            }
+            if (typeof value === "object") {
+                try {
+                    return JSON.stringify(value);
+                } catch (e) {
+                    return '';
+                }
+            }
+            return value;
+        };
+
+        formattedRecords.forEach((record) => {
+            const row = columns.map((columnName) => {
+                const cellValue = Object.prototype.hasOwnProperty.call(record, columnName) ? record[columnName] : '';
+                return convertCellValue(cellValue);
+            });
+            dataA.push(row);
+        });
+
+        if (opt && opt.callback) {
+            opt.callback(dataA, opt);
+            return;
+        }
+
+        this.__createDataTableObject(dataA, "jsonl", opt);
     };
 
 
@@ -1825,7 +2483,7 @@ $Log:data.js,v $
             
             window.duckdb.db.registerFileBuffer(tempFileName, new Uint8Array(parquetBufferCopy))
                 .then(function() {
-                    console.log("📊 Parquet file registered in DuckDB virtual filesystem");
+                    console.log("Parquet file registered in DuckDB virtual filesystem");
                     
                     // Query the actual data to get column names and types
                     const metadataQuery = `
@@ -1835,9 +2493,9 @@ $Log:data.js,v $
                     return window.duckdb.conn.query(metadataQuery);
                 })
                 .then(function(result) {
-                    console.log("📊 Metadata query result type:", typeof result);
-                    console.log("📊 Metadata query result methods:", Object.getOwnPropertyNames(result));
-                    console.log("📊 Metadata query result:", result);
+                    console.log("Metadata query result type:", typeof result);
+                    console.log("Metadata query result methods:", Object.getOwnPropertyNames(result));
+                    console.log("Metadata query result:", result);
                     
                     let isGeoParquet = false;
                     
@@ -1845,38 +2503,38 @@ $Log:data.js,v $
                     let rows;
                     if (typeof result.toArray === 'function') {
                         rows = result.toArray();
-                        console.log("📊 Using toArray(), rows:", rows);
+                        console.log("Using toArray(), rows:", rows);
                     } else if (typeof result.fetchAll === 'function') {
                         rows = result.fetchAll();
-                        console.log("📊 Using fetchAll(), rows:", rows);
+                        console.log("Using fetchAll(), rows:", rows);
                     } else if (Array.isArray(result)) {
                         rows = result;
-                        console.log("📊 Result is array, rows:", rows);
+                        console.log("Result is array, rows:", rows);
                     } else if (result.data && Array.isArray(result.data)) {
                         rows = result.data;
-                        console.log("📊 Using result.data, rows:", rows);
+                        console.log("Using result.data, rows:", rows);
                     } else {
                         console.warn("⚠️ Cannot extract rows from metadata result, assuming regular parquet");
-                        console.log("📊 Full result object:", result);
+                        console.log("Full result object:", result);
                         resolve(false);
                         return;
                     }
                     
                     // Check if any column has geometry-related names
                     if (rows && rows.length > 0) {
-                        console.log("📊 Checking columns for geometry indicators...");
+                        console.log("Checking columns for geometry indicators...");
                         
                         // Get column names from the first row
                         const firstRow = rows[0];
                         const columnNames = Object.keys(firstRow);
                         
-                        console.log("📊 Column names found:", columnNames);
+                        console.log("Column names found:", columnNames);
                         
                         // Check for common geometry column names
                         const geoColumns = ['geometry', 'geom', 'the_geom', 'wkb_geometry', 'shape'];
                         for (const columnName of columnNames) {
                             const lowerColumnName = columnName.toLowerCase();
-                            console.log(`📊 Checking column: ${columnName}`);
+                            console.log(`Checking column: ${columnName}`);
                             
                             if (geoColumns.includes(lowerColumnName)) {
                                 console.log("✅ GeoParquet detected via geometry column name:", columnName);
@@ -1896,7 +2554,7 @@ $Log:data.js,v $
                             }
                         }
                     } else {
-                        console.log("📊 No rows found in metadata query");
+                        console.log("No rows found in metadata query");
                     }
                     
                     console.log("🎯 Final GeoParquet detection result:", isGeoParquet);
@@ -1974,7 +2632,6 @@ $Log:data.js,v $
         
         return types;
     };
-    
     /**
      * Convert geometry data (WKB, WKT, or binary) to GeoJSON string
      * @param {*} geometryValue - Geometry in WKB (ArrayBuffer/Uint8Array), WKT (string), or other format
@@ -1984,9 +2641,20 @@ $Log:data.js,v $
         if (!geometryValue) return '';
         
         try {
-            // If it's binary (WKB as ArrayBuffer or Uint8Array) - MOST COMMON FOR GEOPARQUET
-            if (geometryValue instanceof ArrayBuffer || geometryValue instanceof Uint8Array) {
-                const bytes = geometryValue instanceof Uint8Array ? geometryValue : new Uint8Array(geometryValue);
+            // If it's binary (WKB as ArrayBuffer or any typed array view)
+            if (geometryValue instanceof ArrayBuffer || ArrayBuffer.isView(geometryValue)) {
+                const bytes = geometryValue instanceof Uint8Array
+                    ? geometryValue
+                    : new Uint8Array(
+                        geometryValue.buffer || geometryValue,
+                        geometryValue.byteOffset || 0,
+                        geometryValue.byteLength || (geometryValue.length || 0)
+                    );
+                return this.__parseWKB(bytes);
+            }
+            // If it's an array of byte values (e.g. returned as plain array)
+            if (Array.isArray(geometryValue) && geometryValue.length && typeof geometryValue[0] === 'number') {
+                const bytes = Uint8Array.from(geometryValue);
                 return this.__parseWKB(bytes);
             }
             // If it's already a GeoJSON string
@@ -2005,6 +2673,15 @@ $Log:data.js,v $
             }
             // If it's an object, stringify it
             else if (typeof geometryValue === 'object') {
+                // Some engines return binary columns as plain objects with numeric keys {0:...,1:...}
+                const keys = Object.keys(geometryValue);
+                if (keys.length && keys.every(key => /^\d+$/.test(key))) {
+                    const bytes = new Uint8Array(keys.length);
+                    keys.sort((a, b) => a - b).forEach((key, idx) => {
+                        bytes[idx] = geometryValue[key];
+                    });
+                    return this.__parseWKB(bytes);
+                }
                 return JSON.stringify(geometryValue);
             }
             
@@ -2020,6 +2697,26 @@ $Log:data.js,v $
             }
         }
     };
+
+    /**
+     * Helper to detect plain objects that represent byte sequences (e.g., {0:1,1:237,...})
+     * @param {*} value
+     * @returns {boolean}
+     */
+    Data.Feed.prototype.__isNumericKeyObject = function(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return false;
+        }
+        const keys = Object.keys(value);
+        if (!keys.length) {
+            return false;
+        }
+        // Avoid treating small objects as geometry
+        if (keys.length < 4) {
+            return false;
+        }
+        return keys.every(key => /^\d+$/.test(key));
+    };
     
     /**
      * Parse WKB (Well-Known Binary) geometry to GeoJSON string
@@ -2030,112 +2727,172 @@ $Log:data.js,v $
         try {
             if (bytes.length < 5) return '';
             
-            // Read byte order (1 byte): 0=big endian, 1=little endian
-            const littleEndian = bytes[0] === 1;
-            
-            // Read geometry type (4 bytes)
             const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            const geomType = view.getUint32(1, littleEndian);
-            
-            // Parse based on geometry type
-            switch (geomType) {
-                case 1: // Point
-                    return this.__parseWKBPoint(view, littleEndian);
-                case 2: // LineString
-                    return this.__parseWKBLineString(view, littleEndian);
-                case 3: // Polygon
-                    return this.__parseWKBPolygon(view, littleEndian);
-                case 4: // MultiPoint
-                case 5: // MultiLineString
-                case 6: // MultiPolygon
-                case 7: // GeometryCollection
-                    // For complex types, convert to hex for now
-                    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                    return JSON.stringify({ type: "WKB", wkb: hex, geomType: geomType });
-                default:
-                    // Unknown type
-                    const hexUnknown = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                    return JSON.stringify({ type: "WKB", wkb: hexUnknown, geomType: geomType });
+            const result = this.__readWKBGeometry(view, 0);
+            if (result && result.geometry) {
+                return JSON.stringify(result.geometry);
             }
         } catch (error) {
             console.warn("⚠️ WKB parsing error:", error);
-            // Return as hex string on error
-            const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-            return JSON.stringify({ type: "WKB", wkb: hex });
-        }
-    };
-    
-    /**
-     * Parse WKB Point geometry
-     * @param {DataView} view - DataView of WKB data
-     * @param {boolean} littleEndian - Byte order
-     * @returns {string} GeoJSON string
-     */
-    Data.Feed.prototype.__parseWKBPoint = function(view, littleEndian) {
-        // Point: byte order (1) + type (4) + x (8) + y (8) = 21 bytes
-        const x = view.getFloat64(5, littleEndian);
-        const y = view.getFloat64(13, littleEndian);
-        
-        return JSON.stringify({
-            type: "Point",
-            coordinates: [x, y]
-        });
-    };
-    
-    /**
-     * Parse WKB LineString geometry
-     * @param {DataView} view - DataView of WKB data
-     * @param {boolean} littleEndian - Byte order
-     * @returns {string} GeoJSON string
-     */
-    Data.Feed.prototype.__parseWKBLineString = function(view, littleEndian) {
-        // LineString: byte order (1) + type (4) + numPoints (4) + points
-        const numPoints = view.getUint32(5, littleEndian);
-        const coordinates = [];
-        
-        for (let i = 0; i < numPoints; i++) {
-            const offset = 9 + (i * 16);
-            const x = view.getFloat64(offset, littleEndian);
-            const y = view.getFloat64(offset + 8, littleEndian);
-            coordinates.push([x, y]);
         }
         
-        return JSON.stringify({
-            type: "LineString",
-            coordinates: coordinates
-        });
+        // Fallback: return hex representation so data isn't lost
+        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        return JSON.stringify({ type: "WKB", wkb: hex });
     };
-    
     /**
-     * Parse WKB Polygon geometry
+     * Internal helper to read WKB geometry recursively
      * @param {DataView} view - DataView of WKB data
-     * @param {boolean} littleEndian - Byte order
-     * @returns {string} GeoJSON string
+     * @param {number} offset - Current offset in bytes
+     * @returns {{geometry: Object, offset: number}}
      */
-    Data.Feed.prototype.__parseWKBPolygon = function(view, littleEndian) {
-        // Polygon: byte order (1) + type (4) + numRings (4) + rings
-        const numRings = view.getUint32(5, littleEndian);
-        const coordinates = [];
-        let offset = 9;
+    Data.Feed.prototype.__readWKBGeometry = function(view, offset) {
+        if (offset + 5 > view.byteLength) {
+            throw new Error("WKB buffer too small");
+        }
         
-        for (let ring = 0; ring < numRings; ring++) {
-            const numPoints = view.getUint32(offset, littleEndian);
-            offset += 4;
-            
-            const ringCoords = [];
-            for (let i = 0; i < numPoints; i++) {
-                const x = view.getFloat64(offset, littleEndian);
-                const y = view.getFloat64(offset + 8, littleEndian);
-                ringCoords.push([x, y]);
-                offset += 16;
+        const littleEndian = view.getUint8(offset) === 1;
+        let cursor = offset + 1;
+        let geomType = view.getUint32(cursor, littleEndian);
+        cursor += 4;
+        
+        // Determine dimensionality (Z/M) using ISO 13249-3 (WKB: type + 1000 for Z, +2000 for M)
+        const modifier = Math.floor(geomType / 1000);
+        const baseType = geomType % 1000;
+        const hasZ = modifier === 1 || modifier === 3;
+        const hasM = modifier === 2 || modifier === 3;
+        
+        const readCoordinate = () => {
+            const coord = [];
+            coord.push(view.getFloat64(cursor, littleEndian)); // x
+            cursor += 8;
+            coord.push(view.getFloat64(cursor, littleEndian)); // y
+            cursor += 8;
+            if (hasZ) {
+                coord.push(view.getFloat64(cursor, littleEndian)); // z
+                cursor += 8;
             }
-            coordinates.push(ringCoords);
+            if (hasM) {
+                coord.push(view.getFloat64(cursor, littleEndian)); // m
+                cursor += 8;
+            }
+            return coord;
+        };
+        
+        const readPointGeometry = () => {
+            const coords = readCoordinate();
+            return { type: "Point", coordinates: coords };
+        };
+        
+        const readLineStringGeometry = () => {
+            const numPoints = view.getUint32(cursor, littleEndian);
+            cursor += 4;
+            const coordinates = [];
+            for (let i = 0; i < numPoints; i++) {
+                coordinates.push(readCoordinate());
+            }
+            return { type: "LineString", coordinates };
+        };
+        
+        const readPolygonGeometry = () => {
+            const numRings = view.getUint32(cursor, littleEndian);
+            cursor += 4;
+            const rings = [];
+            for (let i = 0; i < numRings; i++) {
+                const numPoints = view.getUint32(cursor, littleEndian);
+                cursor += 4;
+                const ring = [];
+                for (let j = 0; j < numPoints; j++) {
+                    ring.push(readCoordinate());
+                }
+                rings.push(ring);
+            }
+            return { type: "Polygon", coordinates: rings };
+        };
+        
+        let geometry;
+        switch (baseType) {
+            case 1: // Point
+                geometry = readPointGeometry();
+                break;
+            case 2: // LineString
+                geometry = readLineStringGeometry();
+                break;
+            case 3: // Polygon
+                geometry = readPolygonGeometry();
+                break;
+            case 4: { // MultiPoint
+                const numPoints = view.getUint32(cursor, littleEndian);
+                cursor += 4;
+                const coordinates = [];
+                for (let i = 0; i < numPoints; i++) {
+                    const result = this.__readWKBGeometry(view, cursor);
+                    cursor = result.offset;
+                    if (result.geometry.type === "Point") {
+                        coordinates.push(result.geometry.coordinates);
+                    } else {
+                        coordinates.push(result.geometry);
+                    }
+                }
+                geometry = { type: "MultiPoint", coordinates };
+                break;
+            }
+            case 5: { // MultiLineString
+                const numLines = view.getUint32(cursor, littleEndian);
+                cursor += 4;
+                const coordinates = [];
+                for (let i = 0; i < numLines; i++) {
+                    const result = this.__readWKBGeometry(view, cursor);
+                    cursor = result.offset;
+                    if (result.geometry.type === "LineString") {
+                        coordinates.push(result.geometry.coordinates);
+                    } else {
+                        coordinates.push(result.geometry);
+                    }
+                }
+                geometry = { type: "MultiLineString", coordinates };
+                break;
+            }
+            case 6: { // MultiPolygon
+                const numPolygons = view.getUint32(cursor, littleEndian);
+                cursor += 4;
+                const coordinates = [];
+                for (let i = 0; i < numPolygons; i++) {
+                    const result = this.__readWKBGeometry(view, cursor);
+                    cursor = result.offset;
+                    if (result.geometry.type === "Polygon") {
+                        coordinates.push(result.geometry.coordinates);
+                    } else {
+                        coordinates.push(result.geometry);
+                    }
+                }
+                geometry = { type: "MultiPolygon", coordinates };
+                break;
+            }
+            case 7: { // GeometryCollection
+                const numGeoms = view.getUint32(cursor, littleEndian);
+                cursor += 4;
+                const geometries = [];
+                for (let i = 0; i < numGeoms; i++) {
+                    const result = this.__readWKBGeometry(view, cursor);
+                    cursor = result.offset;
+                    geometries.push(result.geometry);
+                }
+                geometry = { type: "GeometryCollection", geometries };
+                break;
+            }
+            default: {
+                // Unknown type - return hex fallback
+                const length = view.byteLength - offset;
+                const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, length);
+                const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                geometry = { type: "WKB", wkb: hex, geomType: geomType };
+                cursor = view.byteLength;
+                break;
+            }
         }
         
-        return JSON.stringify({
-            type: "Polygon",
-            coordinates: coordinates
-        });
+        return { geometry, offset: cursor };
     };
     
     /**
@@ -2212,7 +2969,13 @@ $Log:data.js,v $
             } else if (value instanceof Date) {
                 return value.toISOString();
             } else if (Array.isArray(value)) {
-                // Handle standard JavaScript arrays
+                if (value.length && value.every(item => typeof item === 'number')) {
+                    try {
+                        return this.__convertGeometryToGeoJSON(Uint8Array.from(value));
+                    } catch (e) {
+                        // fall through to JSON formatting
+                    }
+                }
                 return JSON.stringify(value);
             } else if (value && typeof value === 'object' && typeof value.toArray === 'function') {
                 // Handle Arrow/DuckDB array objects
@@ -2221,11 +2984,25 @@ $Log:data.js,v $
                 } catch (e) {
                     return JSON.stringify(value);
                 }
+            } else if (value && typeof value === 'object') {
+                if (this.__isNumericKeyObject(value)) {
+                    try {
+                        const keys = Object.keys(value).map(Number).sort((a, b) => a - b);
+                        const bytes = new Uint8Array(keys.length);
+                        keys.forEach((key, idx) => {
+                            bytes[idx] = value[key];
+                        });
+                        return this.__convertGeometryToGeoJSON(bytes);
+                    } catch (e) {
+                        // fall through to JSON formatting
+                    }
+                }
+                return JSON.stringify(value);
             } else {
                 try {
                     return JSON.stringify(value);
                 } catch (e) {
-                    return String(value);
+                    return String(value || '');
                 }
             }
         }
@@ -2407,14 +3184,14 @@ $Log:data.js,v $
     Data.Feed.prototype.__processStreamingDataset = function (rows, columns, columnTypes, tempFileName, opt) {
         const __this = this;
         
-        console.log("📊 Starting Web Worker-based processing for maximum performance...");
+        console.log("Starting Web Worker-based processing for maximum performance...");
         
         // Memory monitoring function
         const logMemoryUsage = () => {
             if (performance.memory) {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
                 const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
-                console.log(`📊 Memory usage: ${used}MB / ${total}MB`);
+                console.log(`Memory usage: ${used}MB / ${total}MB`);
             }
         };
         
@@ -2434,16 +3211,12 @@ $Log:data.js,v $
         const dataA = new Array(rows.length + 1);
         dataA[0] = columns;
         
-        // Dynamic batch sizing based on cell count
+        // Use optimized worker batch size based on available memory and dataset characteristics
         const cellsPerRow = columns.length;
         const totalCells = rows.length * cellsPerRow;
-        const workerBatchSize = Math.min(
-            5000000, // Maximum 5M rows per batch
-            Math.max(
-                500000, // Minimum 500K rows per batch
-                Math.floor(10000000 / cellsPerRow) // 10M cells per batch
-            )
-        );
+        const workerBatchSize = Data.getOptimizedBatchSize('worker', rows.length, cellsPerRow);
+        
+        console.log(`⚡ Worker batch size optimized: ${workerBatchSize.toLocaleString()} rows (${cellsPerRow} columns, ${(workerBatchSize * cellsPerRow).toLocaleString()} cells per batch)`);
         
         // Check if dataset is too large for worker transfer (memory overhead)
         // Workers require cloning data which can cause out-of-memory errors for very large datasets
@@ -2451,19 +3224,21 @@ $Log:data.js,v $
         const MAX_WORKER_MEMORY_MB = 500; // Max 500MB for worker transfer
         
         if (estimatedMemoryMB > MAX_WORKER_MEMORY_MB) {
-            console.log(`📊 Dataset too large for worker transfer (estimated ${Math.round(estimatedMemoryMB)}MB)`);
-            console.log(`📊 Using optimized main-thread processing instead...`);
+            console.log(`Dataset too large for worker transfer (estimated ${Math.round(estimatedMemoryMB)}MB)`);
+            console.log(`Using optimized main-thread processing instead...`);
             return __this.__processStreamingDatasetFallback(rows, columns, columnTypes, tempFileName, opt);
         }
         
-        console.log(`📊 Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) using Web Worker`);
+        console.log(`Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) using Web Worker`);
         console.log(`⚡ Extracting data from DuckDB rows for worker transfer (estimated ${Math.round(estimatedMemoryMB)}MB)...`);
         
         // Convert DuckDB Row objects to plain arrays/objects for worker transfer
         // Do this in async batches to avoid blocking UI
         const extractDataAsync = async () => {
             const plainRows = [];
-            const extractBatchSize = 100000; // Extract 100K rows at a time
+            const extractBatchSize = Data.getOptimizedBatchSize('extract', rows.length, cellsPerRow);
+            
+            console.log(`⚡ Data extraction batch size optimized: ${extractBatchSize.toLocaleString()} rows`);
             
             for (let batchStart = 0; batchStart < rows.length; batchStart += extractBatchSize) {
                 const batchEnd = Math.min(batchStart + extractBatchSize, rows.length);
@@ -2471,22 +3246,28 @@ $Log:data.js,v $
                 await __this.__scheduleIdleWork((deadline) => {
                     for (let i = batchStart; i < batchEnd; i++) {
                         if (isArrayFormat) {
-                            // Already array format, just copy
-                            plainRows.push(Array.from(rows[i]));
+                            const plainRow = new Array(columns.length);
+                            for (let j = 0; j < columns.length; j++) {
+                                const value = rows[i][j];
+                                plainRow[j] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
+                            }
+                            plainRows.push(plainRow);
                         } else if (isObjectFormat) {
                             // Extract object values into plain object
                             const plainRow = {};
                             for (let j = 0; j < columns.length; j++) {
-                                plainRow[columns[j]] = rows[i][columns[j]];
+                                const colName = columns[j];
+                                const value = rows[i][colName];
+                                plainRow[colName] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
                             }
                             plainRows.push(plainRow);
                         } else {
-                            plainRows.push(rows[i]);
+                            plainRows.push(__this.__convertValue(rows[i], columnTypes ? columnTypes[0] : null));
                         }
                     }
                     
                     if (batchEnd % 500000 === 0 || batchEnd === rows.length) {
-                        console.log(`📊 Extracted ${batchEnd.toLocaleString()} of ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%)`);
+                        console.log(`Extracted ${batchEnd.toLocaleString()} of ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%)`);
                     }
                 }, 1000);
             }
@@ -2495,7 +3276,7 @@ $Log:data.js,v $
         };
         
         return extractDataAsync().then(function(plainRows) {
-            console.log(`📊 Data extraction complete, starting worker processing...`);
+            console.log(`Data extraction complete, starting worker processing...`);
             
             return new Promise((resolve, reject) => {
                 try {
@@ -2516,7 +3297,7 @@ $Log:data.js,v $
                         
                         // Log progress every 2M rows
                         if (processed % 2000000 === 0 || processed === total) {
-                            console.log(`📊 Worker progress: ${processed.toLocaleString()} of ${total.toLocaleString()} rows (${progress}%)`);
+                            console.log(`Worker progress: ${processed.toLocaleString()} of ${total.toLocaleString()} rows (${progress}%)`);
                             logMemoryUsage();
                         }
                         
@@ -2602,7 +3383,6 @@ $Log:data.js,v $
             }
         });
     };
-
     /**
      * __processStreamingDatasetFallback
      * Fallback processing on main thread when Web Workers not available
@@ -2615,14 +3395,14 @@ $Log:data.js,v $
     Data.Feed.prototype.__processStreamingDatasetFallback = function (rows, columns, columnTypes, tempFileName, opt) {
         const __this = this;
         
-        console.log("📊 Starting fallback main-thread processing...");
+        console.log("Starting fallback main-thread processing...");
         
         // Memory monitoring function
         const logMemoryUsage = () => {
             if (performance.memory) {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
                 const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
-                console.log(`📊 Memory usage: ${used}MB / ${total}MB`);
+                console.log(`Memory usage: ${used}MB / ${total}MB`);
             }
         };
         
@@ -2645,7 +3425,7 @@ $Log:data.js,v $
         **/
         const microBatchSize = 1000000;
 
-        Data.log(`📊 Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) in batches of ${microBatchSize.toLocaleString()} rows`);
+        Data.log(`Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) in batches of ${microBatchSize.toLocaleString()} rows`);
         if (columnTypes) {
             Data.log(`⚡ Schema-based optimization active for faster processing`);
         }
@@ -2690,7 +3470,7 @@ $Log:data.js,v $
         
         // Process the data
         return processAllData().then(function() {
-            console.log("📊 Fallback dataset processing completed");
+            console.log("Fallback dataset processing completed");
             _LOG("Fallback converted: " + dataA.length + " total rows (including header)");
             
             // Clean up the temporary file
@@ -2885,9 +3665,9 @@ $Log:data.js,v $
                 const conn = await db.connect();
                 
                 console.log("✅ DuckDB WASM initialized successfully");
-                console.log("📊 DuckDB connection object type:", typeof conn);
-                console.log("📊 DuckDB connection methods:", Object.getOwnPropertyNames(conn));
-                console.log("📊 DuckDB connection constructor:", conn.constructor.name);
+                console.log("DuckDB connection object type:", typeof conn);
+                console.log("DuckDB connection methods:", Object.getOwnPropertyNames(conn));
+                console.log("DuckDB connection constructor:", conn.constructor.name);
                 
                 // Store references globally with worker reference for cleanup
                 window.duckdb = {
@@ -2937,7 +3717,6 @@ $Log:data.js,v $
             }
         }, 15000); // 15 second timeout
     };
-    
     /**
      * __processWithDuckDB
      * helper method to process parquet data using DuckDB WASM
@@ -2984,7 +3763,7 @@ $Log:data.js,v $
             
             window.duckdb.db.registerFileBuffer(tempFileName, uint8ArrayCopy)
                 .then(function() {
-                    console.log("📊 Parquet file registered in DuckDB virtual filesystem");
+                    console.log("Parquet file registered in DuckDB virtual filesystem");
                     
                     // First, check how many rows the file has
                     return window.duckdb.conn.query(`SELECT COUNT(*) as count FROM read_parquet('${tempFileName}')`);
@@ -2994,18 +3773,23 @@ $Log:data.js,v $
                     const totalRowsRaw = countResult.toArray()[0].count;
                     const totalRows = typeof totalRowsRaw === 'bigint' ? Number(totalRowsRaw) : totalRowsRaw;
                     
-                    console.log(`📊 File contains ${totalRows.toLocaleString()} total rows`);
-                    Data.log(`📊 File has ${totalRows.toLocaleString()} rows - loading all data in batches...`);
+                    console.log(`File contains ${totalRows.toLocaleString()} total rows`);
+                    Data.log(`File has ${totalRows.toLocaleString()} rows - loading all data in batches...`);
                     
-                    // Load data in batches to avoid memory allocation errors
-                    const BATCH_SIZE = 100000;
+                    // Get schema first to determine column count for batch size optimization
+                    const schemaQuery = `SELECT * FROM read_parquet('${tempFileName}') LIMIT 1`;
+                    const schemaResult = await window.duckdb.conn.query(schemaQuery);
+                    const schema = schemaResult.schema;
+                    const columnsCount = schema.names ? schema.names.length : 0;
+                    
+                    // Use original simple batch size approach
+                    const BATCH_SIZE = Data.getOptimizedBatchSize('parquet', totalRows, columnsCount);
                     const numBatches = Math.ceil(totalRows / BATCH_SIZE);
                     
-                    console.log(`📊 Loading ${totalRows.toLocaleString()} rows in ${numBatches} batch${numBatches > 1 ? 'es' : ''} of ${BATCH_SIZE.toLocaleString()} rows`);
+                    console.log(`Loading ${totalRows.toLocaleString()} rows in ${numBatches} batch${numBatches > 1 ? 'es' : ''} of ${BATCH_SIZE.toLocaleString()} rows`);
                     
                     // Accumulate all rows from all batches
                     let allRows = [];
-                    let schema = null;
                     
                     for (let batchNum = 0; batchNum < numBatches; batchNum++) {
                         const offset = batchNum * BATCH_SIZE;
@@ -3013,15 +3797,10 @@ $Log:data.js,v $
                         const limit = Math.min(BATCH_SIZE, remaining);
                         
                         console.log(`⚡ Loading batch ${batchNum + 1}/${numBatches} (rows ${offset.toLocaleString()}-${(offset + limit - 1).toLocaleString()})...`);
-                        Data.log(`📊 Loading batch ${batchNum + 1}/${numBatches}... (${Math.round((batchNum / numBatches) * 100)}%)`);
+                        Data.log(`Loading batch ${batchNum + 1}/${numBatches}... (${Math.round((batchNum / numBatches) * 100)}%)`);
                         
                         const batchQuery = `SELECT * FROM read_parquet('${tempFileName}') LIMIT ${limit} OFFSET ${offset}`;
                         const batchResult = await window.duckdb.conn.query(batchQuery);
-                        
-                        // Get schema from first batch
-                        if (batchNum === 0) {
-                            schema = batchResult.schema;
-                        }
                         
                         // Add rows from this batch
                         const batchRows = batchResult.toArray();
@@ -3040,11 +3819,11 @@ $Log:data.js,v $
                     };
                 })
                 .then(async function(result) {
-                    console.log("📊 DuckDB query completed successfully");
+                    console.log("DuckDB query completed successfully");
                     _LOG("DuckDB query result type: " + typeof result);
-                    console.log("📊 DuckDB result object type:", typeof result);
-                    console.log("📊 DuckDB result methods:", Object.getOwnPropertyNames(result));
-                    console.log("📊 DuckDB result constructor:", result.constructor.name);
+                    console.log("DuckDB result object type:", typeof result);
+                    console.log("DuckDB result methods:", Object.getOwnPropertyNames(result));
+                    console.log("DuckDB result constructor:", result.constructor.name);
                     
                     if (!result) {
                         throw new Error("DuckDB query returned null/undefined");
@@ -3056,18 +3835,18 @@ $Log:data.js,v $
                     
                     if (typeof result.toArray === 'function') {
                         rows = result.toArray();
-                        console.log("📊 Using toArray() method, rows count:", rows.length);
+                        console.log("Using toArray() method, rows count:", rows.length);
                     } else if (typeof result.fetchAll === 'function') {
                         rows = result.fetchAll();
-                        console.log("📊 Using fetchAll() method, rows count:", rows.length);
+                        console.log("Using fetchAll() method, rows count:", rows.length);
                     } else if (Array.isArray(result)) {
                         rows = result;
-                        console.log("📊 Result is already an array, rows count:", rows.length);
+                        console.log("Result is already an array, rows count:", rows.length);
                     } else {
                         // Try to access data property
                         if (result.data && Array.isArray(result.data)) {
                             rows = result.data;
-                            console.log("📊 Using result.data, rows count:", rows.length);
+                            console.log("Using result.data, rows count:", rows.length);
                         } else {
                             throw new Error("Cannot convert DuckDB result to array. Available methods: " + Object.getOwnPropertyNames(result).join(', '));
                         }
@@ -3099,7 +3878,24 @@ $Log:data.js,v $
                     if (columns.length === 0) {
                         throw new Error("No columns found in parquet file");
                     }
-                    
+
+                    const geometryColumnNames = columns.filter(name => {
+                        const lower = (name || '').toLowerCase();
+                        return lower === 'geometry' || lower === 'geom' || lower === 'wkb_geometry' || lower === 'shape' || lower.includes('geom');
+                    });
+
+                    if (geometryColumnNames.length) {
+                        if (!columnTypes) {
+                            columnTypes = columns.map(() => 'other');
+                        }
+                        geometryColumnNames.forEach((colName) => {
+                            const idx = columns.indexOf(colName);
+                            if (idx !== -1) {
+                                columnTypes[idx] = 'geometry';
+                            }
+                        });
+                    }
+
                     // Convert rows to array format expected by the data table
                     // Process in batches to avoid stack overflow with large datasets
                     const dataRows = [];
@@ -3116,14 +3912,14 @@ $Log:data.js,v $
 
                     // For large datasets, use streaming processing to avoid memory issues
                     if (rows.length > 100000) {
-                        Data.log("📊 Large dataset detected, using streaming processing...");
+                        Data.log("Large dataset detected, using streaming processing...");
                         return __this.__processStreamingDataset(rows, columns, columnTypes, tempFileName, opt);
                     }
                     
                     
                     // For medium-large datasets (50K-100K), use optimized batch processing
                     if (rows.length > 50000) {
-                        console.log("📊 Medium-large dataset detected, using optimized batch processing...");
+                        console.log("Medium-large dataset detected, using optimized batch processing...");
                         
                         // Detect row format once (optimization: avoid checking for every cell)
                         const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
@@ -3141,7 +3937,7 @@ $Log:data.js,v $
                             )
                         );
                         
-                        console.log(`📊 Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) in batches of ${actualBatchSize.toLocaleString()} rows`);
+                        console.log(`Processing ${rows.length.toLocaleString()} rows (${totalCells.toLocaleString()} cells) in batches of ${actualBatchSize.toLocaleString()} rows`);
                         if (columnTypes) {
                             Data.log(`⚡ Schema-based optimization active for medium dataset`);
                         }
@@ -3178,7 +3974,7 @@ $Log:data.js,v $
                                         const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
                                         memInfo = ` | Memory: ${used}MB / ${total}MB`;
                                     }
-                                    Data.log(`📊 Processing: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                    Data.log(`Processing: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
                                     lastLogTime = now;
                                 }
                             }
@@ -3204,21 +4000,7 @@ $Log:data.js,v $
                                         const row = new Array(columns.length);
                                         for (let j = 0; j < columns.length; j++) {
                                             const value = rows[i][j];
-                                            if (value == null) {
-                                                row[j] = '';
-                                            } else if (typeof value === 'string') {
-                                                row[j] = value;
-                                            } else if (typeof value === 'number' || typeof value === 'boolean') {
-                                                row[j] = String(value);
-                                            } else if (value instanceof Date) {
-                                                row[j] = value.toISOString();
-                                            } else {
-                                                try {
-                                                    row[j] = JSON.stringify(value);
-                                                } catch (e) {
-                                                    row[j] = String(value);
-                                                }
-                                            }
+                                            row[j] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
                                         }
                                         dataRows.push(row);
                                     }
@@ -3235,7 +4017,7 @@ $Log:data.js,v $
                                             const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
                                             memInfo = ` | Memory: ${used}MB / ${total}MB`;
                                         }
-                                        Data.log(`📊 Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                        Data.log(`Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
                                         lastLogTime = now;
                                     }
                                 }
@@ -3248,21 +4030,7 @@ $Log:data.js,v $
                                         const row = new Array(columns.length);
                                         for (let j = 0; j < columns.length; j++) {
                                             const value = rows[i][columns[j]];
-                                            if (value == null) {
-                                                row[j] = '';
-                                            } else if (typeof value === 'string') {
-                                                row[j] = value;
-                                            } else if (typeof value === 'number' || typeof value === 'boolean') {
-                                                row[j] = String(value);
-                                            } else if (value instanceof Date) {
-                                                row[j] = value.toISOString();
-                                            } else {
-                                                try {
-                                                    row[j] = JSON.stringify(value);
-                                                } catch (e) {
-                                                    row[j] = String(value);
-                                                }
-                                            }
+                                            row[j] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
                                         }
                                         dataRows.push(row);
                                     }
@@ -3279,7 +4047,7 @@ $Log:data.js,v $
                                             const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
                                             memInfo = ` | Memory: ${used}MB / ${total}MB`;
                                         }
-                                        Data.log(`📊 Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                        Data.log(`Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
                                         lastLogTime = now;
                                     }
                                 }
@@ -3292,21 +4060,7 @@ $Log:data.js,v $
                                         const row = new Array(columns.length);
                                         for (let j = 0; j < columns.length; j++) {
                                             const value = rows[i];
-                                            if (value == null) {
-                                                row[j] = '';
-                                            } else if (typeof value === 'string') {
-                                                row[j] = value;
-                                            } else if (typeof value === 'number' || typeof value === 'boolean') {
-                                                row[j] = String(value);
-                                            } else if (value instanceof Date) {
-                                                row[j] = value.toISOString();
-                                            } else {
-                                                try {
-                                                    row[j] = JSON.stringify(value);
-                                                } catch (e) {
-                                                    row[j] = String(value);
-                                                }
-                                            }
+                                            row[j] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
                                         }
                                         dataRows.push(row);
                                     }
@@ -3323,7 +4077,7 @@ $Log:data.js,v $
                                             const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
                                             memInfo = ` | Memory: ${used}MB / ${total}MB`;
                                         }
-                                        Data.log(`📊 Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                        Data.log(`Fallback: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
                                         lastLogTime = now;
                                     }
                                 }
@@ -3331,7 +4085,7 @@ $Log:data.js,v $
                         }
                     } else {
                         // For smaller datasets (< 50K), use fast synchronous processing
-                        console.log(`📊 Processing small dataset (${rows.length.toLocaleString()} rows) synchronously`);
+                        console.log(`Processing small dataset (${rows.length.toLocaleString()} rows) synchronously`);
                         
                         // Detect row format once (optimization)
                         const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
@@ -3352,22 +4106,7 @@ $Log:data.js,v $
                                     value = rows[i];
                                 }
                                 
-                                // Optimized type handling - fast path for primitives
-                                if (value == null) {
-                                    row[j] = '';
-                                } else if (typeof value === 'string') {
-                                    row[j] = value;
-                                } else if (typeof value === 'number' || typeof value === 'boolean') {
-                                    row[j] = String(value);
-                                } else if (value instanceof Date) {
-                                    row[j] = value.toISOString();
-                                } else {
-                                    try {
-                                        row[j] = JSON.stringify(value);
-                                    } catch (e) {
-                                        row[j] = String(value);
-                                    }
-                                }
+                                row[j] = __this.__convertValue(value, columnTypes ? columnTypes[j] : null);
                             }
                             dataRows.push(row);
                         }
@@ -3427,7 +4166,6 @@ $Log:data.js,v $
             }
         }
     };
-    
     /**
      * __processGeoParquetData
      * Processes GeoParquet data and converts it to GeoJSON format
@@ -3485,7 +4223,6 @@ $Log:data.js,v $
             document.head.appendChild(script);
         }
     };
-
     /**
      * __processWithGeoParquet
      * Helper method to process GeoParquet data once geoparquet library is loaded
@@ -3533,13 +4270,17 @@ $Log:data.js,v $
                 const needsDuckDBFallback = conversionError.message && (
                     conversionError.message.includes('non-delta field') ||           // Thrift encoding issue
                     conversionError.message.includes('ZSTD') ||                      // ZSTD compression not supported
-                    conversionError.message.includes('unsupported compression')      // Other compression issues
+                    conversionError.message.includes('unsupported compression') ||   // Other compression issues
+                    conversionError.message.toLowerCase().includes('unsupported geometry type') // Geometry type not supported by library
                 );
                 
                 if (needsDuckDBFallback) {
                     if (conversionError.message.includes('ZSTD')) {
                         console.warn("⚠️ GeoParquet library doesn't support ZSTD compression");
                         Data.log("⚠️ File uses ZSTD compression - switching to DuckDB...");
+                    } else if (conversionError.message.toLowerCase().includes('unsupported geometry type')) {
+                        console.warn("⚠️ GeoParquet library doesn't support this geometry type");
+                        Data.log("⚠️ File uses geometry type not supported by GeoParquet library - switching to DuckDB...");
                     } else {
                         console.warn("⚠️ GeoParquet library doesn't support this file's encoding/compression");
                     }
@@ -3588,13 +4329,17 @@ $Log:data.js,v $
                     const needsDuckDBFallback = error.message && (
                         error.message.includes('non-delta field') ||           // Thrift encoding issue
                         error.message.includes('ZSTD') ||                      // ZSTD compression not supported
-                        error.message.includes('unsupported compression')      // Other compression issues
+                        error.message.includes('unsupported compression') ||   // Other compression issues
+                        error.message.toLowerCase().includes('unsupported geometry type') // Geometry type not supported by library
                     );
                     
                     if (needsDuckDBFallback) {
                         if (error.message.includes('ZSTD')) {
                             console.warn("⚠️ GeoParquet library doesn't support ZSTD compression");
                             Data.log("⚠️ File uses ZSTD compression - switching to DuckDB...");
+                        } else if (error.message.toLowerCase().includes('unsupported geometry type')) {
+                            console.warn("⚠️ GeoParquet library doesn't support this geometry type");
+                            Data.log("⚠️ File uses geometry type not supported by GeoParquet library - switching to DuckDB...");
                         } else {
                             console.warn("⚠️ GeoParquet library doesn't support this file's encoding/compression");
                         }
@@ -3645,7 +4390,6 @@ $Log:data.js,v $
     // ----------------------------------------
     // G E O P A C K A G E   ( . g p k g )
     // ----------------------------------------
-
     /**
      * __doGpkgImport
      * reads GeoPackage file from URL using DuckDB WASM spatial extension
@@ -3707,7 +4451,6 @@ $Log:data.js,v $
             __this.__loadGpkgWithXHR(szUrl, opt);
         });
     };
-
     /**
      * __loadGpkgWithXHR
      * fallback method using XMLHttpRequest if Fetch fails
@@ -4056,7 +4799,6 @@ $Log:data.js,v $
                     });
             });
     };
-
     /**
      * __processGpkgWithDuckDB
      * Processes GeoPackage data using DuckDB WASM spatial extension with ST_Read
@@ -4096,7 +4838,7 @@ $Log:data.js,v $
                 
                 window.duckdb.db.registerFileBuffer(tempFileName, uint8ArrayCopy)
                     .then(function() {
-                        console.log("📊 GeoPackage file registered in DuckDB virtual filesystem");
+                        console.log("GeoPackage file registered in DuckDB virtual filesystem");
                         Data.log("📦 Reading GeoPackage with ST_Read...");
                         
                         // First, query to discover geometry column names
@@ -4109,7 +4851,7 @@ $Log:data.js,v $
                             try {
                                 const geomRows = geomColsResult.toArray ? geomColsResult.toArray() : geomColsResult;
                                 geomColumns = geomRows.map(row => row.column_name || row[0]);
-                                console.log("📊 Found geometry columns:", geomColumns);
+                                console.log("Found geometry columns:", geomColumns);
                             } catch (e) {
                                 console.warn("⚠️ Could not detect geometry columns, will read all as-is");
                             }
@@ -4137,12 +4879,12 @@ $Log:data.js,v $
                                 `;
                             }
                             
-                            console.log("📊 Executing query:", dataQuery);
+                            console.log("Executing query:", dataQuery);
                             return window.duckdb.conn.query(dataQuery);
                         });
                     })
                     .then(async function(result) {
-                        console.log("📊 DuckDB GeoPackage query completed successfully");
+                        console.log("DuckDB GeoPackage query completed successfully");
                         _LOG("DuckDB query result type: " + typeof result);
                         
                         if (!result) {
@@ -4155,13 +4897,13 @@ $Log:data.js,v $
                         
                         if (typeof result.toArray === 'function') {
                             rows = result.toArray();
-                            console.log("📊 Using toArray() method, rows count:", rows.length);
+                            console.log("Using toArray() method, rows count:", rows.length);
                         } else if (typeof result.fetchAll === 'function') {
                             rows = result.fetchAll();
-                            console.log("📊 Using fetchAll() method, rows count:", rows.length);
+                            console.log("Using fetchAll() method, rows count:", rows.length);
                         } else if (Array.isArray(result)) {
                             rows = result;
-                            console.log("📊 Result is already an array, rows count:", rows.length);
+                            console.log("Result is already an array, rows count:", rows.length);
                         } else {
                             throw new Error("Cannot convert DuckDB result to array. Available methods: " + Object.getOwnPropertyNames(result).join(', '));
                         }
@@ -4193,6 +4935,23 @@ $Log:data.js,v $
                             throw new Error("No columns found in GeoPackage file");
                         }
                         
+                        const geometryColumnNames = columns.filter(name => {
+                            const lower = (name || '').toLowerCase();
+                            return lower === 'geometry' || lower === 'geom' || lower === 'wkb_geometry' || lower === 'shape' || lower.includes('geom');
+                        });
+
+                        if (geometryColumnNames.length) {
+                            if (!columnTypes) {
+                                columnTypes = columns.map(() => 'other');
+                            }
+                            geometryColumnNames.forEach((colName) => {
+                                const idx = columns.indexOf(colName);
+                                if (idx !== -1) {
+                                    columnTypes[idx] = 'geometry';
+                                }
+                            });
+                        }
+                        
                         // Process rows - check dataset size
                         const dataRows = [];
                         
@@ -4207,13 +4966,13 @@ $Log:data.js,v $
 
                         // For large datasets, use streaming processing
                         if (rows.length > 100000) {
-                            Data.log("📊 Large GeoPackage dataset detected, using streaming processing...");
+                            Data.log("Large GeoPackage dataset detected, using streaming processing...");
                             return __this.__processStreamingDataset(rows, columns, columnTypes, tempFileName, opt);
                         }
                         
                         // For medium-large datasets (50K-100K), use optimized batch processing
                         if (rows.length > 50000) {
-                            console.log("📊 Medium-large GeoPackage dataset detected, using optimized batch processing...");
+                            console.log("Medium-large GeoPackage dataset detected, using optimized batch processing...");
                             
                             // Detect row format once
                             const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
@@ -4227,7 +4986,7 @@ $Log:data.js,v $
                                 Math.max(100000, Math.floor(10000000 / cellsPerRow))
                             );
                             
-                            console.log(`📊 Processing ${rows.length.toLocaleString()} GeoPackage rows (${totalCells.toLocaleString()} cells) in batches of ${actualBatchSize.toLocaleString()} rows`);
+                            console.log(`Processing ${rows.length.toLocaleString()} GeoPackage rows (${totalCells.toLocaleString()} cells) in batches of ${actualBatchSize.toLocaleString()} rows`);
                             if (columnTypes) {
                                 Data.log(`⚡ Schema-based optimization active for GeoPackage dataset`);
                             }
@@ -4264,7 +5023,7 @@ $Log:data.js,v $
                                             const total = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
                                             memInfo = ` | Memory: ${used}MB / ${total}MB`;
                                         }
-                                        Data.log(`📊 Processing GeoPackage: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
+                                        Data.log(`Processing GeoPackage: ${batchEnd.toLocaleString()} / ${rows.length.toLocaleString()} rows (${Math.round((batchEnd / rows.length) * 100)}%) | ${rowsPerSec.toLocaleString()} rows/sec | ${elapsed}s${memInfo}`);
                                         lastLogTime = now;
                                     }
                                 }
@@ -4278,7 +5037,7 @@ $Log:data.js,v $
                             }
                         } else {
                             // For smaller datasets (< 50K), use fast synchronous processing
-                            console.log(`📊 Processing small GeoPackage dataset (${rows.length.toLocaleString()} rows) synchronously`);
+                            console.log(`Processing small GeoPackage dataset (${rows.length.toLocaleString()} rows) synchronously`);
                             
                             // Detect row format once
                             const isArrayFormat = rows.length > 0 && Array.isArray(rows[0]);
@@ -4369,7 +5128,7 @@ $Log:data.js,v $
         _LOG("__doFlatGeobufImport: " + szUrl);
         const __this = this;
         
-        Data.log("📊 Loading FlatGeobuf file from: " + szUrl);
+        Data.log("Loading FlatGeobuf file from: " + szUrl);
         
         // Check if spatial filter (bbox) is provided
         // If bbox is provided, use streaming with HTTP Range Requests for efficient filtering
@@ -4412,7 +5171,6 @@ $Log:data.js,v $
                 });
         }
     };
-
     /**
      * __loadFlatGeobufWithXHR
      * fallback method using XMLHttpRequest if Fetch fails
@@ -4479,7 +5237,6 @@ $Log:data.js,v $
             __this.__loadFlatGeobufLibAndStream(szUrl, opt);
         }
     };
-
     /**
      * __loadFlatGeobufLibAndStream
      * Loads FlatGeobuf library from CDN and then streams the data with spatial filter
@@ -4673,7 +5430,7 @@ $Log:data.js,v $
                         })
                         .then(arrayBuffer => {
                             _LOG("Full file downloaded: " + arrayBuffer.byteLength + " bytes, applying bbox filter in memory");
-                            Data.log("📊 Downloaded " + Math.round(arrayBuffer.byteLength/(1024*1024)*10)/10 + " MB, filtering features...");
+                            Data.log("Downloaded " + Math.round(arrayBuffer.byteLength/(1024*1024)*10)/10 + " MB, filtering features...");
                             
                             // Process with bbox option - it will filter during deserialization
                             __this.__processFlatGeobufData(arrayBuffer, opt);
@@ -4702,7 +5459,6 @@ $Log:data.js,v $
             }
         }
     };
-
     /**
      * __processFlatGeobufData
      * Entry point for processing FlatGeobuf files using flatgeobuf library
@@ -4838,7 +5594,6 @@ $Log:data.js,v $
             __this.__loadDuckDBAndProcessFgb(fgbBuffer, opt);
         }
     };
-
     /**
      * __loadDuckDBAndProcessFgb
      * Loads DuckDB WASM and processes FlatGeobuf data
@@ -4971,7 +5726,7 @@ $Log:data.js,v $
         const __this = this;
         
         _LOG("Processing FlatGeobuf with DuckDB spatial extension...");
-        Data.log("📊 Reading FlatGeobuf with DuckDB spatial extension...");
+        Data.log("Reading FlatGeobuf with DuckDB spatial extension...");
         
         // Create a temporary file name
         const tempFileName = 'temp_' + Date.now() + '.fgb';
@@ -5199,7 +5954,6 @@ $Log:data.js,v $
     // ---------------------------------
     // G E O B U F 
     // ---------------------------------
-
     /**
      * __doGeobufImport
      * reads Geobuf (.pbf) files from URL
@@ -5213,7 +5967,7 @@ $Log:data.js,v $
         _LOG("__doGeobufImport: " + szUrl);
         const __this = this;
         
-        Data.log("📊 Loading Geobuf file from: " + szUrl);
+        Data.log("Loading Geobuf file from: " + szUrl);
         
         // Try using Fetch API first (modern, supports streaming)
         fetch(szUrl)
@@ -5244,7 +5998,6 @@ $Log:data.js,v $
                 __this.__loadGeobufWithXHR(szUrl, opt);
             });
     };
-
     /**
      * __loadGeobufWithXHR
      * fallback method using XMLHttpRequest if Fetch fails
@@ -5310,7 +6063,6 @@ $Log:data.js,v $
             __this.__loadGeobufLibAndProcess(pbfBuffer, opt);
         }
     };
-
     /**
      * __loadGeobufLibAndProcess
      * Loads Geobuf library from CDN and processes the data
@@ -5541,7 +6293,6 @@ $Log:data.js,v $
             this.records = [];
         }
     };
-
     Data.Table.prototype = {
 
         /**
@@ -5858,25 +6609,36 @@ $Log:data.js,v $
          * @param {Object} options the creation parameter
          *								   <table border='0' style='border-left: 1px solid #ddd;'>	
          *								   <tr><th>property</th><th>description</th></tr>
-         *								   <tr><td><b>"source"</b></td><td>[optional] the name of the source column </td></tr>
+         *								   <tr><td><b>"source"</b></td><td>[optional] the name of the source column (string) or array of source column names (string[])</td></tr>
          *								   <tr><td><b>"destination"</b></td><td>the name of the new colmn to create</td></tr>
          *								   </table> 
-         * @param {function(currentValue)} function(currentValue) Required: A function to be run for each element in the array
+         * @param {function(...values, row)} function(...values, row) Required: A function to be run for each element in the array
          *								   <br>Function arguments:<br>
          *								   <table border='0' style='border: 1px solid #ddd;margin:0.5em 0em'>	
          *								   <tr><th>argument</th><th>description</th></tr>
-         *								   <tr><td>currentValue</td><td>the value of the current source column cell or<br>an array of all values of the current row, if non source column is defined</td></tr>
+         *								   <tr><td>value (or value1, value2, ...)</td><td>If source is a string: the value of the source column cell.<br>If source is an array: individual values from each source column (as separate arguments).<br>If no source column defined: an array of all values of the current row.</td></tr>
+         *								   <tr><td>row</td><td>[optional] the entire row array (always passed as last argument when source is defined)</td></tr>
          *								   </table> 
          *  Must return the values for the new column.<br>
-         *  It is called for every row of the table and receives as parameter the value
-         *  of the source column, or, if no source column defined, an array of all values of the table row.
+         *  It is called for every row of the table and receives as parameters:
+         *  <ul>
+         *    <li>Single source: <code>function(value, row)</code></li>
+         *    <li>Multiple sources: <code>function(value1, value2, ..., row)</code></li>
+         *    <li>No source: <code>function(row)</code></li>
+         *  </ul>
          * @type {Data.Table}
          * @returns {Data.Table} the enhanced table
          * @example
+         *    // Single source column
          *    mydata = mydata.addColumn({'source':'created_at','destination':'date'},
-         *        function(value){
+         *        function(value, row){
          *            var d = new Date(__normalizeTime(value));
          *            return( String(d.getDate()) + "." + String(d.getMonth()+1) + "." + String(d.getFullYear()) );
+         *     });
+         *    // Multiple source columns
+         *    mydata = mydata.addColumn({'source':['first_name','last_name'],'destination':'full_name'},
+         *        function(firstName, lastName, row){
+         *            return firstName + ' ' + lastName;
          *     });
          *
          */
@@ -5886,16 +6648,55 @@ $Log:data.js,v $
                 alert("'data.addColumn' no destination defined!");
                 return null;
             }
-            var column = null;
+            var column = null;        // For single source (backward compatibility)
+            var columns = null;        // For multiple sources (new)
+            
             if (options.source) {
-                for (let i = 0, len = this.fields.length; i < len; i++) {
-                    if (this.fields[i].id == options.source) {
-                        column = i;
+                // Check if source is an array
+                if (Array.isArray(options.source)) {
+                    // Multiple source columns
+                    columns = [];
+                    const missingColumns = [];
+                    
+                    for (let srcIdx = 0; srcIdx < options.source.length; srcIdx++) {
+                        const sourceName = options.source[srcIdx];
+                        let found = false;
+                        
+                        for (let i = 0, len = this.fields.length; i < len; i++) {
+                            if (this.fields[i].id == sourceName) {
+                                columns.push(i);
+                                found = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!found) {
+                            missingColumns.push(sourceName);
+                        }
                     }
-                }
-                if (column == null) {
-                    alert("'data.addColumn' source column '" + options.source + "' not found!");
-                    return null;
+                    
+                    if (missingColumns.length > 0) {
+                        alert("'data.addColumn' source columns not found: " + missingColumns.join(', '));
+                        return null;
+                    }
+                    
+                    if (columns.length === 0) {
+                        alert("'data.addColumn' no valid source columns provided!");
+                        return null;
+                    }
+                    
+                } else {
+                    // Single source column (existing behavior)
+                    for (let i = 0, len = this.fields.length; i < len; i++) {
+                        if (this.fields[i].id == options.source) {
+                            column = i;
+                            break;
+                        }
+                    }
+                    if (column == null) {
+                        alert("'data.addColumn' source column '" + options.source + "' not found!");
+                        return null;
+                    }
                 }
             }
 
@@ -5910,7 +6711,22 @@ $Log:data.js,v $
             // ---------------------
             if (callback && (typeof (callback) == "function")) {
                 for (let j = 0, len = this.records.length; j < len; j++) {
-                    this.records[j].push((column != null) ? callback(this.records[j][column],this.records[j]) : callback(this.records[j]));
+                    let result;
+                    
+                    if (columns !== null) {
+                        // Multiple source columns: extract values and pass as individual arguments
+                        const sourceValues = columns.map(colIdx => this.records[j][colIdx]);
+                        // Pass values as individual arguments: callback(value1, value2, ..., row)
+                        result = callback.apply(null, sourceValues.concat([this.records[j]]));
+                    } else if (column != null) {
+                        // Single source column (existing behavior)
+                        result = callback(this.records[j][column], this.records[j]);
+                    } else {
+                        // No source: pass entire row (existing behavior)
+                        result = callback(this.records[j]);
+                    }
+                    
+                    this.records[j].push(result);
                 }
             } else
             if (callback && (typeof (callback) == "object")) {
@@ -5930,7 +6746,6 @@ $Log:data.js,v $
 
             return this;
         },
-
         /**
          * adds a row to the data<br>
          * the values of columns are defined by a JSON Object, which defines values for selected columns; non defined columns are set to ' '
@@ -5996,7 +6811,6 @@ $Log:data.js,v $
             this.selection.table.fields = this.table.fields;
             return this.selection;
         },
-
         /**
          * select rows from a dbtable objects data by SQL query
          * @param {string} szSelection the selection query string<br>WHERE "<em>column name</em>" [operator] "<em>selection value</em>" 
@@ -6102,7 +6916,13 @@ $Log:data.js,v $
                             filterObj = {};
                             filterObj.szSelectionField = szTokenA[0].replace(/("|)/g, "");
                             filterObj.szSelectionOp = szTokenA[1];
-                            filterObj.szSelectionValue = szTokenA[2].replace(/("|)/g, "");
+                            // For IN operator, preserve parentheses if present (standard SQL syntax)
+                            // Otherwise remove quotes as before
+                            if (szTokenA[1].toUpperCase() == "IN" && szTokenA[2].startsWith('(') && szTokenA[2].endsWith(')')) {
+                                filterObj.szSelectionValue = szTokenA[2]; // Keep parentheses for IN
+                            } else {
+                                filterObj.szSelectionValue = szTokenA[2].replace(/("|)/g, "");
+                            }
                             nToken = 3;
                         }
                         if (filterObj.szSelectionOp == "BETWEEN") {
@@ -6225,9 +7045,28 @@ $Log:data.js,v $
                             result = !regex.test(this.__szValue);
                         } else
                         if (this.__szSelectionOp == "IN") {
-                            // Assume values are comma-separated
-                            const values = this.__szSelectionValue.split(",").map(v => v.trim());
-                            result = values.includes(this.__szValue);
+                            // Support both syntaxes:
+                            // 1. IN "value1,value2,value3" (old syntax)
+                            // 2. IN (value1,value2,value3) (standard SQL syntax)
+                            let valuesStr = this.__szSelectionValue;
+                            
+                            // Remove parentheses if present: (value1,value2) -> value1,value2
+                            if (valuesStr.startsWith('(') && valuesStr.endsWith(')')) {
+                                valuesStr = valuesStr.slice(1, -1);
+                            }
+                            
+                            // Split by comma and trim each value, remove quotes if present
+                            const values = valuesStr.split(",").map(v => v.trim().replace(/^["']|["']$/g, ''));
+                            
+                            // Check if value matches (support both string and numeric comparison)
+                            const strMatch = values.includes(this.__szValue);
+                            const numValue = __scanValue(this.__szValue);
+                            const numMatch = !isNaN(numValue) && values.some(v => {
+                                const numV = Number(v);
+                                return !isNaN(numV) && numValue === numV;
+                            });
+                            
+                            result = strMatch || numMatch;
                         } else
                         if ((this.__szSelectionOp == "BETWEEN")) {
                             result = ((nValue >= Number(this.__szSelectionValue)) &&
@@ -6254,7 +7093,6 @@ $Log:data.js,v $
             this.selection.table.fields = this.table.fields;
             return this.selection;
         },
-
         /**
          * aggregate the values of one column for the unique values of one or more other columns<br>
          * usefull to transform journals with more than one qualifying column (time, product class, ...)<br>
@@ -6285,7 +7123,6 @@ $Log:data.js,v $
          *  "jul"   "wood"  32
          *  "jul"   "iron"  57 
          *  "aug"   "wood"  22 
-         *
          */
         aggregate: function (szColumn, szAggregate) {
 
@@ -6484,7 +7321,6 @@ $Log:data.js,v $
 
             return this;
         },
-
         /**
          * creates a pivot table <br>
          * @param {Object} options the pivot creation parameter
@@ -6761,7 +7597,6 @@ $Log:data.js,v $
             
             return (this.__pivot);
         },
-
         /**
          * creates a sub table <br>
          * which only contains the specified columns
@@ -7035,7 +7870,6 @@ $Log:data.js,v $
         this.index = null;
         this.valueA = null;
     };
-
     Data.Column.prototype = {
         /**
          * get the values of the column
@@ -7128,7 +7962,6 @@ $Log:data.js,v $
     // ----------------------------------------------------
     // W R A P  Data.Table  functions to Data.Feed object
     // ----------------------------------------------------
-
     /**
      * extract the values of one column from a data table
      * @param szColumn the name of the column to extract from loaded data
@@ -7496,7 +8329,6 @@ $Log:data.js,v $
             this.parseDefinition(options);
         }
     };
-
     Data.Merger.prototype = {
         /**
          * add one source to the merger
