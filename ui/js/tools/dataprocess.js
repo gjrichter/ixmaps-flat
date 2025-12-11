@@ -134,7 +134,7 @@
         // ------------    
         var table = `
             <div id='${SCROLL_ID}' class='data-scroll' style='resize:vertical;min-height:0px;height:${height}px;overflow:auto;' onscroll='__onScroll(event, "${name}")'>
-                <div class='data-body' style='border-top:black solid 1px;'>
+                <div class='data-body'>
                     <div class='card-body'>
                         <div style='margin-top:0.5em'>
  		                     <table id='${TABLE_ID}' class='display dataTable' >`;

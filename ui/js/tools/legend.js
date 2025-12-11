@@ -1258,8 +1258,26 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 }
             });
             
+            // Check if there's actual content to display before showing legend
+            // Remove empty divs and whitespace-only content to check for real content
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = szHtml;
+            var textContent = tempDiv.textContent || tempDiv.innerText || '';
+            var hasContent = textContent.trim().length > 0 || 
+                            szHtml.match(/<[^>]+style[^>]*background[^>]*>/) || // Has colored elements
+                            szHtml.match(/<input[^>]*type=['"]range['"]/) || // Has sliders
+                            szHtml.match(/<button/) || // Has buttons
+                            szHtml.match(/<h[1-6][^>]*>.*?<\/h[1-6]>/); // Has headings with content
+            
             __actualThemeId = szId;
-            __switchLegendPanes();
+            
+            // Only show legend if there's actual content
+            if (hasContent) {
+                __switchLegendPanes();
+            } else {
+                // Hide legend if no content
+                $("#map-legend").hide();
+            }
             ixmaps.legendType = "theme";
             return;
         }
@@ -1328,8 +1346,10 @@ window.ixmaps.legend = window.ixmaps.legend || {};
         	szHtml += "<div style='max-height:300px;overflow:auto;margin:0.5em 24px 0 0;padding-right:1em;pointer-events:all'>";
 		}	
         
+        var colorLegendHtml = "";
         if (!themeObj.szFlag.match(/\bTEXTLEGEND\b/)) {
-            szHtml += ixmaps.legend.makeColorLegendHTML(szId, "generic", "compact");
+            colorLegendHtml = ixmaps.legend.makeColorLegendHTML(szId, "generic", "compact");
+            szHtml += colorLegendHtml;
         }
     
         szHtml += "</div>";
@@ -1560,7 +1580,43 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		
         __actualThemeId = szId;
 
-        __switchLegendPanes();
+        // Check if there's actual content to display before showing legend
+        // Check if title exists and is meaningful
+        var hasTitle = themeObj.szTitle && themeObj.szTitle.trim().length > 0 && themeObj.szTitle !== "Color Legend";
+        
+        // Check if color legend has actual content (not just empty divs)
+        var hasColorLegend = false;
+        if (colorLegendHtml && colorLegendHtml.trim().length > 0) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = colorLegendHtml;
+            var legendTextContent = tempDiv.textContent || tempDiv.innerText || '';
+            // Check if there's meaningful content (more than just whitespace or empty divs)
+            if (legendTextContent.trim().length > 0 || 
+                colorLegendHtml.match(/<[^>]+style[^>]*background[^>]*>/) ||
+                colorLegendHtml.match(/<span[^>]*style[^>]*background/)) {
+                hasColorLegend = true;
+            }
+        }
+        
+        // Check if there's a description
+        var hasDescription = themeObj.szDescription && themeObj.szDescription.trim().length > 0;
+        
+        // Check if there's a time slider or clip slider
+        var hasSlider = themeObj.szTimeField || themeObj.szFlag.match(/\bCLIP\b/);
+        
+        // Check if footer has content
+        var footerHtml = ixmaps.htmlgui_onLegendFooter ? ixmaps.htmlgui_onLegendFooter(szId, themeObj, ixmaps.getThemeDefinitionObj(szId)) : "";
+        var hasFooter = footerHtml && footerHtml.trim().length > 0;
+        
+        // Only show legend if there's actual content
+        var hasContent = hasTitle || hasColorLegend || hasDescription || hasSlider || hasFooter;
+        
+        if (hasContent) {
+            __switchLegendPanes();
+        } else {
+            // Hide legend if no content
+            $("#map-legend").hide();
+        }
 		
 		ixmaps.legendType = "theme";
     };

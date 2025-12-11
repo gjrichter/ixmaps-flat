@@ -65,7 +65,7 @@
 
 (function (window, document, undefined) {
 
-    var ixmaps = {
+    var ixmaps = window.ixmaps || {
         version: "1.0",
         JSON_Schema: "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json"
     };
@@ -507,12 +507,6 @@
                 e.preventDefault();
                 e.stopPropagation();
                 ixmaps.toggleInputMode();
-            });
-            // Keyboard shortcut: press 'M' to toggle mode
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'm' || event.key === 'M') {
-                    ixmaps.toggleInputMode();
-                }
             });
         }else{
             $("#modeToggle").hide();
@@ -1010,7 +1004,7 @@
         },
 
         loadMap: function (szUrl) {
-            alert(szUrl);
+            // alert(szUrl); // DEBUG: Removed alert
             ixmaps.loadMap(szUrl);
             return this;
         },
@@ -1377,7 +1371,7 @@
         },
         query: function (szQuery) {
             this.def.data.query = szQuery;
-            alert("hi");
+            // alert("hi"); // DEBUG: Removed alert
             return this;
         },
         field: function (szName) {

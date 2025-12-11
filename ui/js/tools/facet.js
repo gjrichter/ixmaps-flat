@@ -65,6 +65,8 @@ ixmaps.data = ixmaps.data || {};
 	// ===========================================
 
 	ixmaps.data.getFacets = function (szFilter,szDiv,szFieldsA,szId,szMap,fFlag) {
+
+		fFlag = String(fFlag) || "";
 		
 		facetsA = [];
 
@@ -245,6 +247,9 @@ ixmaps.data = ixmaps.data || {};
 						facet.nCount = nCount;
 						facet.valuesCount = valuesCount;
 						facet.uniqueValues = a.length;
+					}else{
+						a = mydata.column(szField).values();
+						facet.nCount = a.length;
 					}
 
 					facetsA.push(facet);

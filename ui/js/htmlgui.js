@@ -66,7 +66,9 @@ $Log: htmlgui.js,v $
 		global variables
 	 * ------------------------------------------------------------------ */
 
-	ixmaps.szDefaultMap = "https://s3.eu-west-1.amazonaws.com/exp.ixmaps.com/flat/ixmaps/maps/svg/maps/generic/mercator.svg";
+
+
+	ixmaps.szDefaultMap = "maps/svg/maps/generic/mercator.svg";
 
 	ixmaps.szUrlSVG = null;
 	ixmaps.helpWindow = null;
@@ -517,8 +519,7 @@ $Log: htmlgui.js,v $
 	 * @param szName a name to identify the map, usefull if we have more than one map in a HTML page
 	 * @type void
 	 */
-	ixmaps.HTML_loadSVGMap = function (szUrl) {
-		return;
+	ixmaps.HTML_loadSVGMap = function (szUrl, callback) {
 
 		if (!szUrl || (typeof (szUrl) != 'string')) {
 			ixmaps.loadMapError(szUrl);
@@ -545,12 +546,174 @@ $Log: htmlgui.js,v $
 			}
 		}
 
+		// Get SVG div/object for loading
+		var svgDiv = this.svgObject || ixmaps.svgObject || document.getElementById('svgmapdiv');
+		if (!svgDiv) {
+			ixmaps.loadMapError(szUrl);
+			return;
+		}
+
+		// Build the URL to load
+		var svgUrlToLoad = szUrl;
+
+		// Set SVG URL variables for proper initialization
+		this.szUrlSVG = szUrl;
+		this.szUrlSVGRoot = "";
+		if (szUrl.match(/\//)) {
+			var urlA = szUrl.split("/");
+			for (var i = 0; i < urlA.length - 1; i++) {
+				this.szUrlSVGRoot += urlA[i] + "/";
+			}
+		}
+
+		delete this.loadedMap;
+
+		// Hook into onMapReady callback
+		var originalOnMapReady = this.onMapReady;
+		var svgMapReady = false;
+		var onMapReadyCalled = false; // Guard to prevent multiple calls
+		var self = this;
+
+		this.onMapReady = function(szMap) {
+			svgMapReady = true;
+			// Prevent multiple calls - only execute once per load
+			if (onMapReadyCalled) {
+				console.log('onMapReady: Already called, ignoring duplicate call');
+				return;
+			}
+			onMapReadyCalled = true;
+
+			if (svgDiv.style) {
+				svgDiv.style.visibility = 'visible';
+				svgDiv.style.display = 'block';
+			}
+			
+			if (originalOnMapReady) {
+				originalOnMapReady(szMap);
+			}
+			
+			// Call user callback if provided
+			if (callback) {
+				callback(self);
+			}
+		};
+
+		// Load SVG using jQuery .load() - replaces all content in svgDiv
+		$(svgDiv).load(svgUrlToLoad, function(response, status, xhr) {
+			if (status === "error") {
+				console.error('Error loading SVG:', xhr.status, xhr.statusText);
+				ixmaps.loadMapError(svgUrlToLoad);
+				return;
+			}
+			
+			// Clear action queue and reset initialization flag before reinitializing
+			if (typeof window.map !== 'undefined' && window.map) {
+				// Clear action queues to prevent loop
+				if (window.map.actionA) {
+					window.map.actionA.length = 0;
+				}
+				if (window.map.initActionA) {
+					window.map.initActionA.length = 0;
+				}
+				window.map.fInitializing = false;
+			}
+			
+			// Track if initAll has been called to prevent multiple calls
+			var initAllCalled = false;
+			
+			// Wait for SVG element and initialize map script
+			var waitForSVGAndInit = function(retries) {
+				retries = retries || 0;
+				
+				// Prevent multiple calls to initAll
+				if (initAllCalled) {
+					return;
+				}
+				
+				var svgElement = svgDiv.querySelector('svg');
+				
+				if (svgElement && svgElement.getAttribute) {
+					// Mark as called before attempting to call
+					initAllCalled = true;
+					
+					// Create fake event object for setSVGDocument()
+					// For inline SVG loaded via jQuery .load(), target.ownerDocument must point to SVG element
+					var fakeTarget = {
+						ownerDocument: svgElement
+					};
+					
+					var loadEvent = {
+						type: 'load',
+						target: fakeTarget,
+						currentTarget: svgElement
+					};
+					
+					try {
+						if (typeof window.initAll === 'function') {
+							window.initAll(loadEvent);
+						} else if (typeof initAll === 'function') {
+							initAll(loadEvent);
+						} else {
+							console.error('initAll() function not found');
+							initAllCalled = false; // Reset if failed
+							
+							// Fallback: manually set SVGDocument
+							if (typeof window.map !== 'undefined' && window.map) {
+								window.map.SVGDocument = svgElement;
+								if (typeof window.initAll === 'function') {
+									window.initAll(null);
+								}
+							}
+						}
+					} catch (e) {
+						console.error('Error calling initAll():', e);
+						initAllCalled = false; // Reset if failed
+						ixmaps.loadMapError(svgUrlToLoad);
+					}
+					
+				} else if (retries < 20) {
+					setTimeout(function() { waitForSVGAndInit(retries + 1); }, 100);
+				} else {
+					console.error('SVG element not found after 2 seconds');
+					ixmaps.loadMapError(svgUrlToLoad);
+				}
+			};
+			
+			waitForSVGAndInit();
+		});
+
+		// Fallback: if onMapReady doesn't fire within 8 seconds
+		/** 
+		setTimeout(function() {
+			if (!svgMapReady) {
+				if (svgDiv.style) {
+					svgDiv.style.visibility = 'visible';
+					svgDiv.style.display = 'block';
+				}
+				
+				if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map) {
+					if (callback) {
+						callback(self);
+					} else {
+						self.onMapReady(self.szName);
+					}
+				}
+			}
+		}, 8000);
+		**/
+
+		this.dataLoaderA = null;
+		this.embeddedSVG = null;
+		ixmaps.do_enableSVG();
+		return;
+
+		alert("step 2");
 		if (this.szUrlSVG == szUrl) {
 
 			// call user defined method on map ready
 			// --------------------------------------------------------
-			if (this.callback) {
-				this.callback(this);
+			if (callback) {
+				callback(this);
 			} else {
 				this.onMapReady(this.szName);
 			}
@@ -622,7 +785,7 @@ $Log: htmlgui.js,v $
 			return;
 		}
 		this.callback = callback;
-		ixmaps.HTML_loadSVGMap(szUrl);
+		ixmaps.HTML_loadSVGMap(szUrl, callback);
 		ixmaps.dataLoaderA = [];
 		return ixmaps;
 	};
@@ -1971,7 +2134,7 @@ $Log: htmlgui.js,v $
 	 * @return ---
 	 */
 	ixmaps.htmlgui_onMapError = function () {
-		alert("error");
+		// alert("error"); // DEBUG: Removed alert
 
 		_LOG("onMapError");
 
@@ -2296,7 +2459,7 @@ $Log: htmlgui.js,v $
 	}
 
 	ixmaps.htmlgui_setMapTypeBG = function (szId) {
-		alert(szId);
+		// alert(szId); // DEBUG: Removed alert
 		// dummy
 	};
 
@@ -3372,10 +3535,12 @@ $Log: htmlgui.js,v $
 				var map = project.map;
 
 				if (!map.map || (typeof (map.map) != "string") || !map.map.length) {
-					map.map = ixmaps.szDefaultMap;
+					console.log("map.map is not set, using default map", ixmaps.szResourceBase);
+					map.map = ixmaps.szResourceBase + ixmaps.szDefaultMap;
 				}
 
 				ixmaps.loadMap(map.map, function () {
+
 					if (map.center && map.zoom && !szFlag.match(/nonewview/i) && !szFlag.match(/keepview/i)) {
 						ixmaps.setView([map.center.lat, map.center.lng], map.zoom);
 						ixmaps.setView([map.center.lat, map.center.lng], map.zoom);
@@ -3418,9 +3583,6 @@ $Log: htmlgui.js,v $
 					// GR 29.08.2018 must force to show SVG layer
 					// if not, it wasn't switched on sometimes 
 					setTimeout("ixmaps.showAll();", 1000);
-					try {
-						ixmaps.onMapReady(map.map);
-					} catch (e) { }
 					if (map.search) {
 						ixmaps.search.szSearchSuffix = map.search;
 						ixmaps.search.show();

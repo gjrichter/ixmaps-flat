@@ -305,138 +305,138 @@ $Log: htmlgui_sync_Leaflet.js,v $
 
 		/** Nokia OVI Maps */
 
-		__addTileLayer("http://maps.nlp.nokia.com/maptiler/v2/maptile/newest/normal.day/{z}/{x}/{y}/256/png8", {
+		__addTileLayer("https://maps.nlp.nokia.com/maptiler/v2/maptile/newest/normal.day/{z}/{x}/{y}/256/png8", {
 			name: "NOKIA",
 			myname: "NOKIA",
 			minZoom: 2,
-			attribution: 'Map tiles &copy; <a href="http://here.com/">HERE Maps</a>',
+			attribution: 'Map tiles &copy; <a href="https://here.com/">HERE Maps</a>',
 			subdomains: ['khm0', 'khm1', 'khm2', 'khm3']
 		});
-		__addTileLayer("http://maptile.maps.svc.ovi.com/maptiler/maptile/newest/normal.day.transit/{z}/{x}/{y}/256/png8", {
+		__addTileLayer("https://maptile.maps.svc.ovi.com/maptiler/maptile/newest/normal.day.transit/{z}/{x}/{y}/256/png8", {
 			name: "NOKIA OVI - transit",
 			myname: "NOKIA OVI - transit",
 			minZoom: 2,
-			attribution: 'Map tiles &copy; <a href="http://here.com/">HERE Maps</a>',
+			attribution: 'Map tiles &copy; <a href="https://here.com/">HERE Maps</a>',
 			subdomains: ['khm0', 'khm1', 'khm2', 'khm3']
 		});
-		__addTileLayer("http://{s}.aerial.maps.api.here.com/maptile/2.1/maptile/newest/satellite.day/{z}/{x}/{y}/256/png8?app_id=IhE4BDSYudkb1itnuARB&token=5636fffT2ok28aFX4lciGg&lg=ENG", {
+		__addTileLayer("https://{s}.aerial.maps.api.here.com/maptile/2.1/maptile/newest/satellite.day/{z}/{x}/{y}/256/png8?app_id=IhE4BDSYudkb1itnuARB&token=5636fffT2ok28aFX4lciGg&lg=ENG", {
 			name: "NOKIA - satellite",
 			myname: "NOKIA - satellite",
 			minZoom: 2,
 			maxZoom: 22,
-			attribution: 'Map tiles &copy; <a href="http://here.com/">HERE Maps</a>',
+			attribution: 'Map tiles &copy; <a href="https://here.com/">HERE Maps</a>',
 			subdomains: ['1', '2', '3', '4']
 		});
-		__addTileLayer("http://{s}.aerial.maps.api.here.com/maptile/2.1/maptile/newest/terrain.day/{z}/{x}/{y}/256/png8?app_id=IhE4BDSYudkb1itnuARB&token=5636fffT2ok28aFX4lciGg&lg=ENG", {
+		__addTileLayer("https://{s}.aerial.maps.api.here.com/maptile/2.1/maptile/newest/terrain.day/{z}/{x}/{y}/256/png8?app_id=IhE4BDSYudkb1itnuARB&token=5636fffT2ok28aFX4lciGg&lg=ENG", {
 			name: "NOKIA - terrain",
 			myname: "NOKIA - terrain",
 			minZoom: 2,
-			attribution: 'Map tiles &copy; <a href="http://here.com/">HERE Maps</a>',
+			attribution: 'Map tiles &copy; <a href="https://here.com/">HERE Maps</a>',
 			subdomains: ['1', '2', '3', '4']
 		});
 
 		/** WAZE */
 
-		__addTileLayer("http://worldtiles3.waze.com/tiles/{z}/{x}/{y}.png", {
+		__addTileLayer("https://worldtiles3.waze.com/tiles/{z}/{x}/{y}.png", {
 			name: "WAZE",
 			myname: "WAZE",
 			minZoom: 2,
-			attribution: 'Map tiles &copy; <a href="http://here.com/">HERE Maps</a>',
+			attribution: 'Map tiles &copy; <a href="https://here.com/">HERE Maps</a>',
 			subdomains: ['khm0', 'khm1', 'khm2', 'khm3']
 		});
 
 		/** mapbox */
 
-		__addTileLayer("http://{s}.tiles.mapbox.com/v3/examples.bc17bb2a/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.tiles.mapbox.com/v3/examples.bc17bb2a/{z}/{x}/{y}.png", {
 			name: "MapBox - OSM",
 			myname: "MapBox - OSM",
 			minZoom: 2,
-			attribution: '<a href="https://www.mapbox.com/about/maps">� Mapbox</a> <a href="http://openstreetmap.org/copyright">� OpenStreetMap</a> | <a href="http://mapbox.com/map-feedback/" class="mapbox-improve-map">Improve this map</a>',
+			attribution: '<a href="https://www.mapbox.com/about/maps">� Mapbox</a> <a href="https://openstreetmap.org/copyright">� OpenStreetMap</a> | <a href="https://mapbox.com/map-feedback/" class="mapbox-improve-map">Improve this map</a>',
 			subdomains: ['a', 'b', 'c', 'd']
 		});
 
 		/** open street map */
 
-		__addTileLayer("http://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+		__addTileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 			name: "OpenStreetMap - Osmarenderer",
 			myname: "OpenStreetMap - Osmarenderer",
 			minZoom: 2,
 			maxZoom: 22,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
-		__addTileLayer("http://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png", {
+		__addTileLayer("https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png", {
 			name: "OpenStreetMap - wikipedia",
 			myname: "OpenStreetMap - wikipedia",
 			minZoom: 2,
-			attribution: 'Wikimedia maps beta | Map data &copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+			attribution: 'Wikimedia maps beta | Map data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>',
 			subdomains: ['a', 'b', 'c'],
 			maxZoom: 20
 		});
-		__addTileLayer("http://korona.geog.uni-heidelberg.de:8008/tms_rg.ashx?x={x}&y={y}&z={z}", {
+		__addTileLayer("https://korona.geog.uni-heidelberg.de:8008/tms_rg.ashx?x={x}&y={y}&z={z}", {
 			name: "OpenStreetMap - gray",
 			myname: "OpenStreetMap - gray",
 			minZoom: 2,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['tiles1', 'tiles2', 'tiles3', 'tiles4']
 		});
-		__addTileLayer("http://korona.geog.uni-heidelberg.de:8001/tms_r.ashx?x={x}&y={y}&z={z} ", {
+		__addTileLayer("https://korona.geog.uni-heidelberg.de:8001/tms_r.ashx?x={x}&y={y}&z={z} ", {
 			name: "OpenStreetMap - roads",
 			myname: "OpenStreetMap - roads",
 			minZoom: 2,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['tiles1', 'tiles2', 'tiles3', 'tiles4']
 		});
-		__addTileLayer("http://korona.geog.uni-heidelberg.de:8007/tms_b.ashx?x={x}&y={y}&z={z}", {
+		__addTileLayer("https://korona.geog.uni-heidelberg.de:8007/tms_b.ashx?x={x}&y={y}&z={z}", {
 			name: "OpenStreetMap - admin",
 			myname: "OpenStreetMap - admin",
 			minZoom: 2,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['tiles1', 'tiles2', 'tiles3', 'tiles4']
 		});
-		__addTileLayer("http://korona.geog.uni-heidelberg.de:8007/tms_b.ashx?x={x}&y={y}&z={z}", {
+		__addTileLayer("https://korona.geog.uni-heidelberg.de:8007/tms_b.ashx?x={x}&y={y}&z={z}", {
 			name: "OpenStreetMap - admin - dark",
 			myname: "OpenStreetMap - admin - dark",
 			minZoom: 2,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['tiles1', 'tiles2', 'tiles3', 'tiles4']
 		});
-		__addTileLayer("http://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
 			name: "OpenStreetMap - FR",
 			myname: "OpenStreetMap - FR",
 			minZoom: 2,
 			maxZoom: 19,
-			attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['a', 'b', 'c']
 		});
-		__addTileLayer("http://tile.opencyclemap.org/transport/{z}/{x}/{y}.png", {
+		__addTileLayer("https://tile.opencyclemap.org/transport/{z}/{x}/{y}.png", {
 			name: "OpenStreetMap - Transport",
 			myname: "OpenStreetMap - Transport",
 			minZoom: 2,
-			attribution: '&copy; <a href="http://www.opencyclemap.org">OpenCycleMap</a>, &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: '&copy; <a href="https://www.opencyclemap.org">OpenCycleMap</a>, &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
 
 		/** MapQuest */
 
-		__addTileLayer("http://{s}.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png", {
 			name: "MapQuest - OSM (EU)",
 			myname: "MapQuest - OSM (EU)",
 			minZoom: 2,
-			attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/">MapQuest</a> &mdash; Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+			attribution: 'Tiles Courtesy of <a href="https://www.mapquest.com/">MapQuest</a> &mdash; Map data &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
 
 		/** ArcGis */
 
-		__addTileLayer("http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}.png", {
+		__addTileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}.png", {
 			name: "ArcGIS - Topo",
 			myname: "ArcGIS - Topo",
 			minZoom: 2,
 			attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
-		__addTileLayer("http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}.png", {
+		__addTileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}.png", {
 			name: "ArcGIS - Light Gray Base",
 			myname: "ArcGIS - Light Gray Base",
 			minZoom: 2,
@@ -444,14 +444,14 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
 
-		__addTileLayer("http://services.arcgisonline.com/ArcGIS/rest/services/Ocean_Basemap/MapServer/tile/{z}/{y}/{x}.png", {
+		__addTileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Ocean_Basemap/MapServer/tile/{z}/{y}/{x}.png", {
 			name: "ArcGIS - Ocean Basemap",
 			myname: "ArcGIS - Ocean Basemap",
 			minZoom: 2,
 			attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
-		__addTileLayer("http://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.png", {
+		__addTileLayer("https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.png", {
 			name: "ArcGIS - Hillshade",
 			myname: "ArcGIS - Hillshade",
 			minZoom: 2,
@@ -459,16 +459,16 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			subdomains: ['otile1', 'otile2', 'otile3', 'otile4']
 		});
 
-		__addTileLayer("http://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
 			name: "OpenTopoMap",
 			myname: "OpenTopoMap",
 			minZoom: 2,
 			maxZoom: 17,
-			attribution: "Kartendaten: � <a href='https://openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>-Mitwirkende, SRTM | Kartendarstellung: � <a href='http://opentopomap.org' target='_blank'>OpenTopoMap</a> (<a href='https://creativecommons.org/licenses/by-sa/3.0/' target='_blank'>CC-BY-SA</a>)",
+			attribution: "Kartendaten: � <a href='https://openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>-Mitwirkende, SRTM | Kartendarstellung: � <a href='https://opentopomap.org' target='_blank'>OpenTopoMap</a> (<a href='https://creativecommons.org/licenses/by-sa/3.0/' target='_blank'>CC-BY-SA</a>)",
 			subdomains: ['a', 'b', 'c']
 		});
 
-		__addTileLayer("http://openptmap.org/tiles/{z}/{x}/{y}.png", {
+		__addTileLayer("https://openptmap.org/tiles/{z}/{x}/{y}.png", {
 			name: "OpenPtMap",
 			myname: "OpenPtMap",
 			minZoom: 2,
@@ -476,7 +476,7 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			attribution: "OpenPtMap",
 			subdomains: ['a', 'b', 'c']
 		});
-		__addTileLayer("http://{s}.openpistemap.org/landshaded/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.openpistemap.org/landshaded/{z}/{x}/{y}.png", {
 			name: "Openpistemap landschaded",
 			myname: "Openpistemap landschaded",
 			minZoom: 2,
@@ -556,7 +556,7 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			name: "Stamen - toner-hybrid",
 			myname: "Stamen - toner-hybrid",
 			minZoom: 2,
-			attribution: "Map tiles by <a href='http://stamen.com'>Stamen Design</a>, under <a href='http://creativecommons.org/licenses/by/3.0'>CC BY 3.0</a>. Data by <a href='http://openstreetmap.org'>OpenStreetMap</a>, under <a href='http://creativecommons.org/licenses/by-sa/3.0'>CC BY SA</a>.",
+			attribution: "Map tiles by <a href='https://stamen.com'>Stamen Design</a>, under <a href='https://creativecommons.org/licenses/by/3.0'>CC BY 3.0</a>. Data by <a href='https://openstreetmap.org'>OpenStreetMap</a>, under <a href='https://creativecommons.org/licenses/by-sa/3.0'>CC BY SA</a>.",
 			subdomains: ['a', 'b', 'c', 'd']
 		});
 
@@ -577,25 +577,25 @@ $Log: htmlgui_sync_Leaflet.js,v $
 
 		/** CartoDB */
 
-		__addTileLayer("http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", {
 			name: "CartoDB - Positron",
 			myname: "CartoDB - Positron",
 			minZoom: 2,
-			attribution: "&copy; <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='http://cartodb.com/attributions'>CartoDB</a></a>",
+			attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='https://cartodb.com/attributions'>CartoDB</a></a>",
 			subdomains: ['a', 'b', 'c', 'd']
 		});
-		__addTileLayer("http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
+		__addTileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
 			name: "CartoDB - Dark matter",
 			myname: "CartoDB - Dark matter",
 			minZoom: 2,
-			attribution: "&copy; <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='http://cartodb.com/attributions'>CartoDB</a></a>",
+			attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='https://cartodb.com/attributions'>CartoDB</a></a>",
 			subdomains: ['a', 'b', 'c', 'd']
 		});
-		__addTileLayer("http://demographics.virginia.edu/DotMap/tiles4/{z}/{x}/{y}.png", {
+		__addTileLayer("https://demographics.virginia.edu/DotMap/tiles4/{z}/{x}/{y}.png", {
 			name: "RaceDotMap",
 			myname: "RaceDotMap",
 			minZoom: 2,
-			attribution: "&copy; <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='http://cartodb.com/attributions'>CartoDB</a></a>",
+			attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='https://cartodb.com/attributions'>CartoDB</a></a>",
 			subdomains: ['a', 'b', 'c', 'd']
 		});
 
@@ -680,9 +680,10 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		if (ixmaps.fMapControls) {
 			ixmaps.addControls({
 				pan: false,
-				zoom: {
-					position: 'bottomleft'
-				},
+				// zoom controls hidden by default - use ixmaps.addControls({zoom: {position: '...'}}) to show them
+				// zoom: {
+				// 	position: 'bottomleft'
+				// },
 				map_type: (ixmaps.mapTypeSelection ? true : false)
 			});
 		}
@@ -720,7 +721,16 @@ $Log: htmlgui_sync_Leaflet.js,v $
 	 */
 
 	htmlMap_getZoom = function () {
-		return LMap.getZoom();
+		if (!LMap) {
+			console.warn('LMap is not initialized yet');
+			return 2; // Return default zoom
+		}
+		try {
+			return LMap.getZoom();
+		} catch (e) {
+			console.error('Error getting zoom from LMap:', e);
+			return 2; // Return default zoom
+		}
 	}
 	htmlMap_setMinZoom = function (nMinZoom) {
 		if (LMap && LMap.setMinZoom) {
@@ -764,12 +774,20 @@ $Log: htmlgui_sync_Leaflet.js,v $
 	}
 
 	htmlMap_setCenter = function (ptLatLon) {
-		LMap.panTo(
-			new L.latLng(ptLatLon.lat,
-				ptLatLon.lng), {
-				animate: false
-			}
-		);
+		if (!LMap) {
+			console.warn('LMap is not initialized yet, cannot set center');
+			return;
+		}
+		try {
+			LMap.panTo(
+				new L.latLng(ptLatLon.lat,
+					ptLatLon.lng), {
+					animate: false
+				}
+			);
+		} catch (e) {
+			console.error('Error setting center on LMap:', e);
+		}
 	}
 
 	htmlMap_flyTo = function (ptLatLon, zoom) {

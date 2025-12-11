@@ -1,93 +1,52 @@
-/**********************************************************************
-	 htmlgui_api.js
-
-$Comment: provides api functions to HTML pages, that embed ixmaps maps
-$Source : htmlgui_api.js,v $
-
-$InitialAuthor: guenter richter $
-$InitialDate: 2011/10/29 $
-$Author: guenter richter $
-$Id: htmlgui_api.js 1 2011-10-29 10:51:41Z Guenter Richter $map
-
-Copyright (c) Guenter Richter
-$Log: htmlgui_api.js,v $
-**********************************************************************/
+/**
+ * File: ixmaps.js
+ * Project: iXMaps core library
+ * Author: Guenter Richter (original), contributors
+ *
+ * Description:
+ *   Core API that exposes the iXMaps namespace to HTML pages and other runtimes.
+ *   Provides helper utilities for embedding maps, manipulating themes, handling
+ *   map instances, and registering UI behaviour. Consolidates legacy functionality
+ *   that historically lived in `htmlgui_api.js` while keeping backward compatibility.
+ *
+ * Notes:
+ *   - The file exports the global `ixmaps` object (UMD style).
+ *   - Many legacy helper methods are preserved for compatibility; refactoring
+ *     should retain the public signatures referenced by existing projects.
+ *
+ * License: MIT
+ */
 
 /** 
  * @fileoverview This file provides iXmaps interface functions for HTML Pages that embed ixmaps maps<br>
  * @example 
  *
- * 1. mode: embed the map by a dedicated frame and adress by the frame (and map) id
- *
- * <!DOCTYPE html>
- * <html>
- *   <body>
- *
- *     ...
- *     <iframe id="map" src="http://...map_source...">
- *     ...
- * 
- *     <script type="text/javascript" src = "../../ui/js/htmlgui_api.js" > </script>
- *
- *     <script type="text/javascript" charset="utf-8">
- *
- *       // wait for map ready
- *       // ----------------------------
- *       ixmaps.waitForMap("map",function() {
- *
- *         ixmaps.setView("map",[42.79540065303723,13.20831298828125],9);
- *
- *         ixmaps.newTheme("map","Totale complessivo",{  
- *           layer: "com2011_s",
- *           field: "Totale complessivo",
- *           style: {
- *             type: "CHOROPLETH|EQUIDISTANT",
- *             colorscheme: [  "5","#FFFDD8","#B5284B","2colors","#FCBA6C" ],
- *             dbtable: "themeDataObj csv url(http://mysite/mydata/data.csv)",
- *             lookupfield: "comune"
- *             },"clear"
- *           });
- *       });
- *
- *     </script>
- *   </body>
- * </html>
- *
- * @example
- *
- * 2. mode: embed the map by ixmaps api function and adress by the returned map handle
+ * embed the map by ixmaps api function and address by the returned map Promise
  *
  * <!DOCTYPE html>
  * <html>
  *   <body>
  *     <div id="map_div"></div>
  * 
- *     <script type="text/javascript" src = "../../ui/js/htmlgui_api.js" > </script>
+ *     <script type="text/javascript" src = "../../ui/js/ixmaps.js" > </script>
  *     <script type="text/javascript" charset="utf-8">
  *
- *     ixmaps.embedMap("map_div",
- *       { 
- *          mapName:    "map", 
- *          mapService: "leaflet",
- *          mapType:    "OpenStreetMap - FR"
- *       },
- *       function(map) {
- *
- *         map.setView([42.79540065303723,13.20831298828125],9);
- *
- *         map.newTheme("Totale complessivo",
- *           {  
- *           layer: "com2011_s",
- *           field: "Totale complessivo",
- *           style: {
- *             type: "CHOROPLETH|EQUIDISTANT",
- *             colorscheme: [  "5","#FFFDD8","#B5284B","2colors","#FCBA6C" ],
- *             dbtable: "themeDataObj csv url(http://mysite/mydata/data.csv)",
- *             lookupfield: "comune"
- *             }
- *           },"clear");
- *         }
- *       );
+ *     ixmaps.Map("map_div", {
+ *        mapName:    "map",
+ *        mapService: "leaflet",
+ *        mapType:    "OpenStreetMap - FR"
+ *     }).then((map) => {
+ *        map.view([42.79540065303723,13.20831298828125], 9);
+ *        map.layer({
+ *          layer: "com2011_s",
+ *          field: "Totale complessivo",
+ *          style: {
+ *            type: "CHOROPLETH|EQUIDISTANT",
+ *            colorscheme: ["5", "#FFFDD8", "#B5284B", "2colors", "#FCBA6C"],
+ *            dbtable: "themeDataObj csv url(http://mysite/mydata/data.csv)",
+ *            lookupfield: "comune"
+ *          });
+ *     });
  *
  *     </script>
  *   </body>
@@ -106,7 +65,7 @@ $Log: htmlgui_api.js,v $
 
 (function (window, document, undefined) {
 
-    var ixmaps = {
+    var ixmaps = window.ixmaps || {
         version: "1.0",
         JSON_Schema: "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json"
     };
@@ -265,7 +224,7 @@ $Log: htmlgui_api.js,v $
         // ---------------------
         
         {
-            url: '../data.js/data.min.js',
+            url: '../data.js/data.js',
             type: 'js'
         },
         {
@@ -548,12 +507,6 @@ $Log: htmlgui_api.js,v $
                 e.preventDefault();
                 e.stopPropagation();
                 ixmaps.toggleInputMode();
-            });
-            // Keyboard shortcut: press 'M' to toggle mode
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'm' || event.key === 'M') {
-                    ixmaps.toggleInputMode();
-                }
             });
         }else{
             $("#modeToggle").hide();
@@ -864,10 +817,10 @@ $Log: htmlgui_api.js,v $
      *     <div id="map_div"></div>
      *   </body>
      * 
-     *     <script type="text/javascript" src = "../../ui/js/htmlgui_api.js" > </script>
+     *     <script type="text/javascript" src = "../../ui/js/ixmaps.js" > </script>
      *     <script type="text/javascript" charset="utf-8">
      *
-     *     ixmaps.embedMap("map_div",
+     *     ixmaps.embed("map_div",
      *       { 
      *          mapName:    "map", 
      *          mapService: "leaflet",
@@ -887,6 +840,10 @@ $Log: htmlgui_api.js,v $
         let scriptsA = document.querySelectorAll("script");
         for (var i in scriptsA) {
             let scr = scriptsA[i].getAttribute("src");
+            if (scr && scr.match(/ixmaps.js/)) {
+                ixmaps.szResourceBase = (scr.split("ui/js/ixmaps.js")[0]);
+                break;
+            }
             if (scr && scr.match(/htmlgui_flat.js/)) {
                 ixmaps.szResourceBase = (scr.split("ui/js/htmlgui_flat.js")[0]);
                 break;
@@ -1047,7 +1004,7 @@ $Log: htmlgui_api.js,v $
         },
 
         loadMap: function (szUrl) {
-            alert(szUrl);
+            // alert(szUrl); // DEBUG: Removed alert
             ixmaps.loadMap(szUrl);
             return this;
         },
@@ -1414,7 +1371,7 @@ $Log: htmlgui_api.js,v $
         },
         query: function (szQuery) {
             this.def.data.query = szQuery;
-            alert("hi");
+            // alert("hi"); // DEBUG: Removed alert
             return this;
         },
         field: function (szName) {

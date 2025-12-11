@@ -945,7 +945,7 @@ $Log: htmlgui_sync.js,v $
 	};
 
 	ixmaps.syncSVGMap = function (fFlag) {
-		alert("rgsdsdfgsdfgdfg");
+		// alert("rgsdsdfgsdfgdfg"); // DEBUG: Removed alert
 		// GR 15.10.2015 obsolete; (to be verified)
 		return;
 		__doSynchronizeSVGMap(fFlag);
