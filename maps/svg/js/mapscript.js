@@ -875,7 +875,9 @@ $Log: mapscript.js,v $
         map.Dom.clearGroup(map.SVGToolsGroup);
         map.Dom.clearGroup(map.SVGFixedGroup);
         map.removeAllHighlights();
-        map.Themes.removeAll();
+        if (map.Themes && map.Themes.removeAll) {
+            map.Themes.removeAll();
+        }
         setMapTool("");
         this.Scale.nObjectScaling = 1.0;
     };
@@ -1019,21 +1021,19 @@ $Log: mapscript.js,v $
 
             // load local settings here, so they can parametrize the 2nd part of init
             try {
-                if (1 || (szViewer != "Netscape")) {
-                    // 1. load from referenced include path                                    
-                    if (typeof (map.HTMLWindow.ixmaps.SVGResources_includePath) != 'undefined') {
-                        map.Loader.importSVGFile(map.HTMLWindow.ixmaps.SVGResources_includePath + "/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
-                    }
-                    // 2. load from resource base 
-                    else
-                    if (typeof (ixmaps.szResourceBase) != 'undefined') {
-                        map.Loader.importSVGFile(ixmaps.szResourceBase + "/maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
-                    }
-                    // if not defined, try this                                    
-                    else {
-                        map.Loader.importSVGFile("../../maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
-                        //map.Loader.importSVGFile("../resources/svg/maplocal.svg",map.SVGDocument,map.SVGTempGroup,null);
-                    }
+                // 1. load from referenced include path                                    
+                if (typeof (map.HTMLWindow.ixmaps.SVGResources_includePath) != 'undefined') {
+                    map.Loader.importSVGFile(map.HTMLWindow.ixmaps.SVGResources_includePath + "/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
+                }
+                // 2. load from resource base 
+                else
+                if (typeof (ixmaps.szResourceBase) != 'undefined') {
+                    map.Loader.importSVGFile(ixmaps.szResourceBase + "/maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
+                }
+                // if not defined, try this                                    
+                else {
+                    map.Loader.importSVGFile("../../maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
+                    //map.Loader.importSVGFile("../resources/svg/maplocal.svg",map.SVGDocument,map.SVGTempGroup,null);
                 }
                 // than load from local include path                                    
                 //map.Loader.importSVGFile("./maplocal.svg",map.SVGDocument,map.SVGTempGroup,null);
@@ -1145,6 +1145,17 @@ $Log: mapscript.js,v $
 
         // create the layer object                                    
         map.Layer = new ixMap.Layer(evt);
+
+        // Recreate themes object to ensure clean state on SVG reload
+        // (map.Themes is created at script load time in maptheme.js, but recreated here for clean state)
+        if (window.ixMap) {
+            map.Themes = new ixMap.Themes();
+            try {
+                if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps.htmlgui_onInitThemes) {
+                    map.HTMLWindow.ixmaps.htmlgui_onInitThemes();
+                }
+            } catch (e) { }
+        }
 
         // initialize anti zoom and pan                                   
         map.antiZoomAndPanList = new AntiZoomAndPan(evt);

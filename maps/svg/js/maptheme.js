@@ -724,11 +724,14 @@ $Log: maptheme.js,v $
 	};
 
 	ixMap.Themes.prototype = new Map();
-	// create instance on load
+	// Create instance on load (required for clearAll() and other methods that may be called before initAll())
+	// NOTE: map.Themes is also recreated in initAll() (mapscript.js doInitAll_2) to ensure clean state on SVG reload
 	if ((typeof (thisversion) == "string") && map.checkVersion(thisversion)) {
 		map.Themes = new ixMap.Themes();
 		try {
-			map.HTMLWindow.ixmaps.htmlgui_onInitThemes();
+			if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps.htmlgui_onInitThemes) {
+				map.HTMLWindow.ixmaps.htmlgui_onInitThemes();
+			}
 		} catch (e) { }
 	} else {
 		alert("ixMap.Themes incompatible !");
@@ -1034,11 +1037,6 @@ $Log: maptheme.js,v $
 		// GR 05.06.2015 make sure, zoom factors are up to date	
 		map.Event.doDefaultZoom();
 
-		if (mapTheme.fDataCache === false) {
-			if (mapTheme.coTable) {
-				//eval("delete " + mapTheme.coTable);
-			}
-		}
 		if (szFlag && szFlag.match(/fast|silent|direct/)) {
 			map.Themes.execute();
 		} else {
@@ -3051,21 +3049,15 @@ $Log: maptheme.js,v $
 
 			// remove old declutter position changes
 			// -------------------------------------
-		for (let i = 0; i < nodesA.length; i++) {
-			var ptPos = nodesA[i].fu.getPosition();
-			var ptPos2 = new point(nodesA[i].getAttributeNS(szMapNs, "xEnd"), nodesA[i].getAttributeNS(szMapNs, "yEnd"));
-			var nDur = nodesA[i].getAttributeNS(szMapNs, "dur");
+			for (let i = 0; i < nodesA.length; i++) {
+				var ptPos = nodesA[i].fu.getPosition();
+				var ptPos2 = new point(nodesA[i].getAttributeNS(szMapNs, "xEnd"), nodesA[i].getAttributeNS(szMapNs, "yEnd"));
+				var nDur = nodesA[i].getAttributeNS(szMapNs, "dur");
 
-			// Check if ptPos and ptPos2 are valid before accessing x/y
-			if (!ptPos || ptPos.x === undefined || ptPos.y === undefined ||
-			    !ptPos2 || ptPos2.x === undefined || ptPos2.y === undefined) {
-				continue; // Skip if positions are invalid
-			}
+				let dx = (ptPos2.x - ptPos.x) / nDur;
+				let dy = (ptPos2.y - ptPos.y) / nDur;
 
-			let dx = (ptPos2.x - ptPos.x) / nDur;
-			let dy = (ptPos2.y - ptPos.y) / nDur;
-
-			nodesA[i].fu.setPosition(ptPos.x + dx, ptPos.y + dy);
+				nodesA[i].fu.setPosition(ptPos.x + dx, ptPos.y + dy);
 
 				nodesA[i].setAttributeNS(szMapNs, "dur", --nDur);
 			}
@@ -3766,6 +3758,9 @@ $Log: maptheme.js,v $
 	 * CHART type can be changed into DOMINANT type.<br>
 	 */
 	ixMap.Themes.prototype.doChangeThemeStyle = function (szId, szStyle, szFlag) {
+
+		console.log("doChangeThemeStyle", szId, szStyle, szFlag);
+		
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
 			var styleObj = __getStyleObj(szStyle);
@@ -4024,6 +4019,10 @@ $Log: maptheme.js,v $
 					mapTheme.showInfo();
 				}
 				if (__isdef(styleObj.colorscheme)) {
+					if ( typeof(styleObj.colorscheme) === 'object') {
+						styleObj.colorscheme = styleObj.colorscheme.join('|');
+						alert(styleObj.colorscheme);
+					}
 					var argA = styleObj.colorscheme.match(/\|/) ? styleObj.colorscheme.split('|') : styleObj.colorscheme.split(',');
 					if (argA && argA.length) {
 						if (isNaN(Number(mapTheme.origColorScheme[0]))) {
@@ -4287,7 +4286,7 @@ $Log: maptheme.js,v $
 				}
 				if (__isdef(styleObj.linewidth)) {
 					mapTheme.nLineWidth = __calcNewValue(mapTheme.nLineWidth, Number(styleObj.linewidth), szFlag);
-					mapTheme.fRedraw = true;
+					mapTheme.fRealize = true;
 				}
 				if (__isdef(styleObj.markersize)) {
 					mapTheme.nMarkerSize = __calcNewValue(mapTheme.nMarkerSize, Number(styleObj.markersize), szFlag);
@@ -4314,8 +4313,9 @@ $Log: maptheme.js,v $
 					mapTheme.fRedraw = true;
 				}
 				if (__isdef(styleObj.linecolor)) {
-					mapTheme.szLineColor = String(styleObj.linecolor);
-					mapTheme.fRedraw = true;
+					mapTheme.szLineColorA = this.toArray(String(styleObj.linecolor));
+					mapTheme.szLineColor = mapTheme.szLineColorA[mapTheme.szLineColorA.length - 1];
+					mapTheme.fRealize = true;
 				}
 				// GR 21.03.2009 define scaledependency for value label 
 				if (__isdef(styleObj.valueupper)) {
@@ -4768,11 +4768,7 @@ $Log: maptheme.js,v $
 			nChartOffY += bBox.height + map.Scale.normalY(10);
 			// GR 22.06.2019 check also the syntetic id created on aggregation
 			if (this.themesA[i].szFlag.match(/AGGREGATE/)) {
-				var ptAggPos = this.themesA[i].getNodePosition(szId);
-				if (!ptAggPos || ptAggPos.x === undefined || ptAggPos.y === undefined) {
-					continue; // Skip if position is invalid
-				}
-				var szAggregatedId = szId.split("::")[0] + "::" + ptAggPos.x + ',' + ptAggPos.y;
+				var szAggregatedId = szId.split("::")[0] + "::" + this.themesA[i].getNodePosition(szId).x + ',' + this.themesA[i].getNodePosition(szId).y;
 				this.getChart(szAggregatedId, chartGroup, szFlag, this.themesA[i]);
 				var bBox = map.Dom.getBox(chartGroup);
 				if (bBox.width < 0) {
@@ -7370,10 +7366,6 @@ $Log: maptheme.js,v $
 		if (this.szFlag.match(/FEATURE/)) {
 			this.mapSleep = null;
 			this.unpaintMap();
-			// Ensure chartGroup exists before clearing
-			if (!this.chartGroup) {
-				this.createChartGroup(map.Layer.objectGroup);
-			}
 			// Clear chartGroup before redrawing chart themes when redraw is caused by projection parameter change
 			// This applies to all chart themes (not just FEATURE) to ensure maxcharts themes clear properly
 			// This avoids flicker while preserving incremental redraws (CLIPTOGEOBOUNDS/CLIPTOVIEW)
@@ -8255,7 +8247,7 @@ $Log: maptheme.js,v $
 				}
 				while (szTokenA.length);
 			}
-
+			
 			// start filtering
 			for (var i in this.objTheme.filterQueryA) {
 

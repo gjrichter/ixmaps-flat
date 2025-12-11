@@ -412,7 +412,6 @@ $Log: mapquery.js,v $
      * @return a list with matching map shape nodes 
      */
     ixMap.Query.prototype.searchItem = function (szSearch, szMethod, szThemes) {
-
         var i;
         this.foundNodesA.length = 0;
         if (szSearch.length === 0) {
@@ -822,7 +821,7 @@ $Log: mapquery.js,v $
                         displayInfo(null, this.foundNodesA[i].node, "add|fix");
                     }
                 }
-                setMapTool("info");
+                // Removed setMapTool("info") to prevent automatic tool switching
             }
             return;
         }

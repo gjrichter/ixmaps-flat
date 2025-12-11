@@ -762,30 +762,9 @@ $Log: mapscript2.js,v $
         var canvasMatrixA = getMatrix(this.canvasNode);
         var mapCanvas = new point(canvasMatrixA[4], canvasMatrixA[5]);
 
-        // For orthographic projections, circular feature bounds need special handling:
-        // - For landscape viewports (width > height): use height-based zoom to fit circle in height
-        // - For portrait viewports (height > width): use width-based zoom to fit circle in width
-        // - For square viewports: either works
-        // For other projections, use Math.min() to ensure features fit within viewport
         var nNewZoomX = map.Scale.bBox.width / rectArea.width;
         var nNewZoomY = map.Scale.bBox.height / rectArea.height;
-        var nNewZoom;
-        if (0 && map.Scale.szMapProjection && map.Scale.szMapProjection.match(/orthographic/i)) {
-            // For orthographic, check viewport aspect ratio
-            var viewportAspectRatio = map.Scale.bBox.width / map.Scale.bBox.height;
-            var featureAspectRatio = rectArea.width / rectArea.height;
-            // If viewport is landscape (wider than tall), use height-based zoom
-            // If viewport is portrait (taller than wide), use width-based zoom
-            if (viewportAspectRatio > 1) {
-                // Landscape: circle limited by height
-                nNewZoom = nNewZoomY;
-            } else {
-                // Portrait or square: circle limited by width
-                nNewZoom = nNewZoomX;
-            }
-        } else {
-            nNewZoom = Math.min(nNewZoomX, nNewZoomY);
-        }
+        var nNewZoom = Math.min(nNewZoomX, nNewZoomY);
 
         nNewZoom = Math.round(nNewZoom * 1000000) / 1000000;
 
@@ -972,17 +951,6 @@ $Log: mapscript2.js,v $
      * @param maxBoundY the y value of the max geo coordinate  
      */
     ixMap.Zoom.prototype.doCenterMapToEnvelope = function (minBoundX, maxBoundX, minBoundY, maxBoundY) {
-        // For orthographic projections, skip visual panning - projection parameters are updated in setCenterLatLon
-        // EXCEPTION: Allow initial centering if _allowOrthographicCenter flag is set
-        if (0 && map.Scale.szMapProjection && map.Scale.szMapProjection.match(/orthographic/i)) {
-            if (map._allowOrthographicCenter) {
-                // Allow this one-time centering to position the globe in the SVG viewport
-            } else {
-                // Don't apply visual panning for orthographic - projection parameters handle the rotation
-                // The actual projection parameter update happens in setCenterLatLon (htmlgui_sync.js)
-                return;
-            }
-        }
 
         if (this.doCheckEnvelope(minBoundX, maxBoundX, minBoundY, maxBoundY)) {
             var nLeft = (minBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
@@ -1006,7 +974,7 @@ $Log: mapscript2.js,v $
             // For initial orthographic centering, skip doSetCenterByParentMap to ensure centering happens
             if (map._allowOrthographicCenter) {
                 this.doCenterMapToEnvelope(ptCenter.x, ptCenter.x, ptCenter.y, ptCenter.y);
-            } else if (1 || !this.doSetCenterByParentMap(ptCenter.x, ptCenter.y)) {
+            } else {
                 this.doCenterMapToEnvelope(ptCenter.x, ptCenter.x, ptCenter.y, ptCenter.y);
             }
         } else {
@@ -1531,7 +1499,7 @@ $Log: mapscript2.js,v $
      * @param nDeltaX pan map for this dx 
      * @param nDeltaY pan map for this dy
      */
-    ixMap.Zoom.prototype.doPanMap = function (nDeltaX, nDeltaY) { return;
+    ixMap.Zoom.prototype.doPanMap = function (nDeltaX, nDeltaY) {
 
         var zoomMatrixA = getMatrix(this.zoomNode);
         var nZoomX = zoomMatrixA[0];
@@ -1548,153 +1516,12 @@ $Log: mapscript2.js,v $
         newX += map.Scale.embedX(zoomMatrixA[4]);
         newY += map.Scale.embedY(zoomMatrixA[5]);
 
-        // For orthographic projections: calculate new center immediately from pan offset
-        // Instead of applying visual pan offset, update projection parameters to rotate the globe
-        // This prevents the globe from jumping when projection parameters update
-        // IMPORTANT: Only apply this logic for orthographic projections, not for Mercator or other projections
+        // For orthographic projection don't do visual panning by SVG
         var isOrthographic = map.Scale.szMapProjection && 
                              typeof map.Scale.szMapProjection === 'string' && 
                              map.Scale.szMapProjection.toLowerCase().indexOf('orthographic') !== -1;
-        if (0 && isOrthographic) {
-            // Only process orthographic panning logic
-            // Throttle pan-based projection updates to avoid too frequent redraws
-            if (!map.Zoom._lastPanOrthographicUpdate) {
-                map.Zoom._lastPanOrthographicUpdate = 0;
-            }
-            var now = Date.now();
-            var PAN_ORTHOGRAPHIC_UPDATE_INTERVAL = 50; // Update max 20 times per second (50ms) for smooth rotation
-            if (now - map.Zoom._lastPanOrthographicUpdate < PAN_ORTHOGRAPHIC_UPDATE_INTERVAL) {
-                // Too soon since last update - prevent visual pan but don't update parameters yet
-                if (map.fPanByViewer) {
-                    return; // Exit early, don't apply pan offset
-                } else {
-                    var ptOld = getTranslate(this.zoomNode);
-                    this.zoomNode.setAttributeNS(null, "transform", "matrix(" + nZoomX + " 0 0 " + nZoomY + " " + ptOld.x + " " + ptOld.y + ")");
-                    return; // Exit early, don't apply pan offset
-                }
-            }
-            map.Zoom._lastPanOrthographicUpdate = now;
-            
-            try {
-                // Get current geographic center
-                var currentGeoCenter = map.Zoom.getCenterOfMapInGeoPosition();
-                if (!currentGeoCenter) {
-                    // Fallback: get from HTML map if available
-                    if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
-                        var htmlCenter = map.HTMLWindow.ixmaps.getCenter();
-                        if (htmlCenter) {
-                            currentGeoCenter = new point(htmlCenter.lng, htmlCenter.lat); // x=lon, y=lat
-                        }
-                    }
-                }
-                
-                if (!currentGeoCenter) {
-                    // Can't get current center, fall back to normal pan behavior
-                    throw new Error("Cannot get current geo center");
-                }
-                
-                // Get current viewport center in screen coordinates
-                var rectArea = this.getBox();
-                var currentCenterScreenX = rectArea.x + rectArea.width / 2;
-                var currentCenterScreenY = rectArea.y + rectArea.height / 2;
-                
-                // Convert pan offset to map coordinates (accounting for zoom)
-                var panOffsetMapX = nDeltaX / nZoomX;
-                var panOffsetMapY = nDeltaY / nZoomY;
-                
-                // Calculate what the new center screen position would be after pan
-                var newCenterScreenX = currentCenterScreenX + panOffsetMapX;
-                var newCenterScreenY = currentCenterScreenY + panOffsetMapY;
-                
-                // Convert new center screen position to map coordinates
-                var newCenterMap = map.Scale.getMapCoordinate(newCenterScreenX, newCenterScreenY);
-                
-                if (newCenterMap) {
-                    // Convert map coordinates to geo coordinates
-                    var newCenterGeo = map.Scale.getGeoCoordinateOfPoint(newCenterMap.x, newCenterMap.y);
-                    
-                    // If conversion fails or returns invalid, use current center plus estimated delta
-                    if (!newCenterGeo || !Number.isFinite(newCenterGeo.x) || !Number.isFinite(newCenterGeo.y)) {
-                        // Estimate geo delta from pan offset
-                        // For orthographic: approximate conversion (rough estimate)
-                        // This is a fallback if precise conversion fails
-                        var viewportWidth = rectArea.width;
-                        var viewportHeight = rectArea.height;
-                        var estimatedLatDelta = -(panOffsetMapY / viewportHeight) * 180; // Rough estimate
-                        var estimatedLonDelta = (panOffsetMapX / viewportWidth) * 360; // Rough estimate
-                        newCenterGeo = new point(
-                            currentGeoCenter.x + estimatedLonDelta,
-                            currentGeoCenter.y + estimatedLatDelta
-                        );
-                    }
-                    
-                    if (newCenterGeo && Number.isFinite(newCenterGeo.x) && Number.isFinite(newCenterGeo.y) &&
-                        newCenterGeo.x >= -180 && newCenterGeo.x <= 180 &&
-                        newCenterGeo.y >= -90 && newCenterGeo.y <= 90) {
-                        
-                        // Get current zoom level
-                        var zoomLevel = null;
-                        if (map.HTMLWindow && map.HTMLWindow.ixmaps) {
-                            var htmlZoom = map.HTMLWindow.ixmaps.getZoom();
-                            if (htmlZoom !== undefined && Number.isFinite(htmlZoom)) {
-                                zoomLevel = htmlZoom;
-                            }
-                        }
-                        if (zoomLevel === null && map.Scale.nZoomScale && map.Scale.nZoomScale > 0) {
-                            zoomLevel = Math.max(1, Math.min(20, Math.log2(map.Scale.nZoomScale) + 5));
-                        }
-                        if (zoomLevel === null) {
-                            zoomLevel = 5; // Default
-                        }
-                        
-                        // Update projection parameters immediately with new center
-                        // This rotates the globe instead of panning it visually
-                        var newCenter = [newCenterGeo.y, newCenterGeo.x]; // [lat, lon]
-                        if (map.Api && typeof map.Api.updateOrthographicParameters === 'function') {
-                            // Always try to update projection parameters, even if they don't change
-                            // This ensures smooth rotation without visual pan offset
-                            var result = map.Api.updateOrthographicParameters(newCenter, zoomLevel);
-                            
-                            // If parameters were updated, trigger immediate redraw
-                            if (result && result.params) {
-                                // Mark FEATURE themes for redraw with the flag to clear on projection change
-                                for (var i = 0; i < map.Themes.themesA.length; i++) {
-                                    var theme = map.Themes.themesA[i];
-                                    if (theme.szFlag && theme.szFlag.match(/FEATURE/)) {
-                                        theme.fRedraw = true;
-                                        theme.fActualize = true;
-                                        theme.fClearOnProjectionChange = true;
-                                    }
-                                }
-                                // Trigger immediate execute to redraw with new parameters
-                                // Use setTimeout(0) to allow browser to render, but execute immediately
-                                var self = this;
-                                setTimeout(function() {
-                                    if (map.Themes && typeof map.Themes.execute === 'function') {
-                                        map.Themes.execute();
-                                    }
-                                }, 0);
-                            }
-                            
-                            // Always prevent visual pan offset for orthographic projections
-                            // The globe rotates via projection parameter update, not visual panning
-                            if (map.fPanByViewer) {
-                                // Don't apply pan offset - let projection handle the rotation
-                                // Keep current translate values unchanged
-                                return; // Exit early, don't apply pan offset
-                            } else {
-                                // Reset zoom node transform to current position (no pan offset)
-                                var ptOld = getTranslate(this.zoomNode);
-                                this.zoomNode.setAttributeNS(null, "transform", "matrix(" + nZoomX + " 0 0 " + nZoomY + " " + ptOld.x + " " + ptOld.y + ")");
-                                return; // Exit early, don't apply pan offset
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                // If calculation fails, fall back to normal behavior
-                console.warn("Error calculating orthographic center from pan offset:", e);
-            }
+        if (isOrthographic) {
+            return;
         }
 
         if (map.fPanByViewer) {
@@ -5229,8 +5056,7 @@ $Log: mapscript2.js,v $
                 nLower = Number(depLower.split(':')[1]);
             }
             // GR 11.03.2011 TBD if tiles are initially invisible, but in scale range, we must load them for themes
-            if ((1 || this.isAnyTiledLayerVisible()) &&
-                (map.Scale.nTrueMapScale * map.Scale.nZoomScale >= nLower) && (map.Scale.nTrueMapScale * map.Scale.nZoomScale <= nUpper)) {
+            if ((map.Scale.nTrueMapScale * map.Scale.nZoomScale >= nLower) && (map.Scale.nTrueMapScale * map.Scale.nZoomScale <= nUpper)) {
                 return false;
             }
             var tilesInfoA = this.getTileInfo();
@@ -5646,10 +5472,6 @@ $Log: mapscript2.js,v $
             var legendId = idNode.getAttributeNS(null, "id");
             if (legendId && !legendId.match(/chartgroup/)) {
                 if (map._activeTheme != map.Tiles.getMasterId(legendId.split(':')[0])) {
-                    var layerObj = map.Layer.getLayerObj(legendId);
-                    if (layerObj && layerObj.szSelection && !map.Event.tooltipDone && (map.szMapToolType == "clickinfo" || map.szMapToolType == "info" || map.szMapToolType === "")) {
-                        //displayTooltipText(evt, map.Dictionary.getLocalText("click to activate"));
-                    }
                     if (map.fHighlightHint) {
                         szMode = "hint";
                         retVal = false;
@@ -8835,11 +8657,9 @@ $Log: mapscript2.js,v $
         } else if (szTemplate == "alert") {
             this.textGroup = map.Dom.newGroup(targetGroup, "textfield" + String(Math.random()));
             this.textGroup.fu.scale(map.Scale.normalX(1), map.Scale.normalY(1));
-            if (1 && map.SVGDocument.getElementById(map.szShadowFilterId)) {
-                this.sdNode = map.Dom.newShape('rect', this.textGroup, 0, 0, 1, 1, "fill:#666666;opacity:0.2;stroke:none");
-                this.sdNode.setAttributeNS(null, "rx", map.Scale.normalY(0.1));
-                this.sdNode.setAttributeNS(null, "ry", map.Scale.normalY(0.1));
-            }
+            this.sdNode = map.Dom.newShape('rect', this.textGroup, 0, 0, 1, 1, "fill:#666666;opacity:0.2;stroke:none");
+            this.sdNode.setAttributeNS(null, "rx", map.Scale.normalY(0.1));
+            this.sdNode.setAttributeNS(null, "ry", map.Scale.normalY(0.1));
             this.bgNode = map.Dom.newShape('rect', this.textGroup, 0, 0, 1, 1, "fill:#F9EDB8;stroke:#EDC967;stroke-width:1;opacity:1");
             this.textNode = map.Dom.newText(this.textGroup, 0, 0, "font-family:arial;font-size:" + nFontSize + "px;fill:black", "");
             this.workspaceNode = this.textNode.parentNode;
@@ -11169,9 +10989,6 @@ $Log: mapscript2.js,v $
                 **/
             case 'setactive':
                 activateTheme(szThemeId);
-                if (!map.szMapToolType.match(/select/)) {
-                    setMapTool("info");
-                }
                 break;
 
             case 'item':
