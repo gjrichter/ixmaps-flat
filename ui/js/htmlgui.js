@@ -521,7 +521,7 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.HTML_loadSVGMap = function (szUrl, callback) {
 
-		alert("loadSVGMap");
+		alert("loadSVGMap"+szUrl);
 
 		if (!szUrl || (typeof (szUrl) != 'string')) {
 			ixmaps.loadMapError(szUrl);
@@ -538,7 +538,7 @@ $Log: htmlgui.js,v $
 		}
 
 		this.showLoading();
-		if (ixmaps.embeddedSVG) {
+		if (0 && ixmaps.embeddedSVG) {
 			if (szUrl.match(/http/)) {
 				this.loadingMap = szUrl;
 				ixmaps.embeddedSVG.window.map.Api.loadMap(szUrl);
