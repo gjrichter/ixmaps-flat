@@ -53,7 +53,7 @@
  * </html>
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 1.0 
+ * @version 1.1 
  * @copyright CC BY SA
  * @license MIT
  */
@@ -65,10 +65,9 @@
 
 (function (window, document, undefined) {
 
-    var ixmaps = window.ixmaps || {
-        version: "1.0",
-        JSON_Schema: "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json"
-    };
+    var ixmaps = window.ixmaps || {}
+    ixmaps.version = "1.1";
+    ixmaps.JSON_Schema = "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json";
 
     /**
      * Exposes the ixmaps object to the global window scope.
