@@ -17,7 +17,7 @@ $Log: mapscript.js,v $
  * @fileoverview This file is the main JavaScript for SVGGIS Map Applications.<br>
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 0.96 
+ * @version 0.97 
  */
 
 /* jshint funcscope:true, evil:true, eqnull:true, loopfunc:true, shadow: true, laxcomma: true, laxbreak: true, expr: true, sub: true */
@@ -910,7 +910,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "0.96";
+    var thisversion = "0.97";
     map = new ixMap();
     map.version = thisversion;
     // and make global
