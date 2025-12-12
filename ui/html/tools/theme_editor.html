@@ -17,7 +17,7 @@
 	button {
 		border-radius: 0.5em;
 	}
-	</style>
+	</style>	
 </head>
 
 <body id="theme-editor" >
@@ -26,15 +26,15 @@
 		<pre id="editor" style="width:100%;border:#eee solid 1px;" >loading ...</pre>
 	</div>
 
-	<div id="editor-apply" style="margin-top:0.5em;margin-left:0em">
+	<div id="editor-apply" style="margin-top:0.5em;margin-left:0.1em">
 		<a href='javascript:ixmaps.applyEditorTheme();'>
-			<button type="button" class="btn btn-default btn-md">
+			<button type="button" class="btn btn-default btn-md" style="padding: 0.5em 1em;background-color: #ffffff;border: 1px solid #ccc;color: #333;border-radius: 0.5em;">
 			apply changes
 			</button>
 		</a>
 	</div>
 
-	<div id="editor-footer">
+	<div id="editor-footer" style="margin-left:0.1em">
 		<span style="font-size:0.6em;color:#ddd">powered by ACE Code Editor, Copyright (c) 2010, Ajax.org B.V.</span>
 	<div>
 
@@ -151,7 +151,10 @@
 		}
 
 		//$("#editor-apply-button").button();
-		$("#editor-div").height("600px");
+		const hEditorApply = $("#editor-apply").height();
+		const hEditorFooter = $("#editor-footer").height();
+
+		$("#editor-div").height(($("#editor-div").parent().height()-hEditorApply-hEditorFooter-10)+"px");
 		$("#editor-div").show();
 
 	};
