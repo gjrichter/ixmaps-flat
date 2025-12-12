@@ -570,6 +570,8 @@ $Log: htmlgui.js,v $
 
 		delete this.loadedMap;
 
+		alert("delete this.loadedMap;");
+
 		// Hook into onMapReady callback
 		var originalOnMapReady = this.onMapReady;
 		var svgMapReady = false;
@@ -577,6 +579,9 @@ $Log: htmlgui.js,v $
 		var self = this;
 
 		this.onMapReady = function(szMap) {
+
+			alert("onMapReady");
+
 			svgMapReady = true;
 			// Prevent multiple calls - only execute once per load
 			if (onMapReadyCalled) {
@@ -607,7 +612,7 @@ $Log: htmlgui.js,v $
 				ixmaps.loadMapError(svgUrlToLoad);
 				return;
 			}
-			
+			alert("Load SVG using jQuery .load()");			
 			// Clear action queue and reset initialization flag before reinitializing
 			if (typeof window.map !== 'undefined' && window.map) {
 				// Clear action queues to prevent loop
@@ -619,7 +624,7 @@ $Log: htmlgui.js,v $
 				}
 				window.map.fInitializing = false;
 			}
-			
+			alert("1");			
 			// Track if initAll has been called to prevent multiple calls
 			var initAllCalled = false;
 			
