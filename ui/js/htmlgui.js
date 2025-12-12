@@ -3537,8 +3537,9 @@ $Log: htmlgui.js,v $
 				if (!map.map || (typeof (map.map) != "string") || !map.map.length) {
 					console.log("map.map is not set, using default map", ixmaps.szResourceBase);
 					map.map = ixmaps.szResourceBase + ixmaps.szDefaultMap;
+				}else if (map.map.startsWith("../../")) {
+					map.map = ixmaps.szResourceBase + (map.map.split("../../")[1]);
 				}
-
 				ixmaps.loadMap(map.map, function () {
 
 					if (map.center && map.zoom && !szFlag.match(/nonewview/i) && !szFlag.match(/keepview/i)) {
