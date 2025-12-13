@@ -521,8 +521,6 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.HTML_loadSVGMap = function (szUrl, callback) {
 
-		alert("loadSVGMap"+szUrl);
-
 		if (!szUrl || (typeof (szUrl) != 'string')) {
 			ixmaps.loadMapError(szUrl);
 			return;
@@ -538,15 +536,6 @@ $Log: htmlgui.js,v $
 		}
 
 		this.showLoading();
-		if (0 && ixmaps.embeddedSVG) {
-			if (szUrl.match(/http/)) {
-				this.loadingMap = szUrl;
-				ixmaps.embeddedSVG.window.map.Api.loadMap(szUrl);
-				return;
-			} else {
-				this.mapTool("");
-			}
-		}
 
 		// Get SVG div/object for loading
 		var svgDiv = this.svgObject || ixmaps.svgObject || document.getElementById('svgmapdiv');
@@ -570,8 +559,6 @@ $Log: htmlgui.js,v $
 
 		delete this.loadedMap;
 
-		alert("delete this.loadedMap;");
-
 		// Hook into onMapReady callback
 		var originalOnMapReady = this.onMapReady;
 		var svgMapReady = false;
@@ -579,8 +566,6 @@ $Log: htmlgui.js,v $
 		var self = this;
 
 		this.onMapReady = function(szMap) {
-
-			alert("onMapReady");
 
 			svgMapReady = true;
 			// Prevent multiple calls - only execute once per load
@@ -612,7 +597,6 @@ $Log: htmlgui.js,v $
 				ixmaps.loadMapError(svgUrlToLoad);
 				return;
 			}
-			alert("Load SVG using jQuery .load()");			
 			// Clear action queue and reset initialization flag before reinitializing
 			if (typeof window.map !== 'undefined' && window.map) {
 				// Clear action queues to prevent loop
@@ -624,7 +608,6 @@ $Log: htmlgui.js,v $
 				}
 				window.map.fInitializing = false;
 			}
-			alert("1");			
 			// Track if initAll has been called to prevent multiple calls
 			var initAllCalled = false;
 			
