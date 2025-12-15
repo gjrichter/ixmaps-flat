@@ -760,7 +760,8 @@
         
         map = new ixmaps.map(uniqueDivId, mapOptions);
         
-        console.log(ixmaps);
+        ixmaps.loadingMap = mapOptions.svg;
+
         ixmaps.onMapReady = function (szMap) {
             const mapApi = new ixmaps.mapApi(szMap);
             

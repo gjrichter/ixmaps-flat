@@ -446,6 +446,7 @@ $Log: htmlgui.js,v $
 				console.log("ixmaps.szResourceBase = " + ixmaps.szResourceBase);
 			}
 
+			ixmaps.loadingMap = szUrl;
 			szUrl = szUrl || "maps/svg/maps/generic/mercator.svg";
 			if (szUrl.match("../../")) {
 				szUrl = szUrl.split("../../")[1];
@@ -957,6 +958,9 @@ $Log: htmlgui.js,v $
 			ixmaps.blockLoadingMessage = true;
 
 			clearTimeout(ixmaps.hideLoadingTimeout);
+			
+			// Start safety check when loading message is shown
+			__startLoadingMessageSafetyCheck();
 		} catch (e) { }
 	};
 
@@ -975,6 +979,50 @@ $Log: htmlgui.js,v $
 			ixmaps.blockLoadingMessage = false;
 		} catch (e) { }
 	};
+	
+	// Add a safety mechanism: periodically check if loading message should be hidden
+	// This catches cases where the counter gets stuck
+	var __loadingMessageSafetyCheckInterval = null;
+	var __startLoadingMessageSafetyCheck = function() {
+		if (__loadingMessageSafetyCheckInterval) {
+			return; // Already running
+		}
+		__loadingMessageSafetyCheckInterval = setInterval(function() {
+			// If loading message is visible but counter is 0, hide it
+			if ($("#loading-text-div").is(":visible") && __showLoadingArrayCount === 0 && !__showLoadingArrayActive) {
+				var elapsed = __showLoadingArrayStartTime ? (new Date().getTime() - __showLoadingArrayStartTime) : 0;
+				// Only auto-hide if it's been visible for more than 5 seconds and counter is 0
+				if (elapsed > 5000 || !__showLoadingArrayStartTime) {
+					console.warn("Loading message safety check: hiding stuck loading message. Elapsed:", elapsed, "ms");
+					$("#loading-gif").hide();
+					ixmaps.hideLoading();
+					clearInterval(__loadingMessageSafetyCheckInterval);
+					__loadingMessageSafetyCheckInterval = null;
+				}
+			}
+			// If counter is stuck > 0 for too long, force reset
+			if (__showLoadingArrayCount > 0 && __showLoadingArrayStartTime) {
+				var elapsed = new Date().getTime() - __showLoadingArrayStartTime;
+				if (elapsed > __showLoadingArrayMaxDuration) {
+					console.warn("Loading message safety check: counter stuck at", __showLoadingArrayCount, "for", elapsed, "ms. Force resetting.");
+					__showLoadingArrayCount = 0;
+					__showLoadingArrayActive = false;
+					clearTimeout(__showLoadingArrayTimeout);
+					clearTimeout(__showLoadingArrayForceHideTimeout);
+					clearInterval(__showLoadingArrayWatchdogInterval);
+					$("#loading-gif").hide();
+					ixmaps.hideLoading();
+					clearInterval(__loadingMessageSafetyCheckInterval);
+					__loadingMessageSafetyCheckInterval = null;
+				}
+			}
+			// Stop safety check if loading is not active
+			if (__showLoadingArrayCount === 0 && !__showLoadingArrayActive && !$("#loading-text-div").is(":visible")) {
+				clearInterval(__loadingMessageSafetyCheckInterval);
+				__loadingMessageSafetyCheckInterval = null;
+			}
+		}, 2000); // Check every 2 seconds
+	};
 
 	// -----------------------------------
 	// alternating loading message 
@@ -985,6 +1033,10 @@ $Log: htmlgui.js,v $
 	var __showLoadingArrayIndex = 0;
 	var __showLoadingArrayTimeout = null;
 	var __showLoadingArrayActive = false;
+	var __showLoadingArrayStartTime = null;
+	var __showLoadingArrayMaxDuration = 30000; // 30 seconds maximum
+	var __showLoadingArrayForceHideTimeout = null;
+	var __showLoadingArrayWatchdogInterval = null;
 
 	/**
 	 * start displaying alternating loading messages
@@ -997,6 +1049,45 @@ $Log: htmlgui.js,v $
 		__showLoadingArrayActive = true;
 		__showLoadingArrayIndex = 0;
 		clearTimeout(__showLoadingArrayTimeout);
+		
+		// Track start time and set up force-hide timeout if this is the first active loading
+		if (__showLoadingArrayCount === 1) {
+			__showLoadingArrayStartTime = new Date().getTime();
+			clearTimeout(__showLoadingArrayForceHideTimeout);
+			// Set up force-hide timeout
+			__showLoadingArrayForceHideTimeout = setTimeout(function() {
+				if (__showLoadingArrayCount > 0) {
+					console.warn("Loading message force-hide after maximum duration exceeded. Counter was:", __showLoadingArrayCount);
+					__showLoadingArrayCount = 0;
+					__showLoadingArrayActive = false;
+					clearTimeout(__showLoadingArrayTimeout);
+					clearInterval(__showLoadingArrayWatchdogInterval);
+					clearInterval(__loadingMessageSafetyCheckInterval);
+					__loadingMessageSafetyCheckInterval = null;
+					$("#loading-gif").hide();
+					ixmaps.hideLoading();
+				}
+			}, __showLoadingArrayMaxDuration);
+			
+			// Set up watchdog interval to check and force-hide if stuck
+			clearInterval(__showLoadingArrayWatchdogInterval);
+			__showLoadingArrayWatchdogInterval = setInterval(function() {
+				var elapsed = new Date().getTime() - __showLoadingArrayStartTime;
+				if (__showLoadingArrayCount > 0 && elapsed > __showLoadingArrayMaxDuration) {
+					console.warn("Loading message watchdog: force-hide after", elapsed, "ms. Counter was:", __showLoadingArrayCount);
+					__showLoadingArrayCount = 0;
+					__showLoadingArrayActive = false;
+					clearTimeout(__showLoadingArrayTimeout);
+					clearTimeout(__showLoadingArrayForceHideTimeout);
+					clearInterval(__showLoadingArrayWatchdogInterval);
+					clearInterval(__loadingMessageSafetyCheckInterval);
+					__loadingMessageSafetyCheckInterval = null;
+					$("#loading-gif").hide();
+					ixmaps.hideLoading();
+				}
+			}, 5000); // Check every 5 seconds
+		}
+		
 		ixmaps.showLoadingArrayNext();
 	};
 	/**
@@ -1018,10 +1109,31 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.showLoadingArrayStop = function () {
+		// Defensive check: prevent negative count
+		if (__showLoadingArrayCount <= 0) {
+			console.warn("showLoadingArrayStop called but __showLoadingArrayCount is already 0 or negative");
+			__showLoadingArrayCount = 0;
+			__showLoadingArrayActive = false;
+			clearTimeout(__showLoadingArrayTimeout);
+			clearTimeout(__showLoadingArrayForceHideTimeout);
+			clearInterval(__showLoadingArrayWatchdogInterval);
+			clearInterval(__loadingMessageSafetyCheckInterval);
+			__loadingMessageSafetyCheckInterval = null;
+			$("#loading-gif").hide();
+			return;
+		}
+		
 		__showLoadingArrayCount--;
 		__showLoadingArrayActive = false;
 		clearTimeout(__showLoadingArrayTimeout);
+		
+		// Clear force-hide timeout and watchdog when all loading operations complete
 		if (__showLoadingArrayCount <= 0) {
+			clearTimeout(__showLoadingArrayForceHideTimeout);
+			clearInterval(__showLoadingArrayWatchdogInterval);
+			clearInterval(__loadingMessageSafetyCheckInterval);
+			__loadingMessageSafetyCheckInterval = null;
+			__showLoadingArrayStartTime = null;
 			$("#loading-gif").hide();
 		}
 	};
@@ -3030,6 +3142,11 @@ $Log: htmlgui.js,v $
 					options.setData = ixmaps.setExternalData;
 					var fLoading = false;
 
+					// IMPORTANT: If the data provider function returns true (async loading),
+					// it MUST call either:
+					// 1. ixmaps.setExternalData(data, opt) when loading completes (recommended)
+					// 2. ixmaps.showLoadingArrayStop() and ixmaps.hideLoading() directly
+					// Otherwise, the loading message will remain visible indefinitely.
 					try {
 						eval("fLoading = ixmaps." + options.name + "(options.theme,options)");
 					} catch (e) {
@@ -3050,7 +3167,7 @@ $Log: htmlgui.js,v $
 						}
 					}
 					if (!fLoading && __lastOptionName && (options.name == __lastOptionName)) {
-						//ixmaps.showLoadingArrayStop();
+						ixmaps.showLoadingArrayStop();
 					} else {
 						__lastOptionName = options.name;
 					}
@@ -3230,6 +3347,8 @@ $Log: htmlgui.js,v $
 					__executeDataLoading();
 				})
 				.fail(function (jqxhr, settings, exception) {
+					ixmaps.showLoadingArrayStop();
+					ixmaps.hideLoading();
 					alert("'" + options.type + "' unknown format !");
 				});
 		} else {
@@ -3251,33 +3370,81 @@ $Log: htmlgui.js,v $
 		if (opt && opt.type && (opt.type != "jsonDB") && (opt.type != "dbtable")) {
 			if ((typeof (Data) != "undefined") && Data.object) {
 				// load the data using data.js
-				Data.object({
-					"source": data,
-					"type": opt.type
-				}).import(function (mydata) {
-					ixmaps.setExternalData(mydata, {
-						type: "dbtable",
-						name: opt.name
+				try {
+					Data.object({
+						"source": data,
+						"type": opt.type,
+						"error": function (error) {
+							// Ensure loading message is hidden on error
+							ixmaps.showLoadingArrayStop();
+							ixmaps.hideLoading();
+							if (opt && opt.error) {
+								opt.error(error);
+							}
+						}
+					}).import(function (mydata) {
+						ixmaps.setExternalData(mydata, {
+							type: "dbtable",
+							name: opt.name
+						});
 					});
-				});
+				} catch (error) {
+					// Ensure loading message is hidden on exception
+					ixmaps.showLoadingArrayStop();
+					ixmaps.hideLoading();
+					if (opt && opt.error) {
+						opt.error(error);
+					}
+				}
 			} else {
 				$.getScript("../../../data.js/data.js")
 					.done(function (script, textStatus) {
 						// load the data using data.js
-						Data.object({
-							"source": data,
-							"type": opt.type
-						}).import(function (mydata) {
-							ixmaps.setExternalData(mydata, {
-								type: "dbtable",
-								name: opt.name
+						try {
+							Data.object({
+								"source": data,
+								"type": opt.type,
+								"error": function (error) {
+									// Ensure loading message is hidden on error
+									ixmaps.showLoadingArrayStop();
+									ixmaps.hideLoading();
+									if (opt && opt.error) {
+										opt.error(error);
+									}
+								}
+							}).import(function (mydata) {
+								ixmaps.setExternalData(mydata, {
+									type: "dbtable",
+									name: opt.name
+								});
 							});
-						});
+						} catch (error) {
+							// Ensure loading message is hidden on exception
+							ixmaps.showLoadingArrayStop();
+							ixmaps.hideLoading();
+							if (opt && opt.error) {
+								opt.error(error);
+							}
+						}
+					})
+					.fail(function (jqxhr, settings, exception) {
+						// Ensure loading message is hidden if Data.js fails to load
+						ixmaps.showLoadingArrayStop();
+						ixmaps.hideLoading();
+						alert("error at ixmaps.setExternalData: Data.js could not be loaded");
 					});
 			}
 		} else {
-			if (!data.table) {
-				alert("error at ixmaps.setExternalData: data not of format 'jsonDB'");
+			if (!data || !data.table) {
+				// Ensure loading message is hidden even if data is invalid
+				ixmaps.showLoadingArrayStop();
+				ixmaps.hideLoading();
+				if (!data) {
+					alert("error at ixmaps.setExternalData: data is null or undefined");
+				} else {
+					alert("error at ixmaps.setExternalData: data not of format 'jsonDB'");
+				}
+				return;
 			}
 			ixmaps.showLoadingArrayStop();
 			ixmaps.hideLoading();
