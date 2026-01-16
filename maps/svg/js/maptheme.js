@@ -12864,6 +12864,41 @@ $Log: maptheme.js,v $
 											if (childNode.getAttributeNS(szMapNs, "save-style")) {
 												childNode.setAttributeNS(null, "style", childNode.getAttributeNS(szMapNs, "save-style"));
 											}
+											// GR: For SEQUENCE charts, restore transform from orig-transform
+											// For SVG <use> symbols, keep full transform (scale + position)
+											// For other symbols (circle, rect, etc.), keep only scale (position 0,0 for centering)
+											if (this.szFlag.match(/SEQUENCE/) && !this.szFlag.match(/PLOT/) && (this.evidenceMode != "isolate_gray")) {
+												var szOrigTransform = childNode.getAttributeNS(szMapNs, "orig-transform");
+												if (szOrigTransform && szOrigTransform.length) {
+													// Check if this is an SVG <use> element (by nodeName/tagName or by xlink:href attribute)
+													var nodeNameLower = (childNode.nodeName && childNode.nodeName.toLowerCase()) || (childNode.tagName && childNode.tagName.toLowerCase()) || '';
+													var xlinkNs = "http://www.w3.org/1999/xlink";
+													var hasXlinkHref = null;
+													if (childNode.getAttributeNS) {
+														hasXlinkHref = childNode.getAttributeNS(xlinkNs, "href");
+													}
+													var isUseElement = (nodeNameLower === 'use') || (hasXlinkHref && hasXlinkHref.length && hasXlinkHref.length > 0);
+													
+													if (isUseElement) {
+														// For SVG <use> symbols, restore full transform (scale + position)
+														childNode.setAttributeNS(null, "transform", szOrigTransform);
+													} else {
+														// For other symbols, parse and restore only scale (position 0,0 for centering)
+														var matrixRegExp1 = /matrix\(([^,]*)\)/;
+														var matrixRegExp2 = /matrix\(([0-9., -e]*)\)/;
+														var szMM = szOrigTransform.match(matrixRegExp1) || szOrigTransform.match(matrixRegExp2);
+														if (szMM) {
+															var szMA = szMM[1].split(/[\s,]+/);
+															if (szMA.length >= 4) {
+																var scaleX = Number(szMA[0]) || 1;
+																var scaleY = Number(szMA[3]) || 1;
+																// Apply transform with scale but position 0,0 (centered)
+																childNode.setAttributeNS(null, "transform", "matrix(" + scaleX + " 0 0 " + scaleY + " 0 0)");
+															}
+														}
+													}
+												}
+											}
 											toTopA.push(chartNode);
 										}
 									} else {
