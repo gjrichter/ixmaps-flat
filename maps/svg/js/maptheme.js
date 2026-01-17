@@ -12813,6 +12813,11 @@ $Log: maptheme.js,v $
 		clearMessage();
 		map.highLightList.removeAll();
 
+		var nMarkedClasses = 0;
+		for (i in this.markedClasses){
+			nMarkedClasses++;
+		}
+
 		var j;
 		var tilesNodesA = null;
 		var nIsolateGrayStrokeWidth = ((this.fShadow ? 5 : 10) / this.nScale);
@@ -12879,7 +12884,7 @@ $Log: maptheme.js,v $
 													}
 													var isUseElement = (nodeNameLower === 'use') || (hasXlinkHref && hasXlinkHref.length && hasXlinkHref.length > 0);
 													
-													if (isUseElement) {
+													if (isUseElement && (nMarkedClasses > 1)) {
 														// For SVG <use> symbols, restore full transform (scale + position)
 														childNode.setAttributeNS(null, "transform", szOrigTransform);
 													} else {
@@ -19834,6 +19839,11 @@ $Log: maptheme.js,v $
 									nSymbolOffsetX = Math.cos(this.initAngle / 180 * Math.PI) * (_r);
 									nSymbolOffsetY = Math.sin(this.initAngle / 180 * Math.PI) * (_r);
 									this.initAngle += _f;
+
+									if (szFlag.match(/ZOOM/) && szSymbol.match(/.svg|.png|.jpeg/)){
+										nSymbolOffsetX *= 2;
+										nSymbolOffsetY *= 1.5;
+									}
 
 									pos = new point(map.Scale.normalX(0) + nSymbolOffsetX, map.Scale.normalY(0) + nSymbolOffsetY);
 								}
