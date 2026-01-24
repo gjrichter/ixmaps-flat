@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>iXMaps - Layout Fisso</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        #map_div {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ La Mia Prima Mappa iXMaps</h1>
+        <p>Mappa interattiva della Toscana</p>
+
+        <div id="map_div"></div>
+
+        <div class="info">
+            <h3>Come usare la mappa</h3>
+            <ul>
+                <li>Trascina per spostare la vista</li>
+                <li>Usa la rotella del mouse per zoomare</li>
+                <li>Click sui pulsanti + / - per controllare lo zoom</li>
+                <li>Usa la ricerca in alto per trovare luoghi</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="../ixmaps.js"></script>
+    <script type="text/javascript">
+        ixmaps.Map("map_div", {
+            mapName: "tuscany",
+            mapService: "leaflet",
+            mapType: "Stamen - watercolor",
+            width: "100%",
+            height: "600px",
+            align: "bottom",
+            toolbutton: true,
+            search: true
+        }).then((map) => {
+            // Vista su Firenze
+            map.view([43.7696, 11.2558], 10);
+
+            // Mostra messaggio di benvenuto
+            setTimeout(() => {
+                console.log("Benvenuto in Toscana!");
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
