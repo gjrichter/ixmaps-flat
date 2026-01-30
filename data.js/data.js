@@ -5248,83 +5248,95 @@ $Log:data.js,v $
         
         _LOG("Loading FlatGeobuf library from CDN for streaming...");
         
-        // Store the URL and options temporarily
-        window.__pendingFgbStreamUrl = szUrl;
-        window.__pendingFgbStreamOpt = opt;
+        // Capture szUrl and opt in closure to avoid race conditions with multiple concurrent loads
+        const capturedUrl = szUrl;
+        const capturedOpt = opt;
         
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.textContent = `
-            // Try to load FlatGeobuf from CDN
-            let flatgeobuf;
-            try {
-                // Try jsDelivr with geojson subpath (most reliable)
-                flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@3.31.0/lib/mjs/geojson.js");
-                console.log("✅ FlatGeobuf GeoJSON loaded from jsDelivr");
-            } catch (e1) {
-                console.warn("jsDelivr geojson failed:", e1);
+        // Check if library is already being loaded
+        if (!window.__flatgeobufLoading) {
+            window.__flatgeobufLoading = true;
+            
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.textContent = `
                 try {
-                    // Try main package from jsDelivr
-                    flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@latest/+esm");
-                    console.log("✅ FlatGeobuf loaded from jsDelivr (main)");
-                } catch (e2) {
-                    console.warn("jsDelivr main failed:", e2);
+                    // Try to load FlatGeobuf from CDN
+                    let flatgeobuf;
                     try {
-                        // Fallback to unpkg with geojson
-                        flatgeobuf = await import("https://unpkg.com/flatgeobuf@3.31.0/lib/mjs/geojson.js");
-                        console.log("✅ FlatGeobuf loaded from unpkg");
-                    } catch (e3) {
-                        console.warn("unpkg failed:", e3);
+                        // Try jsDelivr with geojson subpath (most reliable)
+                        flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                        console.log("✅ FlatGeobuf GeoJSON loaded from jsDelivr");
+                    } catch (e1) {
+                        console.warn("jsDelivr geojson failed:", e1);
                         try {
-                            // Fallback to ESM.sh
-                            flatgeobuf = await import("https://esm.sh/flatgeobuf@3.31.0/lib/mjs/geojson");
-                            console.log("✅ FlatGeobuf loaded from esm.sh");
-                        } catch (e4) {
-                            console.error("❌ Failed to load FlatGeobuf from any CDN:", e4);
-                            throw new Error("Failed to load FlatGeobuf library from CDN: " + e4.message);
+                            // Try main package from jsDelivr
+                            flatgeobuf = await import("https://cdn.jsdelivr.net/npm/flatgeobuf@latest/+esm");
+                            console.log("✅ FlatGeobuf loaded from jsDelivr (main)");
+                        } catch (e2) {
+                            console.warn("jsDelivr main failed:", e2);
+                            try {
+                                // Fallback to unpkg with geojson
+                                flatgeobuf = await import("https://unpkg.com/flatgeobuf@3.31.0/lib/mjs/geojson.js");
+                                console.log("✅ FlatGeobuf loaded from unpkg");
+                            } catch (e3) {
+                                console.warn("unpkg failed:", e3);
+                                try {
+                                    // Fallback to ESM.sh
+                                    flatgeobuf = await import("https://esm.sh/flatgeobuf@3.31.0/lib/mjs/geojson");
+                                    console.log("✅ FlatGeobuf loaded from esm.sh");
+                                } catch (e4) {
+                                    console.error("❌ Failed to load FlatGeobuf from any CDN:", e4);
+                                    throw new Error("Failed to load FlatGeobuf library from CDN: " + e4.message);
+                                }
+                            }
                         }
                     }
+                    
+                    // Store globally for reuse
+                    console.log("FlatGeobuf module loaded, available exports:", Object.keys(flatgeobuf));
+                    window.flatgeobuf = flatgeobuf;
+                    window.__flatgeobufLoading = false;
+                    
+                    // Trigger streaming for all pending requests
+                    window.dispatchEvent(new CustomEvent('flatgeobuf-streaming-ready'));
+                } catch (error) {
+                    console.error("❌ FlatGeobuf streaming setup error:", error);
+                    window.__flatgeobufLoading = false;
+                    window.dispatchEvent(new CustomEvent('flatgeobuf-streaming-error', { detail: error }));
                 }
-            }
+            `;
             
-            // Store globally for reuse
-            console.log("FlatGeobuf module loaded, available exports:", Object.keys(flatgeobuf));
-            window.flatgeobuf = flatgeobuf;
+            // Handle script errors
+            script.onerror = function(error) {
+                _LOG("❌ Failed to load FlatGeobuf library script for streaming");
+                window.__flatgeobufLoading = false;
+                window.dispatchEvent(new CustomEvent('flatgeobuf-streaming-error', { detail: error }));
+            };
             
-            // Trigger streaming
-            window.dispatchEvent(new CustomEvent('flatgeobuf-streaming-ready'));
-        `;
+            document.body.appendChild(script);
+        }
         
-        // Listen for successful load
+        // Listen for successful load - use captured values from closure
         const loadHandler = function() {
-            const url = window.__pendingFgbStreamUrl;
-            const options = window.__pendingFgbStreamOpt;
-            
-            // Clean up
-            delete window.__pendingFgbStreamUrl;
-            delete window.__pendingFgbStreamOpt;
             window.removeEventListener('flatgeobuf-streaming-ready', loadHandler);
-            document.body.removeChild(script);
             
-            // Stream the data
-            __this.__streamFlatGeobufWithLib(url, options);
+            // Use captured values from closure to avoid race conditions
+            __this.__streamFlatGeobufWithLib(capturedUrl, capturedOpt);
         };
         
-        window.addEventListener('flatgeobuf-streaming-ready', loadHandler);
-        
-        // Handle errors
-        script.onerror = function(error) {
-            _LOG("❌ Failed to load FlatGeobuf library for streaming");
-            window.removeEventListener('flatgeobuf-streaming-ready', loadHandler);
+        // Listen for errors
+        const errorHandler = function(event) {
+            window.removeEventListener('flatgeobuf-streaming-error', errorHandler);
             
-            if (typeof opt !== "undefined" && opt.error) {
-                opt.error("Failed to load FlatGeobuf library from CDN");
+            if (typeof capturedOpt !== "undefined" && capturedOpt.error) {
+                capturedOpt.error("Failed to load FlatGeobuf library from CDN: " + (event.detail ? event.detail.message : "Unknown error"));
             } else {
                 _alert("Failed to load FlatGeobuf library from CDN");
             }
         };
         
-        document.body.appendChild(script);
+        window.addEventListener('flatgeobuf-streaming-ready', loadHandler);
+        window.addEventListener('flatgeobuf-streaming-error', errorHandler);
     };
 
     /**
