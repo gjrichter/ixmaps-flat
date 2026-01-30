@@ -1861,9 +1861,11 @@ $Log: mapapi.js,v $
     };
     /**
      * wrapper, to remove one theme
+     * @param szId the id of the theme
+     * @param fSync if true, remove synchronously (default: false)
      */
-    ixMap.Api.prototype.removeTheme = function (szId) {
-        this.map.Themes.removeTheme(null, szId);
+    ixMap.Api.prototype.removeTheme = function (szId, fSync) {
+        return this.map.Themes.removeTheme(null, szId, fSync);
     };
     /**
      * wrapper, to remove all created themes
@@ -1889,6 +1891,74 @@ $Log: mapapi.js,v $
      */
     ixMap.Api.prototype.setThemeExternalData = function (szThemeId, dataObj, szDataName) {
         this.map.Themes.setExternalData(szThemeId, dataObj, szDataName);
+    };
+    /**
+     * get the current DOM render position of a theme's chartGroup
+     * @param szId the id of the theme
+     * @return the index position in parent container's childNodes, or -1 if not found
+     */
+    ixMap.Api.prototype.getThemeRenderPosition = function (szId) {
+        return this.map.Themes.getThemeRenderPosition(szId);
+    };
+    /**
+     * move a theme to a specific position in the render sequence
+     * @param szId the id of the theme
+     * @param nPosition target position (0 = bottom/back, higher = top/front)
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeToPosition = function (szId, nPosition) {
+        return this.map.Themes.moveThemeToPosition(szId, nPosition);
+    };
+    /**
+     * move a theme one position up (toward front/top)
+     * @param szId the id of the theme
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeUp = function (szId) {
+        return this.map.Themes.moveThemeUp(szId);
+    };
+    /**
+     * move a theme one position down (toward back/bottom)
+     * @param szId the id of the theme
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeDown = function (szId) {
+        return this.map.Themes.moveThemeDown(szId);
+    };
+    /**
+     * move a theme to the front (top of render order)
+     * @param szId the id of the theme
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeToFront = function (szId) {
+        return this.map.Themes.moveThemeToFront(szId);
+    };
+    /**
+     * move a theme to the back (bottom of render order)
+     * @param szId the id of the theme
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeToBack = function (szId) {
+        return this.map.Themes.moveThemeToBack(szId);
+    };
+
+    /**
+     * get the index position of a theme in the themes array
+     * @param szId the id of the theme
+     * @return the index position in themes array, or -1 if not found
+     */
+    ixMap.Api.prototype.getThemeArrayPosition = function (szId) {
+        return this.map.Themes.getThemeIndex(szId);
+    };
+
+    /**
+     * move a theme to a specific position in the themes array
+     * @param szId the id of the theme
+     * @param nPosition target position in themes array (0 = first, higher = later)
+     * @return true if successful, false otherwise
+     */
+    ixMap.Api.prototype.moveThemeToArrayPosition = function (szId, nPosition) {
+        return this.map.Themes.moveThemeToArrayPosition(szId, nPosition);
     };
 
     /**

@@ -2215,7 +2215,10 @@ $Log: mapscript.js,v $
         /** the center of the map relative to the SVG canvas @type point */
         this.mapCanvasCenter = new point(this.mapPosition.x + this.bBox.width / 2, this.mapPosition.y + this.bBox.height / 2);
 
-        this.setCanvasSize(0, 0, window.innerWidth, window.innerHeight, "center");
+        // Use actual container dimensions instead of maximum screen width
+        // This ensures Lambert and Albers projections center correctly on the target area
+        var containerDims = this.getContainerDimensions();
+        this.setCanvasSize(0, 0, containerDims.width, containerDims.height, "center");
     };
 
     ixMap.Scale.prototype = new ixMap();
@@ -2888,7 +2891,10 @@ $Log: mapscript.js,v $
         /** the center of the map relative to the SVG canvas @type point */
         this.mapCanvasCenter = new point(this.mapPosition.x + this.bBox.width / 2, this.mapPosition.y + this.bBox.height / 2);
 
-        this.setCanvasSize(0, 0, window.innerWidth, window.innerHeight, "center");
+        // Use actual container dimensions instead of maximum screen width
+        // This ensures Lambert and Albers projections center correctly on the target area
+        var containerDims = this.getContainerDimensions();
+        this.setCanvasSize(0, 0, containerDims.width, containerDims.height, "center");
     };
     /**
      * set new map extension in screen coordinates
@@ -3594,6 +3600,93 @@ $Log: mapscript.js,v $
             return window.innerHeight * (windowRatio / SVGRatio);
         }
         return map.SVGHeight;
+    };
+    /**
+     * Get the actual container dimensions (map-div) that hosts the SVG map.
+     * This is used to ensure projections center correctly relative to the visible map area,
+     * not the maximum screen width. Returns container dimensions when available, otherwise falls back to window dimensions.
+     * @returns {Object} {width: number, height: number} Container dimensions in pixels
+     */
+    ixMap.Scale.prototype.getContainerDimensions = function () {
+        // Try to get dimensions from the actual SVG container element (most reliable)
+        if (map.SVGRootElement) {
+            try {
+                // Try parent element first (the HTML container)
+                var container = map.SVGRootElement.parentElement;
+                if (container) {
+                    var containerWidth = container.clientWidth || container.offsetWidth;
+                    var containerHeight = container.clientHeight || container.offsetHeight;
+                    if (containerWidth > 0 && containerHeight > 0) {
+                        return { width: containerWidth, height: containerHeight };
+                    }
+                }
+                // If parent doesn't work, try the SVG element's own dimensions
+                var svgWidth = map.SVGRootElement.clientWidth || map.SVGRootElement.offsetWidth;
+                var svgHeight = map.SVGRootElement.clientHeight || map.SVGRootElement.offsetHeight;
+                if (svgWidth > 0 && svgHeight > 0) {
+                    return { width: svgWidth, height: svgHeight };
+                }
+            } catch (e) {
+                // Fall through to other methods
+            }
+        }
+        
+        // Try to get from embed element if available
+        if (typeof (HTMLDocument) != 'undefined' && HTMLDocument != null && map.szEmbedName) {
+            try {
+                var embed = HTMLDocument.embeds[map.szEmbedName];
+                if (embed) {
+                    var embedWidth = embed.clientWidth;
+                    var embedHeight = embed.clientHeight;
+                    if (embedWidth > 0 && embedHeight > 0) {
+                        return { width: embedWidth, height: embedHeight };
+                    }
+                }
+            } catch (e) {
+                // Fall through
+            }
+        }
+        
+        // Try document.embeds for SVG embedded case
+        if (map.fSVGEmbeded) {
+            try {
+                var svgEmbed = document.embeds["svgMain"];
+                if (svgEmbed) {
+                    var embedWidth = svgEmbed.clientWidth;
+                    var embedHeight = svgEmbed.clientHeight;
+                    if (embedWidth > 0 && embedHeight > 0) {
+                        return { width: embedWidth, height: embedHeight };
+                    }
+                }
+            } catch (e) {
+                // Fall through
+            }
+        }
+        
+        // Try getEmbedWidth/getEmbedHeight - these have logic to get container dimensions
+        // but we need to be careful about circular dependencies
+        try {
+            // Only use getEmbedWidth/Height if map.SVGWidth/Height are already set
+            // (to avoid circular dependency during initialization)
+            if (map.SVGWidth && map.SVGHeight && map.SVGWidth > 0 && map.SVGHeight > 0) {
+                var width = this.getEmbedWidth();
+                var height = this.getEmbedHeight();
+                // Check if they returned actual container dimensions (not just the fallback)
+                // If they're different from map.SVGWidth/Height, they're likely from container
+                if (width > 0 && height > 0 && (width !== map.SVGWidth || height !== map.SVGHeight)) {
+                    return { width: width, height: height };
+                }
+            }
+        } catch (e) {
+            // Fall through to window dimensions
+        }
+        
+        // Final fallback: use window dimensions (but this is what we're trying to avoid for projections)
+        // This should only happen during very early initialization
+        return {
+            width: window.innerWidth || 1024,
+            height: window.innerHeight || 768
+        };
     };
     /**
      * returns the scaling by the embedding document (HTML,PDF). the aspect ratio of the map is preserved, so only one scaling factor is needed

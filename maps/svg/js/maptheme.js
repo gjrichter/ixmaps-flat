@@ -615,6 +615,125 @@ $Log: maptheme.js,v $
 
 	];
 
+	// ============================================================================
+	// Security: Safe property access helper functions
+	// ============================================================================
+	var __safeGetProperty = function(obj, propName) {
+		// Validate property name contains only safe characters
+		if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(propName)) {
+			throw new Error("Invalid property name: " + propName);
+		}
+		return obj && obj.hasOwnProperty(propName) ? obj[propName] : undefined;
+	};
+
+	var __safeGetGlobalObject = function(globalName) {
+		// Validate global name contains only safe characters
+		if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(globalName)) {
+			throw new Error("Invalid global object name: " + globalName);
+		}
+		// Use bracket notation instead of eval
+		if (typeof window !== 'undefined' && window.hasOwnProperty(globalName)) {
+			return window[globalName];
+		}
+		if (typeof global !== 'undefined' && global.hasOwnProperty(globalName)) {
+			return global[globalName];
+		}
+		return undefined;
+	};
+
+	// ============================================================================
+	// Security: Safe regex escape function
+	// ============================================================================
+	var __escapeRegex = function(str) {
+		if (typeof str !== 'string') {
+			str = String(str);
+		}
+		// Escape all regex special characters
+		return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	};
+
+	var __safeRegexMatch = function(value, pattern, caseSensitive) {
+		try {
+			var flags = caseSensitive ? 'g' : 'gi';
+			// Escape the pattern to prevent regex injection
+			var escapedPattern = __escapeRegex(pattern);
+			var regex = new RegExp(escapedPattern, flags);
+			return regex.test(value);
+		} catch (e) {
+			// If regex construction fails, return false
+			return false;
+		}
+	};
+
+	var __safeRegexMatchIn = function(value, filterValue) {
+		try {
+			// For IN operator, we need to check if value is in the filter list
+			// Filter value format: (val1,val2,val3) or (val1, val2, val3)
+			var escapedValue = __escapeRegex(value);
+			// Check if value appears in the filter list
+			var regex = new RegExp('\\(' + escapedValue + '\\,|\\(' + escapedValue + '\\)|\\,' + escapedValue + '\\,|\\,' + escapedValue + '\\)', 'i');
+			return regex.test(filterValue);
+		} catch (e) {
+			return false;
+		}
+	};
+
+	// ============================================================================
+	// Security: HTML/Attribute escaping
+	// ============================================================================
+	var __escapeHtml = function(str) {
+		if (typeof str !== 'string') {
+			str = String(str);
+		}
+		var map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#x27;',
+			'/': '&#x2F;'
+		};
+		return str.replace(/[&<>"'\/]/g, function(m) { return map[m]; });
+	};
+
+	var __escapeAttribute = function(str) {
+		// Escape single quotes for use in attribute values
+		if (typeof str !== 'string') {
+			str = String(str);
+		}
+		return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+	};
+
+	// ============================================================================
+	// Security: Safe JSON parsing (prevents prototype pollution)
+	// ============================================================================
+	var __safeJsonParse = function(jsonString) {
+		try {
+			var parsed = JSON.parse(jsonString);
+			// Check for prototype pollution attempts
+			if (parsed && typeof parsed === 'object') {
+				// Remove dangerous keys that could be used for prototype pollution
+				if ('__proto__' in parsed) {
+					delete parsed.__proto__;
+				}
+				// Remove constructor key to prevent prototype pollution
+				// (constructor.prototype manipulation is a common attack vector)
+				if ('constructor' in parsed) {
+					delete parsed.constructor;
+				}
+				// Recursively check nested objects
+				for (var key in parsed) {
+					if (parsed.hasOwnProperty(key) && typeof parsed[key] === 'object' && parsed[key] !== null) {
+						parsed[key] = __safeJsonParse(JSON.stringify(parsed[key]));
+					}
+				}
+			}
+			return parsed;
+		} catch (e) {
+			console.error("JSON parse error: " + e.message);
+			return null;
+		}
+	};
 
 	function __maptheme_getOneStyleProperty(styleObj, szProperty, szType, szDelimiter) {
 
@@ -721,6 +840,12 @@ $Log: maptheme.js,v $
 		this.autoHideInfoTools = false;
 		/** array to hold the loaded data sources, for caching **/
 		this.themeDataCacheA = [];
+		/** timeout for debouncing WMS layer redraws **/
+		this.__wmsRedrawTimeout = null;
+		/** timeout for debouncing actualize() calls **/
+		this.__actualizeTimeout = null;
+		/** last nZoomChangeFactor parameter for debounced actualize **/
+		this.__lastActualizeParam = null;
 	};
 
 	ixMap.Themes.prototype = new Map();
@@ -1129,7 +1254,7 @@ $Log: maptheme.js,v $
 				mapTheme.fillOpacity = 0;
 			}
 			if (__isdef(styleObj.shadow)) {
-				mapTheme.fShadow = mapTheme.fOrigShadow = JSON.parse(styleObj.shadow);
+				mapTheme.fShadow = mapTheme.fOrigShadow = __safeJsonParse(styleObj.shadow);
 			} else {
 				mapTheme.fShadow = mapTheme.fOrigShadow = false;
 			}
@@ -1178,7 +1303,7 @@ $Log: maptheme.js,v $
 				mapTheme.szSelectionField2 = styleObj.lookupfield2;
 			}
 			if (__isdef(styleObj.lookuptoupper)) {
-				mapTheme.fSelectionFieldToUpper = JSON.parse(styleObj.lookuptoupper);
+				mapTheme.fSelectionFieldToUpper = __safeJsonParse(styleObj.lookuptoupper);
 			}
 			if (__isdef(styleObj.lookupsuffix)) {
 				mapTheme.szSelectionFieldSuffix = styleObj.lookupsuffix;
@@ -1190,7 +1315,7 @@ $Log: maptheme.js,v $
 				mapTheme.nSelectionFieldDigits = Number(styleObj.lookupdigits);
 			}
 			if (__isdef(styleObj.lookuptonumber)) {
-				mapTheme.fSelectionFieldToNumber = JSON.parse(styleObj.lookuptonumber);
+				mapTheme.fSelectionFieldToNumber = __safeJsonParse(styleObj.lookuptonumber);
 			}
 			if (__isdef(styleObj.crsutmzone)) {
 				mapTheme.szCRSUTMZone = styleObj.crsutmzone;
@@ -1368,13 +1493,13 @@ $Log: maptheme.js,v $
 				mapTheme.nHighValue = styleObj.highvalue;
 			}
 			if (__isdef(styleObj.showdata)) {
-				mapTheme.fShowData = JSON.parse(styleObj.showdata);
+				mapTheme.fShowData = __safeJsonParse(styleObj.showdata);
 			}
 			if (__isdef(styleObj.datacache)) {
-				mapTheme.fDataCache = JSON.parse(styleObj.datacache);
+				mapTheme.fDataCache = __safeJsonParse(styleObj.datacache);
 			}
 			if (__isdef(styleObj.editor)) {
-				mapTheme.fEditor = JSON.parse(styleObj.editor);
+				mapTheme.fEditor = __safeJsonParse(styleObj.editor);
 			}
 			if (__isdef(styleObj.datafields)) {
 				mapTheme.szDataFieldsA = this.toArray(styleObj.datafields);
@@ -1746,7 +1871,7 @@ $Log: maptheme.js,v $
 			}
 			// GR 13.12.2022 layer hidden ?
 			if (__isdef(styleObj.visible)) {
-				mapTheme.fVisible = JSON.parse(styleObj.visible);
+				mapTheme.fVisible = __safeJsonParse(styleObj.visible);
 				//mapTheme.fHide = !mapTheme.fVisible;
 			}
 		}
@@ -1813,9 +1938,20 @@ $Log: maptheme.js,v $
 
 		// GR 09.01.2022 get original values to save or share theme
 		themeObj.field = origObj.field;
-		themeObj.style.values = origObj.style.values;
-		themeObj.style.label = origObj.style.label;
-		themeObj.style.xaxis = origObj.style.xaxis;
+		// Only restore values/label/xaxis from origObj if they exist
+		// Otherwise keep the values extracted by __maptheme_getStyleObj from the MapTheme instance
+		// This prevents losing values/label that were set via changeThemeStyle after theme creation
+		if (origObj && origObj.style) {
+			if (__isdef(origObj.style.values)) {
+				themeObj.style.values = origObj.style.values;
+			}
+			if (__isdef(origObj.style.label)) {
+				themeObj.style.label = origObj.style.label;
+			}
+			if (__isdef(origObj.style.xaxis)) {
+				themeObj.style.xaxis = origObj.style.xaxis;
+			}
+		}
 
 		var style = themeObj.style;
 		var first = null;
@@ -1964,9 +2100,18 @@ $Log: maptheme.js,v $
 	 * @parameter szId the id of the map theme to retrieve
 	 */
 	ixMap.Themes.prototype.getTheme = function (szId) {
-		if (!szId || (typeof (szId) != 'string')) {
+
+		if (!szId) {
 			return this.activeTheme;
 		}
+
+		// GR 27.08.2022 theme 0,1,2,...
+		if (szId && (typeof (szId) != 'string')) {
+			if (!isNaN(Number(szId)) && (Number(szId) < this.themesA.length)) {
+				return this.themesA[Number(szId)];
+			}
+		}
+
 		szId = szId.split(":")[0];
 		for (var i = 0; i < this.themesA.length; i++) {
 			if (this.themesA[i].szId == szId) {
@@ -1991,6 +2136,65 @@ $Log: maptheme.js,v $
 				return i;
 			}
 		}
+		return -1;
+	};
+	
+	/**
+	 * move a theme to a specific position in the themes array
+	 * @parameter szId the id of the theme
+	 * @parameter nPosition target position in themes array (0 = first, higher = later)
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeToArrayPosition = function (szId, nPosition) {
+		var mapTheme = this.getTheme(szId);
+		if (!mapTheme) {
+			console.log("moveThemeToArrayPosition: Theme not found: " + szId);
+			return false;
+		}
+		
+		var currentIndex = this.getThemeIndex(szId);
+		if (currentIndex === -1) {
+			console.log("moveThemeToArrayPosition: Theme not found in array: " + szId);
+			return false;
+		}
+		
+		// Clamp position to valid range
+		if (nPosition < 0) {
+			nPosition = 0;
+		}
+		if (nPosition >= this.themesA.length) {
+			nPosition = this.themesA.length - 1;
+		}
+		
+		// If already at target position, nothing to do
+		if (currentIndex === nPosition) {
+			console.log("moveThemeToArrayPosition: Theme already at position", nPosition);
+			return true;
+		}
+		
+		console.log("moveThemeToArrayPosition: Moving theme", szId, "from index", currentIndex, "to index", nPosition);
+		
+		// Remove theme from current position
+		var theme = this.themesA[currentIndex];
+		
+		// Shift elements to fill the gap
+		if (currentIndex < nPosition) {
+			// Moving forward: shift elements backward
+			for (var i = currentIndex; i < nPosition; i++) {
+				this.themesA[i] = this.themesA[i + 1];
+			}
+		} else {
+			// Moving backward: shift elements forward
+			for (var i = currentIndex; i > nPosition; i--) {
+				this.themesA[i] = this.themesA[i - 1];
+			}
+		}
+		
+		// Insert theme at new position
+		this.themesA[nPosition] = theme;
+		
+		console.log("moveThemeToArrayPosition: Theme moved successfully");
+		return true;
 	};
 	/**
 	 * refresh a MapTheme 
@@ -2018,6 +2222,13 @@ $Log: maptheme.js,v $
 			mapTheme.fRealize = true;
 			// but keep existing charts, don't make them twice !
 			mapTheme.fRedraw = true;
+
+			// refresh of FEARTURE themes must clear the shapes in the FEATURE group
+			// we use the flag fClearOnProjectionChange allready handled by theme draw
+			// to clear the existing shapes just befor redraw to avoid flicker
+			if (mapTheme.szFlag.match(/FEATURE/)){
+				mapTheme.fClearOnProjectionChange = true;
+			}
 
 			if (!map.fAllIncluded) {
 				if (mapTheme.coTable) {
@@ -2104,8 +2315,13 @@ $Log: maptheme.js,v $
 		if (szData) {
 			var szMessage = map.Dictionary.getLocalText("... creating theme ...");
 			if (fRefresh) {
-				if ((eval("typeof(" + szData + ")")) != "undefined") {
-					eval(szData + ".table = null");
+				try {
+					var dataObj = __safeGetGlobalObject(szData);
+					if (dataObj !== undefined && dataObj.table) {
+						dataObj.table = null;
+					}
+				} catch (e) {
+					// Silently fail if data object not found or invalid name
 				}
 				szMessage = map.Dictionary.getLocalText("... refreshing theme ...");
 			}
@@ -2114,11 +2330,18 @@ $Log: maptheme.js,v $
 			// old one: data_table = {} and new one: data.table = {}
 			this.__test = null;
 			try {
-				eval("this.__test = " + szData + ".table");
+				var dataObj = __safeGetGlobalObject(szData);
+				if (dataObj && dataObj.table) {
+					this.__test = dataObj.table;
+				} else {
+					// Try alternative format: data_table
+					var altDataObj = __safeGetGlobalObject(szData + "_table");
+					if (altDataObj) {
+						this.__test = altDataObj;
+					}
+				}
 			} catch (e) {
-				try {
-					eval("this.__test = " + szData + "_table");
-				} catch (e) { }
+				// Silently fail if data not found
 			}
 
 			// load data if data object not found
@@ -2236,7 +2459,14 @@ $Log: maptheme.js,v $
 		// export argument dataObj, necessary for javascript compressin by Google Code Compiler 
 		if (dataObj) {
 			this._dataObj = dataObj;
-			eval("window." + szDataName + " = this._dataObj");
+			try {
+				// Use safe property access instead of eval
+				if (typeof window !== 'undefined' && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(szDataName)) {
+					window[szDataName] = this._dataObj;
+				}
+			} catch (e) {
+				console.error("Error setting window property: " + e.message);
+			}
 		}
 		// remove flag that bloks the theme execution (because we were waiting for the data)
 		this.fWaitforData = false;
@@ -2316,31 +2546,360 @@ $Log: maptheme.js,v $
 	 * remove a MapTheme 
 	 * @parameter evt the event
 	 * @parameter szId the id of the theme
+	 * @parameter fSync if true, remove synchronously (default: false for backward compatibility)
 	 */
-	ixMap.Themes.prototype.removeTheme = function (evt, szId) {
+	ixMap.Themes.prototype.removeTheme = function (evt, szId, fSync) {
+		if (!szId) {
+			if (evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+			}
+			return false;
+		}
+		
+		// Normalize ID (split by : to handle suffixes)
+		var szIdNormalized = String(szId).split(":")[0];
+		
+		
+		// Find the theme by exact match (don't use getTheme as it has fallback to activeTheme)
+		var mapTheme = null;
+		var matchIndex = -1;
 		for (var i = 0; i < this.themesA.length; i++) {
-			if ((this.themesA[i].szId === szId) || (this.themesA[i].szName === szId)) {
-				var mapTheme = this.themesA[i];
-				if (mapTheme.szFlag.match(/LOCKED/)) {
-					continue;
-				}
-				if (mapTheme.szFlag.match(/CHART/)) {
-					mapTheme.fToggle = true;
-				}
-				mapTheme.fRemove = true;
-				executeWithMessage(() => map.Themes.execute(), "... processing ...");
+			var theme = this.themesA[i];
+			// Check both szId and szName for matching
+			var themeIdNormalized = theme.szId ? String(theme.szId).split(":")[0] : null;
+			var themeNameNormalized = theme.szName ? String(theme.szName).split(":")[0] : null;
+			
+			
+			if ((themeIdNormalized && themeIdNormalized == szIdNormalized) || 
+			    (themeNameNormalized && themeNameNormalized == szIdNormalized)) {
+				mapTheme = theme;
+				matchIndex = i;
+				break; // Stop at first exact match
 			}
 		}
+		
+		// Also handle numeric index (0, 1, 2, ...)
+		if (!mapTheme && !isNaN(Number(szIdNormalized)) && Number(szIdNormalized) < this.themesA.length) {
+			mapTheme = this.themesA[Number(szIdNormalized)];
+			matchIndex = Number(szIdNormalized);
+		}
+		
+		if (!mapTheme) {
+			if (evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+			}
+			return false;
+		}
+		
+		// Verify we have the correct theme (double-check the match)
+		var themeIdMatch = mapTheme.szId && String(mapTheme.szId).split(":")[0] == szIdNormalized;
+		var themeNameMatch = mapTheme.szName && String(mapTheme.szName).split(":")[0] == szIdNormalized;
+		if (!themeIdMatch && !themeNameMatch && !(!isNaN(Number(szIdNormalized)) && Number(szIdNormalized) < this.themesA.length)) {
+			if (evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+			}
+			return false;
+		}
+		
+		
+		// Check if theme is locked
+		if (mapTheme.szFlag && mapTheme.szFlag.match(/LOCKED/)) {
+			if (evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+			}
+			return false;
+		}
+		
+		// Synchronous removal: directly call removal logic
+		if (fSync) {
+			if ((this.themesA.length > 1) && !mapTheme.szFlag.match(/SELECTION/) && !mapTheme.szFlag.match(/CHART/)) {
+				this.activateNextPaint(mapTheme);
+			}
+			mapTheme.removeElements();
+			this.remove(mapTheme);
+			this.reformat();
+			if (evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+			}
+			return true;
+		}
+		
+		// Asynchronous removal (default behavior for backward compatibility)
+		// Handle CHART themes (they need to be toggled first in async mode)
+		if (mapTheme.szFlag && mapTheme.szFlag.match(/CHART/)) {
+			mapTheme.fToggle = true;
+		}
+		mapTheme.fRemove = true;
+		executeWithMessage(() => map.Themes.execute(), "... processing ...");
+		
 		if (evt) {
 			evt.stopPropagation();
 			evt.preventDefault();
 		}
+		return true;
 	};
+	/**
+	 * get the current DOM render position of a theme's chartGroup
+	 * @parameter szId the id of the theme
+	 * @return the index position in parent container's childNodes, or -1 if not found
+	 */
+	ixMap.Themes.prototype.getThemeRenderPosition = function (szId) {
+		console.log("getThemeRenderPosition: Called with szId =", szId);
+		
+		var mapTheme = this.getTheme(szId);
+		if (!mapTheme) {
+			console.log("getThemeRenderPosition: Theme not found for szId =", szId);
+			return -1;
+		}
+		console.log("getThemeRenderPosition: Theme found - szId =", mapTheme.szId, "szName =", mapTheme.szName);
+		
+		// Theme must have a chartGroup
+		if (!mapTheme.chartGroup) {
+			console.log("getThemeRenderPosition: Theme has no chartGroup");
+			return -1;
+		}
+		console.log("getThemeRenderPosition: chartGroup found:", mapTheme.chartGroup);
+		
+		// Get parent container
+		var parent = mapTheme.chartGroup.parentNode;
+		if (!parent || !parent.childNodes) {
+			console.log("getThemeRenderPosition: No parent or parent has no childNodes");
+			return -1;
+		}
+		console.log("getThemeRenderPosition: Parent found:", parent, "tagName =", parent.tagName);
+		
+		// Find index of chartGroup in parent's childNodes
+		var childNodes = parent.childNodes;
+		console.log("getThemeRenderPosition: Total childNodes in parent:", childNodes.length);
+		
+		// Count element nodes only (for comparison)
+		var elementNodes = [];
+		for (var j = 0; j < childNodes.length; j++) {
+			if (childNodes[j].nodeType === 1) { // Element node
+				elementNodes.push(childNodes[j]);
+			}
+		}
+		console.log("getThemeRenderPosition: Element nodes only:", elementNodes.length);
+		
+		// Find position in all childNodes
+		var positionInAllNodes = -1;
+		for (var i = 0; i < childNodes.length; i++) {
+			if (childNodes[i] === mapTheme.chartGroup) {
+				positionInAllNodes = i;
+				break;
+			}
+		}
+		
+		// Find position in element nodes only
+		var positionInElementNodes = -1;
+		for (var k = 0; k < elementNodes.length; k++) {
+			if (elementNodes[k] === mapTheme.chartGroup) {
+				positionInElementNodes = k;
+				break;
+			}
+		}
+		
+		console.log("getThemeRenderPosition: Position in all childNodes:", positionInAllNodes);
+		console.log("getThemeRenderPosition: Position in element nodes only:", positionInElementNodes);
+		
+		// Log some context about surrounding nodes
+		if (positionInAllNodes >= 0 && positionInAllNodes > 0) {
+			console.log("getThemeRenderPosition: Previous node type:", childNodes[positionInAllNodes - 1].nodeType, 
+				childNodes[positionInAllNodes - 1].nodeType === 1 ? "element (" + childNodes[positionInAllNodes - 1].tagName + ")" : "non-element");
+		}
+		if (positionInAllNodes >= 0 && positionInAllNodes < childNodes.length - 1) {
+			console.log("getThemeRenderPosition: Next node type:", childNodes[positionInAllNodes + 1].nodeType,
+				childNodes[positionInAllNodes + 1].nodeType === 1 ? "element (" + childNodes[positionInAllNodes + 1].tagName + ")" : "non-element");
+		}
+		
+		// Return position in all nodes (current behavior)
+		console.log("getThemeRenderPosition: Returning position:", positionInAllNodes);
+		return positionInAllNodes;
+	};
+	
+	/**
+	 * move a theme to a specific position in the render sequence
+	 * @parameter szId the id of the theme
+	 * @parameter nPosition target position (0 = bottom/back, higher = top/front)
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeToPosition = function (szId, nPosition) {
+		var mapTheme = this.getTheme(szId);
+		if (!mapTheme) {
+			return false;
+		}
+		
+		// Theme must have a chartGroup
+		if (!mapTheme.chartGroup) {
+			return false;
+		}
+		
+		// Get parent container
+		var parent = mapTheme.chartGroup.parentNode;
+		if (!parent) {
+			return false;
+		}
+		
+		// Get all child nodes (as array for easier manipulation)
+		var childNodes = [];
+		for (var i = 0; i < parent.childNodes.length; i++) {
+			if (parent.childNodes[i].nodeType === 1) { // Element node only
+				childNodes.push(parent.childNodes[i]);
+			}
+		}
+		
+		// Find current position
+		var currentIndex = -1;
+		for (var j = 0; j < childNodes.length; j++) {
+			if (childNodes[j] === mapTheme.chartGroup) {
+				currentIndex = j;
+				break;
+			}
+		}
+		
+		if (currentIndex === -1) {
+			return false;
+		}
+		
+		// Clamp position to valid range
+		if (nPosition < 0) {
+			nPosition = 0;
+		}
+		if (nPosition >= childNodes.length) {
+			nPosition = childNodes.length - 1;
+		}
+		
+		// If already at target position, do nothing
+		if (currentIndex === nPosition) {
+			return true;
+		}
+		
+		// Remove from current position
+		parent.removeChild(mapTheme.chartGroup);
+		
+		// Insert at target position
+		// After removal, we need to find the node that should be at nPosition
+		// The childNodes array still has valid node references
+		if (nPosition >= childNodes.length - 1) {
+			// Append to end (front)
+			parent.appendChild(mapTheme.chartGroup);
+		} else {
+			// Find the node that will be at target position after removal
+			// If moving forward (nPosition > currentIndex), target is at nPosition+1 in original array
+			// If moving backward (nPosition < currentIndex), target is at nPosition in original array
+			var targetNodeIndex = nPosition > currentIndex ? nPosition + 1 : nPosition;
+			if (targetNodeIndex < childNodes.length && childNodes[targetNodeIndex] !== mapTheme.chartGroup) {
+				var targetNode = childNodes[targetNodeIndex];
+				// Check if targetNode is still in parent (it should be, but verify)
+				if (targetNode.parentNode === parent) {
+					parent.insertBefore(mapTheme.chartGroup, targetNode);
+				} else {
+					parent.appendChild(mapTheme.chartGroup);
+				}
+			} else {
+				// Fallback: append to end
+				parent.appendChild(mapTheme.chartGroup);
+			}
+		}
+		
+		// GR 21.01.2011 work around to force the browser to re-render 
+		// due to a Chrome error; mixing up chart positions after the re-append
+		if (mapTheme.szFlag && mapTheme.szFlag.match(/CHART/)) {
+			var matrixA = getMatrix(mapTheme.chartGroup);
+			if (matrixA) {
+				setMatrix(mapTheme.chartGroup, matrixA);
+			}
+		}
+		
+		return true;
+	};
+	
+	/**
+	 * move a theme one position up (toward front/top)
+	 * @parameter szId the id of the theme
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeUp = function (szId) {
+		var currentPos = this.getThemeRenderPosition(szId);
+		if (currentPos === -1) {
+			return false;
+		}
+		return this.moveThemeToPosition(szId, currentPos + 1);
+	};
+	
+	/**
+	 * move a theme one position down (toward back/bottom)
+	 * @parameter szId the id of the theme
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeDown = function (szId) {
+		var currentPos = this.getThemeRenderPosition(szId);
+		if (currentPos === -1 || currentPos === 0) {
+			return false;
+		}
+		return this.moveThemeToPosition(szId, currentPos - 1);
+	};
+	
+	/**
+	 * move a theme to the front (top of render order)
+	 * @parameter szId the id of the theme
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeToFront = function (szId) {
+		var mapTheme = this.getTheme(szId);
+		if (!mapTheme || !mapTheme.chartGroup) {
+			return false;
+		}
+		
+		var parent = mapTheme.chartGroup.parentNode;
+		if (!parent) {
+			return false;
+		}
+		
+		// Count element nodes in parent
+		var elementCount = 0;
+		for (var i = 0; i < parent.childNodes.length; i++) {
+			if (parent.childNodes[i].nodeType === 1) {
+				elementCount++;
+			}
+		}
+		
+		// Move to last position (front)
+		return this.moveThemeToPosition(szId, elementCount - 1);
+	};
+	
+	/**
+	 * move a theme to the back (bottom of render order)
+	 * @parameter szId the id of the theme
+	 * @return true if successful, false otherwise
+	 */
+	ixMap.Themes.prototype.moveThemeToBack = function (szId) {
+		return this.moveThemeToPosition(szId, 0);
+	};
+	
 	/**
 	 * remove all map themes
 	 * @parameter evt the event
 	 */
 	ixMap.Themes.prototype.removeAll = function (evt) {
+		// Clear any pending WMS redraw timeout
+		if (this.__wmsRedrawTimeout) {
+			clearTimeout(this.__wmsRedrawTimeout);
+			this.__wmsRedrawTimeout = null;
+		}
+		
+		// Clear any pending actualize timeout
+		if (this.__actualizeTimeout) {
+			clearTimeout(this.__actualizeTimeout);
+			this.__actualizeTimeout = null;
+			this.__lastActualizeParam = null;
+		}
+		
 		for (var i = 0; i < this.themesA.length; i++) {
 			if (!this.themesA[i].szFlag.match(/LOCKED/)) {
 				this.themesA[i].fRemove = !this.themesA[i].fRealize || this.themesA[i].fOutOfScale;
@@ -2447,6 +3006,7 @@ $Log: maptheme.js,v $
 	 */
 	ixMap.Themes.prototype.execute = function () {
 
+		//_TRACE("** ixMap.Themes.execute() >>>");
 
 		var szDisableType = null;
 		var szDisableThemes = null;
@@ -2642,12 +3202,33 @@ $Log: maptheme.js,v $
 			}
 		}
 		if (this.executeCallback) {
-			eval(this.executeCallback);
+			try {
+				// Validate callback is a function or safe string
+				if (typeof this.executeCallback === 'function') {
+					this.executeCallback();
+				} else if (typeof this.executeCallback === 'string') {
+					// Only allow simple function calls, not arbitrary code
+					// Pattern: functionName() or object.method()
+					var safePattern = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*\([^)]*\)$/;
+					if (safePattern.test(this.executeCallback.trim())) {
+						// Use Function constructor instead of eval (slightly safer)
+						var func = new Function('return ' + this.executeCallback)();
+						if (typeof func === 'function') {
+							func();
+						}
+					} else {
+						console.warn("Unsafe callback pattern detected, ignoring: " + this.executeCallback);
+					}
+				}
+			} catch (e) {
+				console.error("Error executing callback: " + e.message);
+			}
 			this.executeCallback = null;
 		}
 
 		clearMessage();
 		clearMessage(1000);
+		//_TRACE("** ixMap.Themes.execute done");
 	};
 	/**
 	 * continue to execute the various actions on the MapTheme, which have been programmized by flags 
@@ -3775,7 +4356,7 @@ $Log: maptheme.js,v $
 						var styleA = styleObj.type.split("|");
 						this.szTempStyle = mapTheme.szFlag;
 						for (var i = 0; i < styleA.length; i++) {
-							if (!eval("this.szTempStyle.match(/" + styleA[i] + "/)")) {
+							if (!__safeRegexMatch(this.szTempStyle, styleA[i], false)) {
 								this.szTempStyle += "|" + styleA[i];
 							}
 						}
@@ -4084,6 +4665,8 @@ $Log: maptheme.js,v $
 				}
 				if (__isdef(styleObj.values)) {
 					var szValuesA = this.toArray(styleObj.values);
+					mapTheme.nStringToValueA = [];
+					mapTheme.nStringToValue = 1;
 					if (szValuesA.length) {
 						// push all values into the value/index array
 						for (var i = 0; i < szValuesA.length; i++) {
@@ -4093,9 +4676,11 @@ $Log: maptheme.js,v $
 					// set values and label from the index array !! 
 					mapTheme.szValuesA = [];
 					mapTheme.szLabelA = [];
+					mapTheme.szOrigLabelA = [];
 					for (i in mapTheme.nStringToValueA) {
 						mapTheme.szValuesA.push(i);
 						mapTheme.szLabelA.push(i);
+						mapTheme.szOrigLabelA.push(i);
 					}
 					mapTheme.fRealize = true;
 				}
@@ -4153,12 +4738,12 @@ $Log: maptheme.js,v $
 				}
 				if (__isdef(styleObj.opacity)) {
 					mapTheme.fOpacity = __calcNewValue(mapTheme.fOpacity, Number(styleObj.opacity), szFlag);
-					mapTheme.autoOpacity = false;
+					mapTheme.autoOpacity = null;
 					mapTheme.fRedraw = true;
 				}
 				if (__isdef(styleObj.fillopacity)) {
 					mapTheme.fillOpacity = __calcNewValue(mapTheme.fillOpacity || ((Number(styleObj.fillopacity) < 1) ? 1 : 0), Number(styleObj.fillopacity), szFlag);
-					mapTheme.autoOpacity = false;
+					mapTheme.autoOpacity = null;
 					mapTheme.fillOpacity = Math.min(Math.max(mapTheme.fillOpacity, 0.001), 1);
 					mapTheme.unpaintMap();
 					mapTheme.fRedraw = true;
@@ -4175,7 +4760,7 @@ $Log: maptheme.js,v $
 					if (styleObj.showdata == "toggle") {
 						mapTheme.fShowData = !mapTheme.fShowData;
 					} else {
-						mapTheme.fShowData = JSON.parse(styleObj.showdata);
+						mapTheme.fShowData = __safeJsonParse(styleObj.showdata);
 					}
 					mapTheme.fRedraw = true;
 				}
@@ -5647,8 +6232,11 @@ $Log: maptheme.js,v $
 				if (newClassRect) {
 					newClassRect.setAttributeNS(szMapNs, "tooltip", mapTheme.szLegendLabelA[i] + " (" + mapTheme.formatValue(mapTheme.partsA[i].nCount) + " " + map.Dictionary.getLocalText("members") + ")");
 					newClassRect.setAttributeNS(szMapNs, "onoverstyle", "fill:" + mapTheme.colorScheme[i] + ";stroke:black;stroke-width:" + map.Scale.normalX(0.5) + ";");
-					newClassRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + mapTheme.szId + "','" + i + "','" + 1 + "')");
-					newClassRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + mapTheme.szId + "')");
+					// Escape all values to prevent XSS
+					var escapedThemeId = __escapeAttribute(mapTheme.szId);
+					var escapedI = __escapeAttribute(String(i));
+					newClassRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + escapedThemeId + "','" + escapedI + "','" + 1 + "')");
+					newClassRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + escapedThemeId + "')");
 				}
 
 				mapTheme.histogram.classRectA[i] = newClassRect;
@@ -5940,10 +6528,88 @@ $Log: maptheme.js,v $
 	};
 
 	/**
-	 * redraw themes ( may be necessary after zoom )
+	 * Debounced WMS layer redraw to prevent excessive updates during rapid zoom/pan
+	 * Clears any pending redraw and schedules a new one after 100ms
+	 */
+	ixMap.Themes.prototype._debouncedRedrawWMS = function () {
+		// Clear existing timeout if any
+		if (this.__wmsRedrawTimeout) {
+			clearTimeout(this.__wmsRedrawTimeout);
+			this.__wmsRedrawTimeout = null;
+		}
+		
+		// Set new timeout
+		this.__wmsRedrawTimeout = setTimeout(() => {
+			// Find all WMS themes and mark for redraw
+			for (var i = 0; i < this.themesA.length; i++) {
+				if (this.themesA[i].szFlag && this.themesA[i].szFlag.match(/WMS/)) {
+					this.themesA[i].fRealize = true;
+				}
+			}
+			
+			// Execute once for all WMS themes
+			executeWithMessage(() => map.Themes.execute(), "...", 0);
+			
+			// Clear timeout variable
+			this.__wmsRedrawTimeout = null;
+		}, 100);
+	};
+
+	/**
+	 * Debounced actualize() to prevent excessive updates during rapid zoom/pan
+	 * Clears any pending actualize and schedules a new one after 100ms
 	 * @parameter nZoomChangeFactor 1 if zoom not! changed
 	 */
-	ixMap.Themes.prototype.actualize = function (nZoomChangeFactor) {
+	ixMap.Themes.prototype._debouncedActualize = function (nZoomChangeFactor) {
+		// Store the parameter (use most recent if multiple calls)
+		this.__lastActualizeParam = nZoomChangeFactor;
+		
+		// Clear existing timeout if any
+		if (this.__actualizeTimeout) {
+			clearTimeout(this.__actualizeTimeout);
+			this.__actualizeTimeout = null;
+		}
+		
+		// Set new timeout
+		this.__actualizeTimeout = setTimeout(() => {
+			// Get the stored parameter
+			var param = this.__lastActualizeParam;
+			
+			// Clear variables
+			this.__actualizeTimeout = null;
+			this.__lastActualizeParam = null;
+			
+			// Call the actual actualize function
+			this._actualize(param);
+		}, 0);
+	};
+
+	/**
+	 * redraw themes ( may be necessary after zoom )
+	 * @parameter nZoomChangeFactor 1 if zoom not! changed
+	 * @parameter immediate if true, execute immediately without debouncing
+	 */
+	ixMap.Themes.prototype.actualize = function (nZoomChangeFactor, immediate) {
+		if (immediate) {
+			// Clear any pending debounced call
+			if (this.__actualizeTimeout) {
+				clearTimeout(this.__actualizeTimeout);
+				this.__actualizeTimeout = null;
+				this.__lastActualizeParam = null;
+			}
+			// Call immediately
+			this._actualize(nZoomChangeFactor);
+		} else {
+			// Use debounced version
+			this._debouncedActualize(nZoomChangeFactor);
+		}
+	};
+
+	/**
+	 * Internal actualize implementation (original actualize logic)
+	 * @parameter nZoomChangeFactor 1 if zoom not! changed
+	 */
+	ixMap.Themes.prototype._actualize = function (nZoomChangeFactor) {
 
 
 		var lastExecutionTime = 0;
@@ -5965,8 +6631,7 @@ $Log: maptheme.js,v $
 				continue;
 			}
 			if (this.themesA[i].szFlag.match(/WMS/)) {
-				this.themesA[i].fRealize = true;
-				executeWithMessage(() => map.Themes.execute(), "...", 100);
+				this._debouncedRedrawWMS();
 				continue;
 			}
 			if (this.themesA[i].szFlag.match(/FEATURE/) && this.themesA[i].szFlag.match(/CLIPTOGEOBOUNDS|CLIPTOVIEW/)) {
@@ -6218,11 +6883,18 @@ $Log: maptheme.js,v $
 			return true;
 		}
 		try {
-			eval("this.dbTable = " + szTableName + ".table");
+			var tableObj = __safeGetGlobalObject(szTableName);
+			if (tableObj && tableObj.table) {
+				this.dbTable = tableObj.table;
+			} else {
+				// Try alternative format: tableName_table
+				var altTableObj = __safeGetGlobalObject(szTableName + "_table");
+				if (altTableObj) {
+					this.dbTable = altTableObj;
+				}
+			}
 		} catch (e) {
-			try {
-				eval("this.dbTable = " + szTableName + "_table");
-			} catch (e) { }
+			// Silently fail if table not found
 		}
 
 		if (this.coTable && !this.dbTable) {
@@ -6232,11 +6904,18 @@ $Log: maptheme.js,v $
 		if (this.dbTable) {
 			
 			try {
-				eval("this.dbFields = " + szTableName + ".fields");
+				var tableObj = __safeGetGlobalObject(szTableName);
+				if (tableObj && tableObj.fields) {
+					this.dbFields = tableObj.fields;
+				} else {
+					// Try alternative format: tableName_fields
+					var altFieldsObj = __safeGetGlobalObject(szTableName + "_fields");
+					if (altFieldsObj) {
+						this.dbFields = altFieldsObj;
+					}
+				}
 			} catch (e) {
-				try {
-					eval("this.dbFields = " + szTableName + "_fields");
-				} catch (e) { }
+				// Silently fail if fields not found
 			}
 			this.dbTable.fields = this.dbFields.length;
 			
@@ -7201,10 +7880,21 @@ $Log: maptheme.js,v $
 		if (this.coTable) {
 			this.__test = null;
 			try {
-				eval("this.__test = " + this.coTable + ".table");
+				var tableObj = __safeGetGlobalObject(this.coTable);
+				if (tableObj && tableObj.table) {
+					this.__test = tableObj.table;
+				} else {
+					var altTableObj = __safeGetGlobalObject(this.coTable + "_table");
+					if (altTableObj) {
+						this.__test = altTableObj;
+					}
+				}
 			} catch (e) {
 				try {
-					eval("this.__test = " + this.coTable + "_table");
+					var altTableObj = __safeGetGlobalObject(this.coTable + "_table");
+					if (altTableObj) {
+						this.__test = altTableObj;
+					}
 				} catch (e) { }
 			}
 			if (!this.__test) {
@@ -7345,7 +8035,15 @@ $Log: maptheme.js,v $
 		this.nMissingRangeCount = 0;
 		//this.nMissingPositionCount = 0;
 		//this.missedA = [];
-		this.nActualFrame = 0;
+		var hasLastBefore = this.szFlag.match(/\bLAST\b/);
+		var hasClip = this.szFlag.match(/\bCLIP\b/);
+		var currentFrame = this.nActualFrame;
+		var wasAtLastFrame = hasClip && this.nClipFrames && (currentFrame === (this.nClipFrames - 1));
+		if ((hasLastBefore || wasAtLastFrame) && hasClip && this.nClipFrames) {
+			this.nActualFrame = this.nClipFrames - 1;
+		} else {
+			this.nActualFrame = 0;
+		}
 
 		var szDrawing = (this.szFlag.match(/VERBOSE/)) ? "drawing" : "";
 
@@ -7558,23 +8256,27 @@ $Log: maptheme.js,v $
 			}, this.nRefreshTimeout);
 		}
 		if (this.szFlag.match(/\bCLIP\b/)) {
+			var hasLast = this.szFlag.match(/\bLAST\b/);
 			if (this.szFlag.match(/\bPAUSE\b/)) {
 				this.removeDefinitionFromFlag("PAUSE");
 				this.fClipPause = true;
 			}
-			if (this.szFlag.match(/\bLAST\b/)) {
+			if (hasLast) {
 				this.removeDefinitionFromFlag("LAST");
 				var last = (this.nClipFrames - 1);
 				setTimeout(function () {
 					map.Themes.setClipFrame(szId, last);
 				}, 10);
 			}
-			if (this.clipTimeout) {
-				clearTimeout(this.clipTimeout);
+			// Only schedule nextClipFrame if LAST is not set - when LAST is set, we want to stay on the last frame
+			if (!hasLast) {
+				if (this.clipTimeout) {
+					clearTimeout(this.clipTimeout);
+				}
+				this.clipTimeout = setTimeout(function () {
+					map.Themes.nextClipFrame(szId);
+				}, (this.nActualFrame ? this.nClipTimeout : 1000));
 			}
-			this.clipTimeout = setTimeout(function () {
-				map.Themes.nextClipFrame(szId);
-			}, (this.nActualFrame ? this.nClipTimeout : 1000));
 		} else {
 			// clearMessage();
 		}
@@ -7590,13 +8292,33 @@ $Log: maptheme.js,v $
 		_LOG("theme done - " + this.szId);
 
 		// GR 16.10.2022 theme type modifier flag to show theme extend now here
+		// For FEATURE themes, delay zoomTo slightly to ensure features are drawn
+		var self = this;
 		if (this.szFlag.match(/SHOW/)) {
 			this.removeDefinitionFromFlag("SHOW");
-			this.zoomTo();
+			if (this.szFlag.match(/FEATURE/)) {
+				setTimeout(function() { 
+					self.zoomTo(); 
+				}, 10);
+			} else {
+				this.zoomTo();
+			}
 		}
 		if (this.szFlag.match(/ZOOMTO/)) {
 			this.removeDefinitionFromFlag("ZOOMTO");
-			this.zoomTo();
+			if (this.szFlag.match(/FEATURE/)) {
+				// For FEATURE themes, wait a bit longer to ensure map is fully rendered and projection is ready
+				setTimeout(function() { 
+					if (map && map.Scale && map.Zoom && map.Scale.getMapCoordinateOfLatLon) {
+						self.zoomTo(); 
+					} else {
+						setTimeout(function() { self.zoomTo(); }, 100);
+					}
+				}, 50);
+			} else {
+				this.zoomTo();
+			}
+		} else {
 		}
 
 		map.Themes.realizeDone(this);
@@ -8297,24 +9019,21 @@ $Log: maptheme.js,v $
 												if (this.__szFilterValue == "*") {
 													result = this.__szValue.length;
 												} else {
-													result = eval("this.__szValue.match(/" + this.__szFilterValue.replace(/\//gi, '\\/') + "/i)");
+													result = __safeRegexMatch(this.__szValue, this.__szFilterValue, false);
 												}
 											} else
 												if (this.__szFilterOp == "NOT") {
-													result = eval("!this.__szValue.match(/" + this.__szFilterValue.replace(/\//gi, '\\/') + "/i)");
+													result = !__safeRegexMatch(this.__szValue, this.__szFilterValue, false);
 												} else
 													if (this.__szFilterOp == "IN") {
-														result = eval("this.__szFilterValue.match(/\\(" + this.__szValue.replace(/\//gi, '\\/') + "\\)/)") ||
-															eval("this.__szFilterValue.match(/\\(" + this.__szValue.replace(/\//gi, '\\/') + "\\,/)") ||
-															eval("this.__szFilterValue.match(/\\," + this.__szValue.replace(/\//gi, '\\/') + "\\,/)") ||
-															eval("this.__szFilterValue.match(/\\," + this.__szValue.replace(/\//gi, '\\/') + "\\)/)");
+														result = __safeRegexMatchIn(this.__szValue, this.__szFilterValue);
 													} else
 														if ((this.__szFilterOp == "BETWEEN")) {
 															result = ((nValue >= Number(this.__szFilterValue)) &&
 																(nValue <= Number(this.__szFilterValue2)));
 														} else {
 															// default operator	
-															result = eval("this.__szValue.match(/" + this.__szFilterValue.replace(/\//gi, '\\/') + "/i)");
+															result = __safeRegexMatch(this.__szValue, this.__szFilterValue, false);
 														}
 				// exec query result
 				if (!result) {
@@ -8326,7 +9045,7 @@ $Log: maptheme.js,v $
 			// match with all row cells
 			// ------------------------
 			this.__szValue = this.objTheme.dbRecords[j].join(' ');
-			if (!eval("this.__szValue.match(/" + this.szFilter + "/i)")) {
+			if (!__safeRegexMatch(this.__szValue, this.szFilter, false)) {
 				return false;
 			}
 		}
@@ -8510,9 +9229,17 @@ $Log: maptheme.js,v $
 		if (this.objTheme.dbTable && szThemeLayer && szThemeLayer.length) {
 			if (this.coTable) {
 				try {
-					eval("this.objTheme.dbRecords = " + this.coTable + ".records");
+					var tableObj = __safeGetGlobalObject(this.coTable);
+					if (tableObj && tableObj.records) {
+						this.objTheme.dbRecords = tableObj.records;
+					} else {
+						var altRecordsObj = __safeGetGlobalObject(this.coTable + "_records");
+						if (altRecordsObj) {
+							this.objTheme.dbRecords = altRecordsObj;
+						}
+					}
 				} catch (e) {
-					eval("this.objTheme.dbRecords = " + this.coTable + "_records");
+					// Silently fail if records not found
 				}
 				if (!this.objTheme.dbRecords) {
 					displayMessage("Data " + this.coTable + " could not be loaded!", 2000, true);
@@ -8520,9 +9247,17 @@ $Log: maptheme.js,v $
 				}
 			} else {
 				try {
-					eval("this.objTheme.dbRecords = " + szThemeLayer + ".records");
+					var layerObj = __safeGetGlobalObject(szThemeLayer);
+					if (layerObj && layerObj.records) {
+						this.objTheme.dbRecords = layerObj.records;
+					} else {
+						var altLayerRecordsObj = __safeGetGlobalObject(szThemeLayer + "_records");
+						if (altLayerRecordsObj) {
+							this.objTheme.dbRecords = altLayerRecordsObj;
+						}
+					}
 				} catch (e) {
-					eval("this.objTheme.dbRecords = " + szThemeLayer + "_records");
+					// Silently fail if records not found
 				}
 			}
 
@@ -8862,9 +9597,17 @@ $Log: maptheme.js,v $
 
 			if (this.coTable) {
 				try {
-					eval("this.objTheme.dbRecords = " + this.coTable + ".records");
+					var tableObj = __safeGetGlobalObject(this.coTable);
+					if (tableObj && tableObj.records) {
+						this.objTheme.dbRecords = tableObj.records;
+					} else {
+						var altRecordsObj = __safeGetGlobalObject(this.coTable + "_records");
+						if (altRecordsObj) {
+							this.objTheme.dbRecords = altRecordsObj;
+						}
+					}
 				} catch (e) {
-					eval("this.objTheme.dbRecords = " + this.coTable + "_records");
+					// Silently fail if records not found
 				}
 				if (!this.objTheme.dbRecords) {
 					displayMessage("Data " + this.coTable + " could not be loaded!", 2000, true);
@@ -8872,9 +9615,17 @@ $Log: maptheme.js,v $
 				}
 			} else {
 				try {
-					eval("this.objTheme.dbRecords = " + szThemeLayer + ".records");
+					var layerObj = __safeGetGlobalObject(szThemeLayer);
+					if (layerObj && layerObj.records) {
+						this.objTheme.dbRecords = layerObj.records;
+					} else {
+						var altLayerRecordsObj = __safeGetGlobalObject(szThemeLayer + "_records");
+						if (altLayerRecordsObj) {
+							this.objTheme.dbRecords = altLayerRecordsObj;
+						}
+					}
 				} catch (e) {
-					eval("this.objTheme.dbRecords = " + szThemeLayer + "_records");
+					// Silently fail if records not found
 				}
 			}
 
@@ -8884,71 +9635,9 @@ $Log: maptheme.js,v $
 			}
 
 			// .............................................
-			// Z O O M T O
-			//
-			// if flag ZOOMTO is set, get bounding box of points 
-			// and zoom the map to the area, then remove ZOOMTO and 
-			// refresh the theme
-			// .............................................
-			if (this.szFlag.match(/ZOOMTO/) || this.szFlag.match(/SHOW/)) {
-				// call once to analyse 
-				this.getSelectionId(szThemeLayer, 0);
-
-				for (j = 0; j < this.objTheme.dbRecords.length; j++) {
-
-					// get the data item position
-					// ---------------------------
-					if (this.fSelection == "UTM") {
-						ptPos = map.Scale.getMapPositionOfUTM(parseFloat(String(this.objTheme.dbRecords[j][this.nSelection_0]).replace(/\,/g, ".")), parseFloat(String(this.objTheme.dbRecords[j][this.nSelection_1]).replace(/\,/g, ".")), this.szCRSDatum, this.szCRSUTMZone);
-					} else
-						if (this.fSelection == "LatLon") {
-							ptPos = map.Scale.getMapPositionOfLatLon(parseFloat(String(this.objTheme.dbRecords[j][this.nSelection_0]).replace(/\,/g, ".")), parseFloat(String(this.objTheme.dbRecords[j][this.nSelection_1]).replace(/\,/g, ".")));
-						} else
-							if (this.fSelection == "Point" ||
-								this.fSelection == "MultiPoint" ||
-								this.fSelection == "LineString" ||
-								this.fSelection == "MultiLineString"
-							) {
-								szId = this.objTheme.dbRecords[j][this.objTheme.nFieldSelectionIndex];
-								var szMA = szId.match(positionRegExp);
-								if (szMA) {
-									ptPos = map.Scale.getMapPositionOfLatLon(parseFloat(szMA[2]), parseFloat(szMA[1]));
-								}
-							} else {
-								szId = this.objTheme.dbRecords[j][this.objTheme.nFieldSelectionIndex];
-								if (this.fSelectionFieldToUpper) {
-									szId = String(szId).toUpperCase();
-								}
-								ptPos = this.getNodePosition(szThemeLayer + "::" + szId);
-							}
-					// Check if ptPos is valid and has x/y properties (can be null for orthographic projection)
-					if (ptPos && ptPos.x !== undefined && ptPos.y !== undefined) {
-						this.itemA[(szThemeLayer + "::" + String(ptPos.x) + ',' + String(ptPos.y))] = {
-							ptPos: ptPos
-						};
-					}
-				}
-
-				// execute zoomto 
-				this.zoomTo();
-				this.itemA = [];
-
-				this.removeDefinitionFromFlag("ZOOMTO");
-				this.removeDefinitionFromFlag("SHOW");
-
-				//this.fContinueLoadAndAggregate = true;
-				//this.continueIndex = j;
-				//this.szThemeLayer = szThemeLayer;
-				//setTimeout(function () {
-				//map.Themes.executeContinue();
-				//}, 1);
-				//return true;
-				//var defObj = map.Themes.getMapThemeDefinitionObj(this.szId);
-				//map.Themes.newThemeObjA = map.Themes.newThemeObjA || [];
-				//map.Themes.newThemeObjA.push(defObj);
-				//setTimeout(function(){map.Themes.newThemeByObj();}, 100);
-				//return;
-			}
+			// Z O O M T O processing removed from here
+			// ZOOMTO is now processed in realize() after items are fully aggregated
+			// and filters are applied, ensuring accurate zoom to visible items
 			// .............................................
 
 
@@ -10788,7 +11477,15 @@ $Log: maptheme.js,v $
 					// create values array  
 					//
 					var nValuesA = [];
-					eval("nValuesA = " + szExactSize + ";");
+					// Use JSON.parse instead of eval for safer array initialization
+					try {
+						nValuesA = __safeJsonParse(szExactSize) || [];
+					} catch (e) {
+						// Fallback: create array with zeros
+						for (var j = 0; j < nExactSize; j++) {
+							nValuesA.push(0);
+						}
+					}
 					//				var nValuesA = [].slice.apply(new Uint8Array(nExactSize));
 
 					var nMinA = [];
@@ -11333,9 +12030,40 @@ $Log: maptheme.js,v $
 
 		// GR 03/02/2024 user defined color function as function name in theme ?
 		try {
-			eval("window.__defineColorScheme = map.HTMLWindow." + this.colorScheme[0]);
-			window.__defineColorScheme(this);
-			eval("window.__defineColorScheme = null");
+			// Use safe property access instead of eval
+			// Allow namespaced paths like "ixmaps.user_colors" (with dots)
+			if (this.colorScheme && this.colorScheme[0] && /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(this.colorScheme[0])) {
+				var colorSchemeFunc = null;
+				
+				// Check if it's a namespaced path (contains dots)
+				if (this.colorScheme[0].indexOf('.') !== -1) {
+					// Resolve namespaced path from window (e.g., "ixmaps.user_colors" -> window.ixmaps.user_colors)
+					var pathParts = this.colorScheme[0].split('.');
+					var obj = window;
+					for (var i = 0; i < pathParts.length; i++) {
+						if (obj && obj[pathParts[i]]) {
+							obj = obj[pathParts[i]];
+						} else {
+							obj = null;
+							break;
+						}
+					}
+					if (obj && typeof obj === 'function') {
+						colorSchemeFunc = obj;
+					}
+				} else {
+					// Direct property access (original behavior)
+					if (map.HTMLWindow && map.HTMLWindow[this.colorScheme[0]]) {
+						colorSchemeFunc = map.HTMLWindow[this.colorScheme[0]];
+					}
+				}
+				
+				if (colorSchemeFunc) {
+					window.__defineColorScheme = colorSchemeFunc;
+					window.__defineColorScheme(this);
+					window.__defineColorScheme = null;
+				}
+			}
 		} catch (e) { }
 
 		if ((this.colorScheme[0]).match(/function||\=\>/)) {
@@ -12428,7 +13156,15 @@ $Log: maptheme.js,v $
 			this.nZeroValueCount = 0;
 			this.nMissingRangeCount = 0;
 			this.nMissingPositionCount = 0;
-			this.nActualFrame = 0;
+			var hasLastBefore2 = this.szFlag.match(/\bLAST\b/);
+			var hasClip2 = this.szFlag.match(/\bCLIP\b/);
+			var currentFrame2 = this.nActualFrame;
+			var wasAtLastFrame2 = hasClip2 && this.nClipFrames && (currentFrame2 === (this.nClipFrames - 1));
+			if ((hasLastBefore2 || wasAtLastFrame2) && hasClip2 && this.nClipFrames) {
+				this.nActualFrame = this.nClipFrames - 1;
+			} else {
+				this.nActualFrame = 0;
+			}
 			setTimeout(function () {
 				map.Themes.executeContinue();
 			}, 1000);
@@ -12550,7 +13286,18 @@ $Log: maptheme.js,v $
 								szEval += "nValue";
 							}
 						}
-						nStrokeWidth = eval(szEval);
+						// Use Function constructor for safer evaluation of mathematical expressions
+						try {
+							// Validate that szEval only contains safe mathematical characters
+							if (/^[0-9+\-*/().\s]*$/.test(szEval)) {
+								var func = new Function('return ' + szEval);
+								nStrokeWidth = func();
+							} else {
+								console.warn("Unsafe expression in nBufferSize evaluation: " + szEval);
+							}
+						} catch (e) {
+							console.error("Error evaluating stroke width: " + e.message);
+						}
 					} else
 						if (this.nBufferSize.match(/value/)) {
 							var nDelta = 100 / (this.nMin + 0.000000001) * (this.nMax - this.nMin);
@@ -13667,7 +14414,7 @@ $Log: maptheme.js,v $
 			var row = item.dbIndex || item.dbIndexA[0];
 			if (szFilter.length) {
 				this.__szValue = objTheme.dbRecords[row].join(' ');
-				if (eval("this.__szValue.match(/" + szFilter.replace(/\//gi, "\\/") + "/i)")) {
+				if (__safeRegexMatch(this.__szValue, szFilter, false)) {
 					return true;
 				}
 			} else {
@@ -14128,58 +14875,448 @@ $Log: maptheme.js,v $
 
 		var pStart = new point(100000, 100000);
 		var pEnd = new point(-100000, -100000);
+		var nValidItems = 0;
 
 		// GR 16.10.2022 zoom to for FEATURE themes
 		// ----------------------------------------
+		// For FEATURE themes (including GeoJSON), calculate bounding box from geometry coordinates
 		if (this.szFlag.match(/FEATURE/)) {
-			var node = map.SVGDocument.getElementById(this.szThemesA[0]);
-			var bBox = map.Dom.getBox(node);
-			map.Zoom.setNewArea(bBox);
+			// Reset counters for FEATURE themes
+			pStart.x = 100000;
+			pStart.y = 100000;
+			pEnd.x = -100000;
+			pEnd.y = -100000;
+			nValidItems = 0;
+			
+			// For GeoJSON features, calculate bounding box from geometry coordinates
+			var geoMinLat = 90, geoMaxLat = -90, geoMinLon = 180, geoMaxLon = -180;
+			var hasGeoBounds = false;
+			if (this.itemA && Object.keys(this.itemA).length > 0 && this.objTheme && this.objTheme.dbRecords) {
+				
+				for (var a in this.itemA) {
+					var item = this.itemA[a];
+					if (item.dbIndex !== undefined && this.objTheme.dbRecords[item.dbIndex]) {
+						var record = this.objTheme.dbRecords[item.dbIndex];
+						var geometryFieldIndex = this.objTheme.nFieldSelectionIndex;
+						
+						if (geometryFieldIndex !== undefined && record[geometryFieldIndex]) {
+							var geometryStr = record[geometryFieldIndex];
+							
+							// Check if it's GeoJSON geometry
+							if (typeof geometryStr === 'string' && geometryStr.match(/coordinates/i)) {
+								try {
+									var geometry = __safeJsonParse(geometryStr);
+									if (geometry && geometry.coordinates) {
+										// Extract bounding box from GeoJSON coordinates
+										var extractBounds = function(coords, type) {
+											if (type === 'Point') {
+												return { minLon: coords[0], maxLon: coords[0], minLat: coords[1], maxLat: coords[1] };
+											} else if (type === 'LineString' || type === 'MultiPoint') {
+												var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+												for (var i = 0; i < coords.length; i++) {
+													var lon = coords[i][0], lat = coords[i][1];
+													minLon = Math.min(minLon, lon);
+													maxLon = Math.max(maxLon, lon);
+													minLat = Math.min(minLat, lat);
+													maxLat = Math.max(maxLat, lat);
+												}
+												return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+											} else if (type === 'Polygon') {
+												var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+												for (var ring = 0; ring < coords.length; ring++) {
+													for (var i = 0; i < coords[ring].length; i++) {
+														var lon = coords[ring][i][0], lat = coords[ring][i][1];
+														minLon = Math.min(minLon, lon);
+														maxLon = Math.max(maxLon, lon);
+														minLat = Math.min(minLat, lat);
+														maxLat = Math.max(maxLat, lat);
+													}
+												}
+												return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+											} else if (type === 'MultiLineString' || type === 'MultiPolygon') {
+												var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+												for (var part = 0; part < coords.length; part++) {
+													var partBounds = extractBounds(coords[part], type === 'MultiLineString' ? 'LineString' : 'Polygon');
+													minLon = Math.min(minLon, partBounds.minLon);
+													maxLon = Math.max(maxLon, partBounds.maxLon);
+													minLat = Math.min(minLat, partBounds.minLat);
+													maxLat = Math.max(maxLat, partBounds.maxLat);
+												}
+												return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+											}
+											return null;
+										};
+										
+										var bounds = extractBounds(geometry.coordinates, geometry.type);
+										if (bounds) {
+											geoMinLat = Math.min(geoMinLat, bounds.minLat);
+											geoMaxLat = Math.max(geoMaxLat, bounds.maxLat);
+											geoMinLon = Math.min(geoMinLon, bounds.minLon);
+											geoMaxLon = Math.max(geoMaxLon, bounds.maxLon);
+											hasGeoBounds = true;
+											nValidItems++;
+										}
+									}
+								} catch (e) {
+									// Not valid JSON, skip
+								}
+							}
+						}
+					}
+				}
+				
+				// If we have geographic bounds, use doSetMapToGeoBounds for SVG and forward to HTML map
+				if (hasGeoBounds && nValidItems > 0) {
+					// Set fExternalZoom flag to prevent sync loop when HTML map syncs back
+					map.Zoom.fExternalZoom = true;
+					// First set the SVG map bounds (this works correctly)
+					map.Zoom.doSetMapToGeoBounds(geoMinLat, geoMinLon, geoMaxLat, geoMaxLon);
+					// Mark theme for realize to recalculate aggregation after zoom completes
+					// Use a delay to ensure zoom has completed before triggering recalculation
+					setTimeout(function() {
+						try {
+							// Mark this theme for realize to force aggregation recalculation
+							this.fRealize = true;
+							this.themeNodesPosA = []; // Clear position cache
+							// Trigger actualize with a zoom change factor to ensure aggregation logic runs
+							map.Themes.actualize(2); // Use factor > 1 to trigger aggregation recalculation
+						} catch (e) {
+							// Error triggering aggregation recalculation
+						}
+					}.bind(this), 50);
+					// Then forward to parent HTML map to keep maps synchronized
+					// Use a small delay to ensure SVG map is set first
+					setTimeout(function() {
+						try {
+							if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps.htmlMap) {
+								var htmlWindow = map.HTMLWindow;
+								
+								// Set fPendingNewGeoBounds to prevent sync from HTML back to SVG
+								var wasPending = map.fPendingNewGeoBounds;
+								map.fPendingNewGeoBounds = true;
+								
+								// Call htmlMap_setBounds directly by executing it in the HTML window context
+								// This bypasses htmlgui_setCurrentEnvelopeByGeoBounds which would trigger sync back
+								// htmlMap_setBounds is a global function in the HTML window
+								var boundsCode = 'htmlMap_setBounds([{lat: ' + geoMinLat + ', lng: ' + geoMinLon + '}, {lat: ' + geoMaxLat + ', lng: ' + geoMaxLon + '}], true);';
+								try {
+									htmlWindow.eval(boundsCode);
+								} catch (e1) {
+									// Fallback: use htmlgui_setCurrentEnvelopeByGeoBounds
+									// Temporarily allow it by setting fInSVGSync to false
+									var wasInSync = htmlWindow.ixmaps.fInSVGSync;
+									htmlWindow.ixmaps.fInSVGSync = false;
+									var ptSW = new point(geoMinLon, geoMinLat);
+									var ptNE = new point(geoMaxLon, geoMaxLat);
+									htmlWindow.ixmaps.htmlgui_setCurrentEnvelopeByGeoBounds(ptSW, ptNE);
+									htmlWindow.ixmaps.fInSVGSync = true;
+									
+									// Restore fInSVGSync after sync would have completed
+									setTimeout(function() {
+										if (htmlWindow && htmlWindow.ixmaps) {
+											htmlWindow.ixmaps.fInSVGSync = wasInSync;
+										}
+									}, 100);
+								}
+								
+								// Restore fPendingNewGeoBounds after HTML map has been set
+								setTimeout(function() {
+									map.fPendingNewGeoBounds = wasPending;
+									map.Zoom.fExternalZoom = false;
+								}, 200);
+							} else {
+								map.Zoom.fExternalZoom = false;
+							}
+						} catch (e) {
+							map.Zoom.fExternalZoom = false;
+							if (map.fPendingNewGeoBounds !== undefined) {
+								map.fPendingNewGeoBounds = false;
+							}
+						}
+					}, 10);
+					return;
+				}
+			}
+			
+			// Fallback: try to get bounding box from chartGroup child elements
+			if (nValidItems === 0 && this.chartGroup && this.chartGroup.childNodes) {
+				var childNodes = this.chartGroup.childNodes;
+				for (var i = 0; i < childNodes.length; i++) {
+					var childNode = childNodes[i];
+					if (childNode.nodeType === 1) { // ELEMENT_NODE
+						var bBox = map.Dom.getBox(childNode);
+						if (bBox && bBox.width >= 0 && bBox.height >= 0) {
+							var ptOffset = map.Scale.getMapOffset(childNode);
+							bBox.x += ptOffset.x;
+							bBox.y += ptOffset.y;
+							pStart.x = Math.min(pStart.x, bBox.x);
+							pStart.y = Math.min(pStart.y, bBox.y);
+							pEnd.x = Math.max(pEnd.x, bBox.x + bBox.width);
+							pEnd.y = Math.max(pEnd.y, bBox.y + bBox.height);
+							nValidItems++;
+						}
+					}
+				}
+			}
+			
+			// Use bounding box if we found any valid items
+			if (nValidItems > 0 && pStart.x < pEnd.x && pStart.y < pEnd.y && pStart.x !== 100000 && pEnd.x !== -100000) {
+				var allBox = new box(pStart.x, pStart.y, pEnd.x - pStart.x, pEnd.y - pStart.y);
+				allBox.scale(1);
+				allBox = map.Zoom.clipArea(allBox);
+				if (allBox.width > 0 && allBox.height > 0) {
+					map.Zoom.setNewArea(allBox);
+					return;
+				}
+			}
+			
 			return;
+		}
+
+		// Validate that itemA exists and has entries
+		if (!this.itemA || Object.keys(this.itemA).length === 0) {
+			return;
+		}
+
+		// GR 16.10.2022 zoom to for CHART/BUBBLE themes with GeoJSON geometry
+		// ---------------------------------------------------------------------
+		// For CHART/BUBBLE themes that use GeoJSON geometry (not FEATURE themes),
+		// calculate bounding box from geometry coordinates
+		if (this.szFlag.match(/CHART|BUBBLE/) && !this.szFlag.match(/FEATURE/)) {
+			// Check if theme has GeoJSON geometry data
+			var geoMinLat = 90, geoMaxLat = -90, geoMinLon = 180, geoMaxLon = -180;
+			var hasGeoBounds = false;
+			var nGeoValidItems = 0;
+			
+			if (this.itemA && Object.keys(this.itemA).length > 0 && this.objTheme && this.objTheme.dbRecords) {
+				// Find geometry field index
+				var geometryFieldIndex = null;
+				if (this.objTheme.nFieldSelectionIndex !== undefined) {
+					geometryFieldIndex = this.objTheme.nFieldSelectionIndex;
+				} else if (this.objTheme.dbFields) {
+					// Try to find geometry field by name
+					for (var i = 0; i < this.objTheme.dbFields.length; i++) {
+						if (this.objTheme.dbFields[i].id && this.objTheme.dbFields[i].id.toLowerCase().match(/geometry|geom|geo/)) {
+							geometryFieldIndex = i;
+							break;
+						}
+					}
+				}
+				
+				if (geometryFieldIndex !== null) {
+					for (var a in this.itemA) {
+						var item = this.itemA[a];
+						
+						// For aggregated themes, use dbIndexA (array of indices), otherwise use dbIndex
+						var dbIndices = [];
+						if (item.dbIndexA && Array.isArray(item.dbIndexA) && item.dbIndexA.length > 0) {
+							// Aggregated item - use all indices
+							dbIndices = item.dbIndexA;
+						} else if (item.dbIndex !== undefined) {
+							// Non-aggregated item - use single index
+							dbIndices = [item.dbIndex];
+						} else {
+							continue;
+						}
+						
+						// Process all records for this item (could be multiple for aggregated items)
+						for (var idx = 0; idx < dbIndices.length; idx++) {
+							var dbIdx = dbIndices[idx];
+							if (this.objTheme.dbRecords[dbIdx]) {
+								var record = this.objTheme.dbRecords[dbIdx];
+								
+								if (record[geometryFieldIndex]) {
+									var geometryStr = record[geometryFieldIndex];
+									
+									// Check if it's GeoJSON geometry
+									if (typeof geometryStr === 'string' && geometryStr.match(/coordinates/i)) {
+										try {
+											var geometry = __safeJsonParse(geometryStr);
+											if (geometry && geometry.coordinates) {
+												// Extract bounding box from GeoJSON coordinates (reuse extractBounds from FEATURE logic)
+												var extractBounds = function(coords, type) {
+													if (type === 'Point') {
+														return { minLon: coords[0], maxLon: coords[0], minLat: coords[1], maxLat: coords[1] };
+													} else if (type === 'LineString' || type === 'MultiPoint') {
+														var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+														for (var i = 0; i < coords.length; i++) {
+															var lon = coords[i][0], lat = coords[i][1];
+															minLon = Math.min(minLon, lon);
+															maxLon = Math.max(maxLon, lon);
+															minLat = Math.min(minLat, lat);
+															maxLat = Math.max(maxLat, lat);
+														}
+														return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+													} else if (type === 'Polygon') {
+														var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+														for (var ring = 0; ring < coords.length; ring++) {
+															for (var i = 0; i < coords[ring].length; i++) {
+																var lon = coords[ring][i][0], lat = coords[ring][i][1];
+																minLon = Math.min(minLon, lon);
+																maxLon = Math.max(maxLon, lon);
+																minLat = Math.min(minLat, lat);
+																maxLat = Math.max(maxLat, lat);
+															}
+														}
+														return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+													} else if (type === 'MultiLineString' || type === 'MultiPolygon') {
+														var minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+														for (var part = 0; part < coords.length; part++) {
+															var partBounds = extractBounds(coords[part], type === 'MultiLineString' ? 'LineString' : 'Polygon');
+															minLon = Math.min(minLon, partBounds.minLon);
+															maxLon = Math.max(maxLon, partBounds.maxLon);
+															minLat = Math.min(minLat, partBounds.minLat);
+															maxLat = Math.max(maxLat, partBounds.maxLat);
+														}
+														return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+													}
+													return null;
+												};
+												
+												var bounds = extractBounds(geometry.coordinates, geometry.type);
+												if (bounds) {
+													geoMinLat = Math.min(geoMinLat, bounds.minLat);
+													geoMaxLat = Math.max(geoMaxLat, bounds.maxLat);
+													geoMinLon = Math.min(geoMinLon, bounds.minLon);
+													geoMaxLon = Math.max(geoMaxLon, bounds.maxLon);
+													hasGeoBounds = true;
+													nGeoValidItems++;
+												}
+											}
+										} catch (e) {
+											// Not valid JSON, skip
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			// If we have geographic bounds from GeoJSON, use them
+			if (hasGeoBounds && nGeoValidItems > 0) {
+				// Set fExternalZoom flag to prevent sync loop when HTML map syncs back
+				map.Zoom.fExternalZoom = true;
+				// First set the SVG map bounds
+				map.Zoom.doSetMapToGeoBounds(geoMinLat, geoMinLon, geoMaxLat, geoMaxLon);
+				// Mark theme for realize to recalculate aggregation after zoom completes
+				// Use a delay to ensure zoom has completed before triggering recalculation
+					setTimeout(function() {
+						try {
+							// Mark this theme for realize to force aggregation recalculation
+							this.fRealize = true;
+							this.themeNodesPosA = []; // Clear position cache
+							// Trigger actualize with a zoom change factor to ensure aggregation logic runs
+							map.Themes.actualize(2); // Use factor > 1 to trigger aggregation recalculation
+						} catch (e) {
+							// Error triggering aggregation recalculation
+						}
+					}.bind(this), 50);
+				// Then forward to parent HTML map to keep maps synchronized
+				setTimeout(function() {
+					try {
+						if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps.htmlMap) {
+							var htmlWindow = map.HTMLWindow;
+							
+							// Set fPendingNewGeoBounds to prevent sync from HTML back to SVG
+							var wasPending = map.fPendingNewGeoBounds;
+							map.fPendingNewGeoBounds = true;
+							
+							// Call htmlMap_setBounds directly by executing it in the HTML window context
+							var boundsCode = 'htmlMap_setBounds([{lat: ' + geoMinLat + ', lng: ' + geoMinLon + '}, {lat: ' + geoMaxLat + ', lng: ' + geoMaxLon + '}], true);';
+							try {
+								htmlWindow.eval(boundsCode);
+							} catch (e1) {
+								// Fallback: use htmlgui_setCurrentEnvelopeByGeoBounds
+								var wasInSync = htmlWindow.ixmaps.fInSVGSync;
+								htmlWindow.ixmaps.fInSVGSync = false;
+								var ptSW = new point(geoMinLon, geoMinLat);
+								var ptNE = new point(geoMaxLon, geoMaxLat);
+								htmlWindow.ixmaps.htmlgui_setCurrentEnvelopeByGeoBounds(ptSW, ptNE);
+								htmlWindow.ixmaps.fInSVGSync = true;
+								setTimeout(function() {
+									if (htmlWindow && htmlWindow.ixmaps) {
+										htmlWindow.ixmaps.fInSVGSync = wasInSync;
+									}
+								}, 100);
+							}
+							
+							// Restore fPendingNewGeoBounds after HTML map has been set
+							setTimeout(function() {
+								map.fPendingNewGeoBounds = wasPending;
+								map.Zoom.fExternalZoom = false;
+							}, 200);
+						} else {
+							map.Zoom.fExternalZoom = false;
+						}
+					} catch (e) {
+						map.Zoom.fExternalZoom = false;
+						if (map.fPendingNewGeoBounds !== undefined) {
+							map.fPendingNewGeoBounds = false;
+						}
+					}
+				}, 10);
+				return;
+			}
 		}
 
 		if (this.szFlag.match(/CHART/)) {
 			for (var a in this.itemA) {
-				var ptOff = this.itemA[a].ptPos || this.getNodePosition(this.itemA[a].szSelectionId);
-				if (ptOff && ptOff.x && ptOff.y) {
+				var ptOff = this.itemA[a].ptPos || (this.itemA[a].szSelectionId ? this.getNodePosition(this.itemA[a].szSelectionId) : null);
+				if (ptOff && ptOff.x !== undefined && ptOff.y !== undefined && !isNaN(ptOff.x) && !isNaN(ptOff.y)) {
 					pStart.x = Math.min(pStart.x, ptOff.x);
 					pStart.y = Math.min(pStart.y, ptOff.y);
 					pEnd.x = Math.max(pEnd.x, ptOff.x);
 					pEnd.y = Math.max(pEnd.y, ptOff.y);
+					nValidItems++;
 				}
 			}
 		} else {
 			for (var a in this.itemA) {
 				var tilesNodesA = this.getItemNodes(a);
-				for (var j = 0; j < tilesNodesA.length; j++) {
-					var bBox = map.Dom.getBox(tilesNodesA[j]);
-					if (bBox.width === 0 || bBox.height === 0) {
-						var nodeMatrixA = getMatrix(tilesNodesA[j]);
-						bBox.x += nodeMatrixA[4];
-						bBox.y += nodeMatrixA[5];
-						bBox.width = map.Scale.viewBox.width / 20;
-						bBox.height = map.Scale.viewBox.height / 20;
-						bBox.x -= bBox.width / 2;
-						bBox.y -= bBox.height / 2;
+				if (tilesNodesA && tilesNodesA.length > 0) {
+					for (var j = 0; j < tilesNodesA.length; j++) {
+						var bBox = map.Dom.getBox(tilesNodesA[j]);
+						if (bBox.width === 0 || bBox.height === 0) {
+							var nodeMatrixA = getMatrix(tilesNodesA[j]);
+							bBox.x += nodeMatrixA[4];
+							bBox.y += nodeMatrixA[5];
+							bBox.width = map.Scale.viewBox.width / 20;
+							bBox.height = map.Scale.viewBox.height / 20;
+							bBox.x -= bBox.width / 2;
+							bBox.y -= bBox.height / 2;
+						}
+						var ptOffset = map.Scale.getMapOffset(tilesNodesA[j]);
+						bBox.x += ptOffset.x;
+						bBox.y += ptOffset.y;
+						pStart.x = Math.min(pStart.x, bBox.x);
+						pStart.y = Math.min(pStart.y, bBox.y);
+						pEnd.x = Math.max(pEnd.x, bBox.x + bBox.width);
+						pEnd.y = Math.max(pEnd.y, bBox.y + bBox.height);
+						nValidItems++;
 					}
-					var ptOffset = map.Scale.getMapOffset(tilesNodesA[j]);
-					bBox.x += ptOffset.x;
-					bBox.y += ptOffset.y;
-					pStart.x = Math.min(pStart.x, bBox.x);
-					pStart.y = Math.min(pStart.y, bBox.y);
-					pEnd.x = Math.max(pEnd.x, bBox.x + bBox.width);
-					pEnd.y = Math.max(pEnd.y, bBox.y + bBox.height);
 				}
 			}
 		}
+
+		// Only zoom if we have valid items and a valid bounding box
+		if (nValidItems === 0) {
+			return;
+		}
+
+		// Check if bounding box is valid (not still at initial values)
+		if (pStart.x >= pEnd.x || pStart.y >= pEnd.y || pStart.x === 100000 || pEnd.x === -100000) {
+			return;
+		}
+
 		var allBox = new box(pStart.x, pStart.y, pEnd.x - pStart.x, pEnd.y - pStart.y);
 		allBox.scale(1);
 		allBox = map.Zoom.clipArea(allBox);
 
-		if (allBox.width >= 0 && allBox.height >= 0) {
+		if (allBox.width > 0 && allBox.height > 0) {
 			map.Zoom.setNewArea(allBox);
 		}
-
 	};
 
 	// .............................................................................
@@ -14968,7 +16105,43 @@ $Log: maptheme.js,v $
 
 				if (this.userDraw) {
 					this.opt = opt;
-					eval("map.HTMLWindow.ixmaps." + this.userDraw + "_init(map.SVGDocument,this.opt);");
+					// Use safe property access instead of eval
+					// Allow namespaced paths like "ixmaps.user_chart_init" (with dots)
+					try {
+						if (this.userDraw && /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(this.userDraw)) {
+							var initFunc = null;
+							var funcName = this.userDraw + "_init";
+							
+							// Check if it's a namespaced path (contains dots)
+							if (funcName.indexOf('.') !== -1) {
+								// Resolve namespaced path from window (e.g., "ixmaps.user_chart_init" -> window.ixmaps.user_chart_init)
+								var pathParts = funcName.split('.');
+								var obj = window;
+								for (var i = 0; i < pathParts.length; i++) {
+									if (obj && obj[pathParts[i]]) {
+										obj = obj[pathParts[i]];
+									} else {
+										obj = null;
+										break;
+									}
+								}
+								if (obj && typeof obj === 'function') {
+									initFunc = obj;
+								}
+							} else {
+								// Direct property access (original behavior)
+								if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps[funcName]) {
+									initFunc = map.HTMLWindow.ixmaps[funcName];
+								}
+							}
+							
+							if (typeof initFunc === 'function') {
+								initFunc(map.SVGDocument, this.opt);
+							}
+						}
+					} catch (e) {
+						console.error("Error calling userDraw_init: " + e.message);
+					}
 					delete this.opt;
 				} else {
 					map.HTMLWindow.ixmaps.htmlgui_initChart(map.SVGDocument, opt);
@@ -15202,7 +16375,7 @@ $Log: maptheme.js,v $
 				// geojson features 
 				// ------------------------------
 
-				var json = JSON.parse(this.objTheme.dbRecords[this.itemA[a].dbIndex][this.objTheme.nFieldSelectionIndex]);
+				var json = __safeJsonParse(this.objTheme.dbRecords[this.itemA[a].dbIndex][this.objTheme.nFieldSelectionIndex]);
 				if (!json) {
 					continue;
 				}
@@ -16513,10 +17686,13 @@ $Log: maptheme.js,v $
 			for (var i in themes) {
 				if ((themes[i] != this) &&
 					(!themes[i].szFlag.match(/FEATURE/)) &&
-					(themes[i].szThemesA[0] == this.szThemesA[0]) &&
+					(themes[i].szThemesA.includes(this.szThemesA[0])) &&
 					themes[i].fDone) {
 					themes[i].fRealize = true;
 					setTimeout("map.Themes.execute()", 500);
+					if ( themes[i].coTableType == "ext" && themes[i].coTableQuery ){
+						setTimeout("map.Themes.refreshTheme(\""+themes[i].szId+"\")", 500);
+					}
 				}
 			}
 		}
@@ -16600,7 +17776,43 @@ $Log: maptheme.js,v $
 
 				if (this.userDraw) {
 					this.opt = opt;
-					eval("map.HTMLWindow.ixmaps." + this.userDraw + "_finish(map.SVGDocument,this.opt);");
+					// Use safe property access instead of eval
+					// Allow namespaced paths like "ixmaps.user_chart_finish" (with dots)
+					try {
+						if (this.userDraw && /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(this.userDraw)) {
+							var finishFunc = null;
+							var funcName = this.userDraw + "_finish";
+							
+							// Check if it's a namespaced path (contains dots)
+							if (funcName.indexOf('.') !== -1) {
+								// Resolve namespaced path from window (e.g., "ixmaps.user_chart_finish" -> window.ixmaps.user_chart_finish)
+								var pathParts = funcName.split('.');
+								var obj = window;
+								for (var i = 0; i < pathParts.length; i++) {
+									if (obj && obj[pathParts[i]]) {
+										obj = obj[pathParts[i]];
+									} else {
+										obj = null;
+										break;
+									}
+								}
+								if (obj && typeof obj === 'function') {
+									finishFunc = obj;
+								}
+							} else {
+								// Direct property access (original behavior)
+								if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps[funcName]) {
+									finishFunc = map.HTMLWindow.ixmaps[funcName];
+								}
+							}
+							
+							if (typeof finishFunc === 'function') {
+								finishFunc(map.SVGDocument, this.opt);
+							}
+						}
+					} catch (e) {
+						console.error("Error calling userDraw_finish: " + e.message);
+					}
 					delete this.opt;
 				}
 
@@ -17409,7 +18621,42 @@ $Log: maptheme.js,v $
 				this.ptNullUser = null;
 				if (this.userDraw) {
 					this.opt = opt;
-					eval("this.ptNullUser = map.HTMLWindow.ixmaps." + this.userDraw + "(map.SVGDocument,this.opt);");
+					// Use safe property access instead of eval
+					// Allow namespaced paths like "ixmaps.user_chart" (with dots)
+					try {
+						if (this.userDraw && /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(this.userDraw)) {
+							var drawFunc = null;
+							
+							// Check if it's a namespaced path (contains dots)
+							if (this.userDraw.indexOf('.') !== -1) {
+								// Resolve namespaced path from window (e.g., "ixmaps.user_chart" -> window.ixmaps.user_chart)
+								var pathParts = this.userDraw.split('.');
+								var obj = window;
+								for (var i = 0; i < pathParts.length; i++) {
+									if (obj && obj[pathParts[i]]) {
+										obj = obj[pathParts[i]];
+									} else {
+										obj = null;
+										break;
+									}
+								}
+								if (obj && typeof obj === 'function') {
+									drawFunc = obj;
+								}
+							} else {
+								// Direct property access (original behavior)
+								if (map.HTMLWindow && map.HTMLWindow.ixmaps && map.HTMLWindow.ixmaps[this.userDraw]) {
+									drawFunc = map.HTMLWindow.ixmaps[this.userDraw];
+								}
+							}
+							
+							if (typeof drawFunc === 'function') {
+								this.ptNullUser = drawFunc(map.SVGDocument, this.opt);
+							}
+						}
+					} catch (e) {
+						console.error("Error calling userDraw: " + e.message);
+					}
 					delete this.opt;
 				} else {
 					this.ptNullUser = map.HTMLWindow.ixmaps.htmlgui_drawChart(map.SVGDocument, opt);
@@ -23251,9 +24498,13 @@ $Log: maptheme.js,v $
 					var szRectStyle = classRect.getAttributeNS(null, "style");
 					classRect.setAttributeNS(szMapNs, "onoverstyle", szRectStyle + ";stroke:black;stroke-width:" + map.Scale.normalX(0.5) + ";");
 
-					classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + this.szId + "','" + nIndex + "','" + nStep + "')");
-					classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + this.szId + "')");
-					classRect.setAttributeNS(null, "onclick", "map.Themes.zoomToClass(evt,'" + this.szId + "','" + nIndex + "','" + nStep + "')");
+					// Escape all values to prevent XSS
+					var escapedSzId = __escapeAttribute(this.szId);
+					var escapedNIndex = __escapeAttribute(String(nIndex));
+					var escapedNStep = __escapeAttribute(String(nStep));
+					classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + escapedSzId + "','" + escapedNIndex + "','" + escapedNStep + "')");
+					classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + escapedSzId + "')");
+					classRect.setAttributeNS(null, "onclick", "map.Themes.zoomToClass(evt,'" + escapedSzId + "','" + escapedNIndex + "','" + escapedNStep + "')");
 					classRect.setAttributeNS(null, "id", szDisplayId + ":widget:classrect:" + nIndex);
 				} else if (this.szFlag.match(/SYMBOL/)) {
 					if (this.szFlag.match(/CATEGORICAL/)) {
@@ -23267,8 +24518,12 @@ $Log: maptheme.js,v $
 					} else if (this.nSum) {
 						classRect.setAttributeNS(szMapNs, "tooltip", this.nOrigSumA[nIndex] + " (" + this.formatValue(100 / this.nSum * this.nOrigSumA[nIndex], 1) + " %)");
 					}
-					classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + this.szId + "','" + nIndex + "','" + nStep + "')");
-					classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + this.szId + "')");
+					// Escape all values to prevent XSS
+					var escapedSzId2 = __escapeAttribute(this.szId);
+					var escapedNIndex2 = __escapeAttribute(String(nIndex));
+					var escapedNStep2 = __escapeAttribute(String(nStep));
+					classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + escapedSzId2 + "','" + escapedNIndex2 + "','" + escapedNStep2 + "')");
+					classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + escapedSzId2 + "')");
 				}
 			}
 			// one swatch done 
@@ -23286,8 +24541,11 @@ $Log: maptheme.js,v $
 				nLinePos += nLineHeight * 1.5 / 10;
 				classRect = map.Dom.newShape('rect', legendGroup, 0, map.Scale.normalY(nLinePos), map.Scale.normalX(nSwatchWidth), map.Scale.normalY(nSwatchHeight), "fill:" + (this.szNoDataColor ? this.szNoDataColor : "#ffffff") + ";stroke:#000000;stroke-width:" + map.Scale.normalX(0.1) + ";");
 				classRect.setAttributeNS(szMapNs, "tooltip", this.nNoData + " member(s)");
-				classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + this.szId + "','" + nIndex + "')");
-				classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + this.szId + "')");
+				// Escape all values to prevent XSS
+				var escapedSzId3 = __escapeAttribute(this.szId);
+				var escapedNIndex3 = __escapeAttribute(String(nIndex));
+				classRect.setAttributeNS(null, "onmouseover", "map.Themes.markClass(evt,'" + escapedSzId3 + "','" + escapedNIndex3 + "')");
+				classRect.setAttributeNS(null, "onmouseout", "map.Themes.unmarkClass(evt,'" + escapedSzId3 + "')");
 				newText = map.Dom.newText(legendGroup, map.Scale.normalX(22), map.Scale.normalY(nLinePos + nTextOff), szTextStyle, map.Dictionary.getLocalText("no data"));
 				nLinePos += nLineHeight * 9 / 10;
 			}
@@ -23744,7 +25002,11 @@ $Log: maptheme.js,v $
 					szOrigFlagKeep += "|SPACED";
 				}
 
-				aGroup.setAttributeNS(null, "onclick", "map.Themes.changeThemeStyle(evt,'" + this.szId + "','type:" + szTypeList[i] + szOrigFlagKeep + "')");
+				// Escape all values to prevent XSS
+				var escapedSzId4 = __escapeAttribute(this.szId);
+				var escapedType = __escapeAttribute(szTypeList[i]);
+				var escapedFlag = __escapeAttribute(szOrigFlagKeep);
+				aGroup.setAttributeNS(null, "onclick", "map.Themes.changeThemeStyle(evt,'" + escapedSzId4 + "','type:" + escapedType + escapedFlag + "')");
 
 				this.addChartTypeSign(donutGroup, szTypeList[i]);
 			}
@@ -23817,7 +25079,24 @@ $Log: maptheme.js,v $
 
 		if (this.onremove) {
 			try {
-				eval(this.onremove);
+				// Use safe callback execution similar to executeCallback
+				try {
+					if (typeof this.onremove === 'function') {
+						this.onremove();
+					} else if (typeof this.onremove === 'string') {
+						var safePattern = /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*\([^)]*\)$/;
+						if (safePattern.test(this.onremove.trim())) {
+							var func = new Function('return ' + this.onremove)();
+							if (typeof func === 'function') {
+								func();
+							}
+						} else {
+							console.warn("Unsafe onremove pattern detected, ignoring: " + this.onremove);
+						}
+					}
+				} catch (e) {
+					console.error("Error executing onremove: " + e.message);
+				}
 			} catch (e) { }
 		}
 		// notify HTML user about the new theme
@@ -24148,4 +25427,5 @@ $Log: maptheme.js,v $
 
 // .............................................................................
 // EOF
+// .............................................................................
 // .............................................................................

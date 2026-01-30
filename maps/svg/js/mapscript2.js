@@ -833,8 +833,13 @@ $Log: mapscript2.js,v $
         rectArea.y = rectArea.y * nZoomY + mapCanvas.y;
 
         // new pan position
-        var newX = -(rectArea.x) + map.Scale.bBox.width / 2;
-        var newY = -(rectArea.y) + map.Scale.bBox.height / 2;
+        // Use viewBox dimensions instead of bBox to ensure correct centering relative to actual visible map area
+        // This fixes Lambert and Albers projections centering on the actual container (map-div), not max screen width
+        // viewBox reflects the actual container dimensions, while bBox might be calculated for max screen width
+        var centerWidth = map.Scale.viewBox && map.Scale.viewBox.width > 0 ? map.Scale.viewBox.width : map.Scale.bBox.width;
+        var centerHeight = map.Scale.viewBox && map.Scale.viewBox.height > 0 ? map.Scale.viewBox.height : map.Scale.bBox.height;
+        var newX = -(rectArea.x) + centerWidth / 2;
+        var newY = -(rectArea.y) + centerHeight / 2;
 
         // GR 15.11.2007 respect canvas rotation  
         var pRotated = map.Scale.rotatePoint(new point(newX, newY));
@@ -937,7 +942,8 @@ $Log: mapscript2.js,v $
             var nTop = map.Scale.maxY - map.Scale.minY - (maxBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
             var nBottom = map.Scale.maxY - map.Scale.minY - (minBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
 
-            map.Zoom.setNewArea(new box(nLeft, nTop, nRight - nLeft, nBottom - nTop), 300);
+            this.doArea = new box(nLeft, nTop, nRight - nLeft, nBottom - nTop);
+            map.Zoom.execute();
         } else {
             map.Zoom.doZoomMapToLayer('maplayer');
         }
@@ -1115,6 +1121,46 @@ $Log: mapscript2.js,v $
                 if (map.Scale && typeof map.Scale.getEmbedWidth === 'function' && typeof map.Scale.getEmbedHeight === 'function') {
                     map.Scale.nScaleX = (map.Scale.viewBox.width / map.Scale.getEmbedWidth() * map.Scale.getEmbedScale());
                     map.Scale.nScaleY = (map.Scale.viewBox.height / map.Scale.getEmbedHeight() * map.Scale.getEmbedScale());
+                }
+                
+                // Ensure bBox reflects actual container dimensions for correct centering
+                // This is critical for Lambert and Albers projections to center on the actual visible map area
+                if (map.Scale && map.Scale.viewBox) {
+                    // Update bBox to match viewBox dimensions (which reflect actual container)
+                    // This ensures doCenterMapToArea uses correct dimensions when called
+                    map.Scale.bBox.width = map.Scale.viewBox.width;
+                    map.Scale.bBox.height = map.Scale.viewBox.height;
+                    // Also update mapCanvasCenter to reflect the correct center
+                    map.Scale.mapCanvasCenter = new point(
+                        map.Scale.mapPosition.x + map.Scale.bBox.width / 2,
+                        map.Scale.mapPosition.y + map.Scale.bBox.height / 2
+                    );
+                }
+                
+                // Visually center the map so the projection center aligns with the container center
+                // This is critical: the geographic center (lat0, lon0) must align with the visual center of the map container
+                // For Lambert and Albers, we need to visually center the map after updating projection parameters
+                // Similar to how Orthographic uses doCenterMapToGeoPosition to align projection origin with viewport center
+                var projectionCenterLat = null;
+                var projectionCenterLon = null;
+                if (projectionType === 'lambert' && map.Scale.lastLambertParams) {
+                    projectionCenterLat = map.Scale.lastLambertParams.lat0;
+                    projectionCenterLon = map.Scale.lastLambertParams.lon0;
+                } else if (projectionType === 'albers' && map.Scale.lastAlbersParams) {
+                    projectionCenterLat = map.Scale.lastAlbersParams.lat0;
+                    projectionCenterLon = map.Scale.lastAlbersParams.lon0;
+                }
+                
+                // Visually center the map to align projection center with container center
+                if (projectionCenterLat !== null && projectionCenterLon !== null && map.Zoom && typeof map.Zoom.doCenterMapToGeoPosition === 'function') {
+                    try {
+                        // Use doCenterMapToGeoPosition to visually center the map on the projection center
+                        // This ensures the geographic projection center (lat0, lon0) aligns with the visual center of the container
+                        // The function will handle the coordinate conversion and visual panning
+                        map.Zoom.doCenterMapToGeoPosition(projectionCenterLat, projectionCenterLon);
+                    } catch (e) {
+                        console.warn("Error visually centering " + projectionType + " projection:", e);
+                    }
                 }
                 
                 // Trigger execute asynchronously to avoid blocking
