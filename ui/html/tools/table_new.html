@@ -112,8 +112,91 @@
         ixmaps.tmp = ixmaps.tmp || {};
 
         ixmaps.__showTable = function(){
+            // Set flag to prevent $(document).ready() from initializing again
+            window.__tableInitializedManually = true;
+            
             const data = dataSinks.add(ixmaps.tmp.tableObj,"mytable");
             data.fShowAnalytics = true;
+            
+            // Set map property if theme is associated
+            try {
+                // Try to get map from various locations
+                let map = null;
+                
+                // Try Chat app context first (embeddedSVG.window.map)
+                if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map) {
+                    map = ixmaps.embeddedSVG.window.map;
+                } 
+                // Try window.map
+                else if (window.map) {
+                    map = window.map;
+                } 
+                // Try ixmaps.getMap function
+                else if (typeof ixmaps.getMap === 'function') {
+                    map = ixmaps.getMap();
+                }
+                // Try to get from theme if available
+                else if (ixmaps.tmp && ixmaps.tmp.themeId) {
+                    try {
+                        const themeId = ixmaps.tmp.themeId;
+                        if (typeof ixmaps.getThemeObj === 'function') {
+                            const themeObj = ixmaps.getThemeObj(themeId);
+                            if (themeObj && themeObj.map) {
+                                map = themeObj.map;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                }
+                // Try to get from last theme
+                else if (typeof ixmaps.getThemes === 'function') {
+                    try {
+                        const themes = ixmaps.getThemes();
+                        if (themes && themes.length > 0) {
+                            const themeObj = themes[themes.length - 1];
+                            if (themeObj && themeObj.map) {
+                                map = themeObj.map;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                }
+                
+                if (map) {
+                    data.map = map;
+                    // Also store themeId if available
+                    if (ixmaps.tmp && ixmaps.tmp.themeId) {
+                        data.themeId = ixmaps.tmp.themeId;
+                        console.log('[MAP ROLES] Map and themeId associated with DataSink:', data.themeId);
+                    } else {
+                        // Try to get themeId from last theme
+                        try {
+                            if (typeof ixmaps.getThemes === 'function') {
+                                const themes = ixmaps.getThemes();
+                                if (themes && themes.length > 0) {
+                                    const themeObj = themes[themes.length - 1];
+                                    data.themeId = themeObj.id || themeObj.szId || themeObj.szThemeId || null;
+                                    if (data.themeId) {
+                                        console.log('[MAP ROLES] Map and themeId (from last theme) associated with DataSink:', data.themeId);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore errors
+                        }
+                        if (!data.themeId) {
+                            console.log('[MAP ROLES] Map associated with DataSink (no themeId)');
+                        }
+                    }
+                } else {
+                    console.warn('[MAP ROLES] Could not find map instance');
+                }
+            } catch (e) {
+                console.warn('[MAP ROLES] Could not set map property:', e);
+            }
+            
             const html = data.makeDataTable(500);
             
             $('#ft-data-name').html("");
@@ -129,6 +212,14 @@
         }
 
         $(document).ready(function() {
+            // Skip automatic initialization if __showTable was already called manually
+            // This prevents double initialization when loaded dynamically in Chat app
+            if (window.__tableInitializedManually || window.__skipTableAutoInit) {
+                window.__tableInitializedManually = false; // Reset flag
+                window.__skipTableAutoInit = false; // Reset flag
+                return;
+            }
+            
             // Check if a prepared table object already exists (e.g., from AI query)
             if (ixmaps.tmp && ixmaps.tmp.tableObj && ixmaps.tmp.usePreparedTable) {
                 // Use the prepared table object instead of getting the last theme

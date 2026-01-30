@@ -377,6 +377,8 @@
      * @returns void
     */
     const __config_map_ui = function (opt) {
+        // Ensure opt is always an object, even if undefined
+        opt = opt || {};
 
         $("#map-overlay").css("pointer-events", "none");
         $("#map-overlay").css("width", "100%");
@@ -411,8 +413,8 @@
             } else
             if ((opt.align == "center") ||
                 (opt.align == "top")) {
-                $("#map-legend").appendTo("#map-header");
-                $("#map-header").show();
+                //$("#map-legend").appendTo("#map-header");
+                //$("#map-header").show();
                 //$("#ixmap").css("top", "75px");
                 ixmaps.legendAlign = "center";
                 $(".map-legend").css("position", "relative");
@@ -666,13 +668,22 @@
      * map size, controls, and initial view. It also defines event handlers and themes for the map.
      */
     const __load_map = function (opt, callback) {
+        // Ensure opt is always an object, even if undefined
+        opt = opt || {};
 
         // Map opt.legend to opt.legendState for backward compatibility
         if (opt.legend && !opt.legendState) {
             opt.legendState = opt.legend;
         }
 
-        ixmaps.legendState = (opt.legendState && opt.legendState == "closed") ? 0 : 1;
+        // Default to unfolded (1) if legendState is not defined
+        if (typeof opt.legendState === 'undefined' || opt.legendState === null) {
+            ixmaps.legendState = 1;
+            ixmaps.legendStateExplicitlyClosed = false;
+        } else {
+            ixmaps.legendState = (opt.legendState == "closed") ? 0 : 1;
+            ixmaps.legendStateExplicitlyClosed = (opt.legendState == "closed");
+        }
         
         ixmaps.fMapControls = true;
         let szControls = "small";
@@ -832,6 +843,8 @@
      */
 
     ixmaps.embed = async function (szTargetDiv, opt, callback) {
+        // Ensure opt is always an object, even if undefined
+        opt = opt || {};
 
         console.log("... ixmaps.embed() ---->");
 
@@ -880,6 +893,8 @@
      * @returns {Promise}
      */
     ixmaps.Map = function (szTargetDiv, opt, callback) {
+        // Ensure opt is always an object, even if undefined
+        opt = opt || {};
         console.log("ixmaps.Map() ----> szTargetDiv = " + szTargetDiv + " opt = " + JSON.stringify(opt));
         return ixmaps.embed(szTargetDiv, opt, callback);
     };
@@ -894,10 +909,11 @@
      * @return A new ixmaps.themeApi object
      */
 
-    ixmaps.themeApi = function (szMap, szTheme) {
-        this.szMap = szMap || null;
+    ixmaps.themeApi = function (szTheme) {
+        this.szMap = null;
         this.szTheme = szTheme || null;
         this.obj = ixmaps.getThemeObj(szTheme) || null;
+        this.szTheme = this.obj.szId;
     };
     ixmaps.themeApi.prototype = {
 
@@ -910,7 +926,7 @@
          * @return void
          **/
         changeStyle: function (szStyle, szFlag) {
-            ixmaps.changeThemeStyle(this.szMap, this.szTheme, szStyle, szFlag);
+            ixmaps.changeThemeStyle(this.szTheme, szStyle, szFlag);
         },
         /**
          * mark/highlight theme class

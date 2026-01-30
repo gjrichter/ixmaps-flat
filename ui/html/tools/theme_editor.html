@@ -35,7 +35,7 @@
 	</div>
 
 	<div id="editor-footer" style="margin-left:0.1em">
-		<span style="font-size:0.6em;color:#ddd">powered by ACE Code Editor, Copyright (c) 2010, Ajax.org B.V.</span>
+		<span style="font-size:0.6em;color:#aaa">powered by ACE Code Editor, Copyright (c) 2010, Ajax.org B.V.</span>
 	<div>
 
  
@@ -52,10 +52,7 @@
 		alert("error: missing parent window for themes !");
 	}
      
-	console.log("---------->>>>>")
 	console.log("initialize theme editor");
-	console.log(ixmaps);
-	console.log("---------->>>>>")
 
    	/**************************************************************** 
 	 *
@@ -66,6 +63,7 @@
 	ixmaps.applyEditorTheme = function(){
 
 		console.log("applyEditorTheme");
+		console.log("applyEditorTheme: ixmaps.editor.themeId =", ixmaps.editor ? ixmaps.editor.themeId : "no editor");
 
 		if ( !ixmaps.editor ){
 			ixmaps.parentApi.error("no theme defined!");
@@ -80,14 +78,115 @@
         
         console.log(ixmaps);
 
-		// remove previous theme representation from map
-		ixmaps.embeddedSVG.window.map.Api.removeTheme(ixmaps.editorThemeId);
+		// Use the theme ID that was stored when the editor was opened
+		// This is the theme being edited and must not change
+		// Use editor.themeId from the editor namespace
+		var themeIdToRemove = ixmaps.editor && ixmaps.editor.themeId ? ixmaps.editor.themeId : null;
+		
+		if (!themeIdToRemove) {
+			console.error("applyEditorTheme: No theme ID found (editor.themeId not set) - cannot remove theme");
+			return;
+		}
+
+		console.log("applyEditorTheme: Removing theme with ID:", themeIdToRemove);
+		console.log("applyEditorTheme: Theme definition name:", themeDefObj.style ? themeDefObj.style.name : "no name");
+
+		// STEP 1: Get original positions before removal to preserve theme sequence order
+		// We need to preserve BOTH:
+		// 1. SVG render position (in DOM parent: maplayer or mapobjects)
+		// 2. Themes array position (in the themes array)
+		console.log("applyEditorTheme: STEP 1 - Getting original positions for theme:", themeIdToRemove);
+		
+		var originalRenderPosition = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeIdToRemove);
+		console.log("applyEditorTheme: Original SVG render position:", originalRenderPosition);
+		
+		var originalArrayPosition = ixmaps.embeddedSVG.window.map.Api.getThemeArrayPosition(themeIdToRemove);
+		console.log("applyEditorTheme: Original themes array position:", originalArrayPosition);
+		
+		// Only preserve positions if they're valid (>= 0)
+		var shouldRestoreRenderPosition = (originalRenderPosition >= 0);
+		var shouldRestoreArrayPosition = (originalArrayPosition >= 0);
+		console.log("applyEditorTheme: shouldRestoreRenderPosition:", shouldRestoreRenderPosition);
+		console.log("applyEditorTheme: shouldRestoreArrayPosition:", shouldRestoreArrayPosition);
+
+		// STEP 2: remove previous theme representation from map (synchronously to prevent duplication)
+		console.log("applyEditorTheme: STEP 2 - Removing theme");
+		var removed = ixmaps.embeddedSVG.window.map.Api.removeTheme(themeIdToRemove, true);
+		console.log("applyEditorTheme: Remove result:", removed);
  
         // keep theme id
-		theme.obj.style.id = ixmaps.editorThemeId;
+		theme.obj.style.id = themeIdToRemove;
 
-		// make new theme representation
-		ixmaps.embeddedSVG.window.map.Api.newMapThemeByObj(theme.obj);
+		// STEP 3: make new theme representation
+		console.log("applyEditorTheme: STEP 3 - Re-adding theme");
+		ixmaps.newTheme(theme.obj.style.title, theme.obj);
+		//ixmaps.embeddedSVG.window.map.Api.newMapThemeByObj(theme.obj);
+		console.log("applyEditorTheme: Theme re-added, themeId:", themeIdToRemove);
+
+		// STEP 4: Restore both positions after theme is re-added
+		// The theme needs time to initialize and create its chartGroup
+		// Use polling to wait for theme to be ready instead of fixed delay
+		if (shouldRestoreRenderPosition || shouldRestoreArrayPosition) {
+			console.log("applyEditorTheme: STEP 4 - Scheduling position restoration");
+			console.log("applyEditorTheme: Target SVG render position:", originalRenderPosition);
+			console.log("applyEditorTheme: Target themes array position:", originalArrayPosition);
+			
+			var maxAttempts = 20; // Maximum polling attempts
+			var attemptDelay = 50; // Delay between attempts (ms)
+			var attempts = 0;
+			
+			var tryRestorePositions = function() {
+				attempts++;
+				console.log("applyEditorTheme: Position restoration attempt", attempts);
+				
+				// First, restore themes array position (this can be done immediately)
+				if (shouldRestoreArrayPosition) {
+					var arraySuccess = ixmaps.embeddedSVG.window.map.Api.moveThemeToArrayPosition(themeIdToRemove, originalArrayPosition);
+					console.log("applyEditorTheme: moveThemeToArrayPosition result:", arraySuccess);
+					var currentArrayPos = ixmaps.embeddedSVG.window.map.Api.getThemeArrayPosition(themeIdToRemove);
+					console.log("applyEditorTheme: Current themes array position:", currentArrayPos);
+				}
+				
+				// Check if theme has chartGroup (position will be >= 0 if ready) for SVG render position
+				var currentRenderPos = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeIdToRemove);
+				console.log("applyEditorTheme: Current SVG render position:", currentRenderPos);
+				
+				if (currentRenderPos >= 0 && shouldRestoreRenderPosition) {
+					// Theme is ready, try to move it in SVG
+					console.log("applyEditorTheme: Theme ready, attempting to move SVG render position to", originalRenderPosition);
+					var renderSuccess = ixmaps.embeddedSVG.window.map.Api.moveThemeToPosition(themeIdToRemove, originalRenderPosition);
+					console.log("applyEditorTheme: moveThemeToPosition result:", renderSuccess);
+					
+					var finalRenderPos = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeIdToRemove);
+					console.log("applyEditorTheme: Final SVG render position after move:", finalRenderPos);
+					
+					if (renderSuccess && finalRenderPos === originalRenderPosition) {
+						console.log("applyEditorTheme: ✅ SVG render position restored to", originalRenderPosition);
+					} else if (renderSuccess) {
+						console.warn("applyEditorTheme: ⚠️ SVG move reported success but position is", finalRenderPos, "instead of", originalRenderPosition);
+					} else {
+						console.warn("applyEditorTheme: ❌ Failed to restore SVG render position");
+					}
+					
+					// Both positions restored (or attempted)
+					console.log("applyEditorTheme: ✅ Position restoration complete");
+				} else if (currentRenderPos < 0 && shouldRestoreRenderPosition && attempts < maxAttempts) {
+					// Theme not ready yet, try again
+					console.log("applyEditorTheme: Theme not ready yet, retrying in", attemptDelay, "ms");
+					setTimeout(tryRestorePositions, attemptDelay);
+				} else if (shouldRestoreRenderPosition && attempts >= maxAttempts) {
+					console.error("applyEditorTheme: ❌ Failed to restore SVG render position after", maxAttempts, "attempts - theme may not have initialized");
+				} else if (!shouldRestoreRenderPosition) {
+					// Only array position needed, already done
+					console.log("applyEditorTheme: ✅ Themes array position restored");
+				}
+			};
+			
+			// Start polling after initial delay
+			setTimeout(tryRestorePositions, 100);
+		} else {
+			console.warn("applyEditorTheme: ⚠️ Position restoration skipped - both positions were invalid");
+		}
 
 		return;
 
@@ -107,8 +206,19 @@
 			setTimeout("ixmaps.loadEditor();",500);
 			return;
 		};
+		
+		// Preserve themeId before creating ACE editor (which overwrites ixmaps.editor)
+		var themeIdToEdit = ixmaps.editor && ixmaps.editor.themeId ? ixmaps.editor.themeId : null;
+		console.log("loadEditor: Preserving themeId =", themeIdToEdit);
+		
 		$("#editor-div").css("height","600px");
         ixmaps.editor = ace.edit("editor-div");
+        
+        // Restore themeId after creating ACE editor
+        if (themeIdToEdit) {
+        	ixmaps.editor.themeId = themeIdToEdit;
+        	console.log("loadEditor: Restored themeId =", ixmaps.editor.themeId);
+        }
  
 		// enable autocompletion and snippets
 		ixmaps.editor.setOptions({
@@ -139,9 +249,11 @@
 		ixmaps.editor.setTheme("ace/theme/dawn");
 
 		console.log("ready to load the theme");
+		console.log("loadEditor: Current editor.themeId =", ixmaps.editor.themeId);
 
-		if ( ixmaps.getThemeObj(ixmaps.editorThemeId) ){
-			var themeObj =	ixmaps.getThemeDefinitionObj(ixmaps.editorThemeId);
+		if ( ixmaps.editor && ixmaps.editor.themeId && ixmaps.getThemeObj(ixmaps.editor.themeId) ){
+			var themeObj =	ixmaps.getThemeDefinitionObj(ixmaps.editor.themeId);
+			themeObj = ixmaps.newStyleThemeJson(themeObj);
 			ixmaps.editor.setValue(new Config(themeObj).getPrettyString());
 			ixmaps.editor.gotoLine(1);
 			$("#editor-div").fadeIn();
@@ -151,7 +263,7 @@
 		}
 
 		//$("#editor-apply-button").button();
-		const hEditorApply = $("#editor-apply").height();
+		const hEditorApply = 0; //$("#editor-apply").height();
 		const hEditorFooter = $("#editor-footer").height();
 
 		$("#editor-div").height(($("#editor-div").parent().height()-hEditorApply-hEditorFooter-10)+"px");
@@ -200,19 +312,71 @@
 	 *
 	 ****************************************************************/
 
-	var themes = ixmaps.getThemes();
-	if (themes && themes.length > 0) {
-		ixmaps.editorThemeId = themes[themes.length - 1].szId;
-	}     
+	// The theme ID for editing MUST be passed via ixmaps.editor.themeId namespace
+	// The parent (index.html, Chat, etc.) sets this before opening the editor
+	// We must NOT recreate ixmaps.editor if it already exists!
+	
+	console.log("theme_editor.html: Checking ixmaps.editor namespace");
+	console.log("theme_editor.html: ixmaps.editor =", ixmaps.editor);
+	console.log("theme_editor.html: ixmaps.editor.themeId =", ixmaps.editor ? ixmaps.editor.themeId : "no editor");
+	
+	// Check if themeId was passed via ixmaps.editor namespace
+	if (ixmaps.editor && ixmaps.editor.themeId) {
+		// ThemeId was passed from parent - use it
+		console.log("theme_editor.html: Using themeId from ixmaps.editor namespace:", ixmaps.editor.themeId);
+		loadThemeAndInit();
+	} else {
+		// Fallback: try to get active theme via getThemeObj()
+		console.log("theme_editor.html: No themeId in namespace, trying getThemeObj() fallback");
+		var activeThemeObj = ixmaps.getThemeObj();  // No argument = uses getLegendThemeId() fallback
+		
+		// If getThemeObj() didn't work (e.g., for NOLEGEND themes), try getAllThemes/getThemes
+		if (!activeThemeObj) {
+			console.log("theme_editor.html: getThemeObj() returned null, trying getAllThemes/getThemes fallback");
+			try {
+				var allThemes = ixmaps.getThemes ? ixmaps.getThemes() : null;
+				if (allThemes && allThemes.length > 0) {
+					// Find first non-FEATURE theme (skip base geometry layers)
+					for (var i = 0; i < allThemes.length; i++) {
+						if (allThemes[i] && allThemes[i].szFlag && !allThemes[i].szFlag.match(/FEATURE/)) {
+							activeThemeObj = allThemes[i];
+							break;
+						}
+					}
+					// If no non-FEATURE theme found, use the first theme
+					if (!activeThemeObj && allThemes.length > 0) {
+						activeThemeObj = allThemes[0];
+					}
+				}
+			} catch (e) {
+				console.log("theme_editor.html: Error in getAllThemes/getThemes fallback:", e);
+			}
+		}
+		
+		if (activeThemeObj) {
+			// Initialize editor namespace if it doesn't exist
+			ixmaps.editor = ixmaps.editor || {};
+			ixmaps.editor.themeId = activeThemeObj.szId || activeThemeObj.szName;
+			console.log("theme_editor.html: Set editor.themeId from active theme:", ixmaps.editor.themeId);
+			loadThemeAndInit();
+		} else {
+			console.error("theme_editor.html: No theme found! Editor cannot load.");
+			alert("Error: No theme to edit. Please select a theme first.");
+		}
+	}
+	
+	function loadThemeAndInit() {
+		console.log("theme_editor.html: loadThemeAndInit - editor.themeId =", ixmaps.editor.themeId);
         
-    // GR 17.10.2019 new: get active legend theme
-    var themeObj = ixmaps.getThemeObj(ixmaps.editorThemeId);
+	    // Get the theme to edit using the ID we just set
+	    // (which was obtained from the active theme via getThemeObj() fallback)
+	    var themeObj = ixmaps.getThemeObj(ixmaps.editor.themeId);
 
-	if(themeObj){
+		if(themeObj){
 
 		$("#editor-div").hide();
 
-		ixmaps.editorThemeId = themeObj.szId;
+		// Don't overwrite editorThemeId - it was already set above
 
 		// we must define the resources for this html page here because it is not loaded as iframe
 		// so we must await the loading of all necessary resources before initializing the editor
@@ -266,6 +430,7 @@
 		];
 		// this loads the resources and calls ixmaps.loadEditor as callback
 		ixmaps.loadResources(editor_fileUrls, null, ixmaps.loadEditor);
+		}
 	}
     
     </script>

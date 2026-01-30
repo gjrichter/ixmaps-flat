@@ -796,7 +796,7 @@ $Log: htmlgui.js,v $
 			ixmaps.SVGmapWidth = mapBox.width;
 			ixmaps.SVGmapHeight = mapBox.height;
 		} else {
-			if (ixmaps.fMapSizeMode == "fix") {
+			if (0 && ixmaps.fMapSizeMode == "fix") {
 				return;
 			}
 			if ($("#banner-right").position()) {
@@ -804,9 +804,14 @@ $Log: htmlgui.js,v $
 				$("#banner").css("height", "40px");
 			}
 			//ixmaps.SVGmapWidth = window.innerWidth - __mapLeft - __SVGmapPosX - __SVGmapOffX;
-			//ixmaps.SVGmapHeight = window.innerHeight - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
 			ixmaps.SVGmapWidth = ($("#ixmap").parent().width() || window.innerWidth) - __mapLeft - __SVGmapPosX - __SVGmapOffX;
-			ixmaps.SVGmapHeight = ($("#ixmap").parent().height() || (window.innerHeight - 10)) - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
+			
+			let parentAttributes = $("#ixmap").parent().attr("style");
+			if (parentAttributes && parentAttributes.match(/height/) && !parentAttributes.match(/height\s*:\s*100%/)){
+				ixmaps.SVGmapHeight = ($("#ixmap").parent().height() || (window.innerHeight - 10)) - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
+			}else{
+				ixmaps.SVGmapHeight = window.innerHeight - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY - $("#ixmap").parent().offset().top;
+			}
 
 
 			//$("#attribution-div").css("bottom","15px");
@@ -1596,9 +1601,16 @@ $Log: htmlgui.js,v $
 		var theme = {};
 		theme.layer = origTheme.layer;
 		theme.data = {};
-		theme.field = origTheme.field;
-		theme.field100 = origTheme.field100;
+		theme.binding = {};
+		theme.binding["value"] = origTheme.field;
+		theme.binding["value100"] = origTheme.field100||null;
+		theme.type = "";
 		theme.style = origTheme.style;
+		theme.meta = {};
+
+		theme.type = theme.style.type;
+		theme.style.type = null;
+
 		for (var i in theme.style) {
 			if (i == "dbtable") {
 				theme.data["name"] = theme.style[i];
@@ -1618,6 +1630,42 @@ $Log: htmlgui.js,v $
 			}
 			if (i == "datacache") {
 				theme.data["cache"] = theme.style[i];
+				theme.style[i] = null;
+			}
+		}
+		for (var i in theme.style) {
+			if (i == "lookupfield") {
+				theme.binding["geo"] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "titlefield") {
+				theme.binding["title"] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "itemfield") {
+				theme.binding["id"] = theme.style[i];
+				theme.style[i] = null;
+			}
+		}
+		for (var i in theme.style) {
+			if (i == "title") {
+				theme.meta[i] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "snippet") {
+				theme.meta[i] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "description") {
+				theme.meta[i] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "tooltip") {
+				theme.meta[i] = theme.style[i];
+				theme.style[i] = null;
+			}
+			if (i == "name") {
+				theme.meta[i] = theme.style[i];
 				theme.style[i] = null;
 			}
 		}
@@ -2342,7 +2390,7 @@ $Log: htmlgui.js,v $
 		}
 
 		// in case we have no user defined view in the initializing process, we must program a sync via timeout !
-		setTimeout("ixmaps.htmlgui_checkSync()", 1000);
+		setTimeout("ixmaps.htmlgui_checkSync()", 100);
 
 		$("#loading-gif").hide();
 
@@ -3161,7 +3209,7 @@ $Log: htmlgui.js,v $
 								} catch (e) {
 									ixmaps.showLoadingArrayStop();
 									ixmaps.hideLoading();
-									ixmaps.error("external data function: '" + options.name + "' not defined !", 2000);
+									ixmaps.error("1 external data function: '" + options.name + "' not defined !", 2000);
 								}
 							}
 						}
@@ -3197,7 +3245,7 @@ $Log: htmlgui.js,v $
 									} catch (e) {
 										ixmaps.showLoadingArrayStop();
 										ixmaps.hideLoading();
-										ixmaps.error("external data function: '" + options.name + "' not defined !", 2000);
+										ixmaps.error("2 external data function: '" + options.name + "' not defined !", 2000);
 									}
 								}
 							}

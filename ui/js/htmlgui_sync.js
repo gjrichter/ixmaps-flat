@@ -1078,6 +1078,7 @@ $Log: htmlgui_sync.js,v $
 		if (htmlMap_getZoom() < nZoom) {
 			htmlMap_setZoom(nZoom);
 		}
+		htmlMap_setMinZoom(nZoom);
 	};
 	/** 
 	 *	fly to HTML map center and zoom

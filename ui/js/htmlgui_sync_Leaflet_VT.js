@@ -158,23 +158,304 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		// This needs to be done after SVG map is loaded, so we'll set it in htmlgui_synchronizeMap
 		// For now, set a default that will be overridden if needed
 
+		if (isMercatorProjection()){
+			LMap.setMinZoom(2);
+		}
+
+		// Animation state variables
+		var animStart = null;
+		var startZoom = null;
+		var targetZoom = null;
+		var startCenter = null;
+		var targetCenter = null;
+		var startBounds = null;  // Capture bounds at animation start
+		var targetBounds = null; // Calculate target bounds
+		var animFrameId = null;
+		var duration = 220; // Slightly faster than Leaflet's 250ms to match actual animation speed
+
+		// Leaflet's actual easing: cubic-bezier(0,0,0.25,1) from CSS
+		// This is a fast ease-out curve - starts fast, ends slow
+		function ease(t) {
+			if (t <= 0) return 0;
+			if (t >= 1) return 1;
+			// Better approximation for cubic-bezier(0,0,0.25,1)
+			// This curve accelerates quickly then decelerates
+			// Using a cubic approximation that matches the curve shape
+			return 1 - Math.pow(1 - t, 3) * (1 - 0.25 * t * (2 - t));
+		}
+		
+		// Convert latitude to Mercator Y (linear in pixel space)
+		function latToMercatorY(lat) {
+			var latRad = lat * Math.PI / 180;
+			return Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+		}
+		
+		// Convert Mercator Y back to latitude
+		function mercatorYToLat(y) {
+			return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI;
+		}
+
+		// Check if the current projection is Mercator
+		// Returns true for Mercator or null/undefined (default to Mercator for backward compatibility)
+		// Returns false for orthographic, albers, lambert, and other non-Mercator projections
+		function isMercatorProjection() {
+			try {
+				var szProjection = null;
+				if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && 
+				    ixmaps.embeddedSVG.window.map && ixmaps.embeddedSVG.window.map.Scale && 
+				    ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
+					szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
+				}
+				// Default to Mercator if projection is null/undefined (backward compatibility)
+				if (!szProjection) {
+					return true;
+				}
+				// Check if it's a non-Mercator projection
+				if (!szProjection.match(/mercator/i)) {
+					return false;
+				}
+				// Default to Mercator for any other projection name (including explicit "mercator")
+				return true;
+			} catch (e) {
+				// On error, default to Mercator for backward compatibility
+				return true;
+			}
+		}
+
+		// Animation loop that calculates interim bounds and updates SVG map
+		function syncOverlay(timestamp) {
+			// Check if animation should continue
+			if (!animStart || !ixmaps.tmp.inZoom || startZoom === null || targetZoom === null) {
+				animFrameId = null;
+				animStart = null;
+				return;
+			}
+
+			// Calculate progress - use slightly faster duration to match Leaflet's actual speed
+			let progress = Math.min((timestamp - animStart) / duration, 1);
+			
+			// Try to read Leaflet's actual transform to get exact current zoom
+			// This ensures we match Leaflet's animation exactly
+			let actualZoom = null;
+			try {
+				const mapPane = LMap.getPanes().mapPane;
+				if (mapPane) {
+					const transform = window.getComputedStyle(mapPane).transform;
+					if (transform && transform !== 'none' && transform !== 'matrix(1, 0, 0, 1, 0, 0)') {
+						// Extract scale from transform matrix
+						const matrixMatch = transform.match(/matrix\(([^)]+)\)/);
+						if (matrixMatch) {
+							const values = matrixMatch[1].split(',').map(function(v) { return parseFloat(v.trim()); });
+							if (values.length >= 4) {
+								const scale = values[0]; // scaleX
+								// Leaflet's scale is 2^(currentZoom - startZoom) during animation
+								// Calculate actual zoom from scale
+								actualZoom = startZoom + Math.log2(scale);
+								
+								// Calculate progress from actual zoom
+								if (targetZoom !== startZoom) {
+									const zoomProgress = (actualZoom - startZoom) / (targetZoom - startZoom);
+									// Clamp and use the more advanced progress to stay in sync
+									if (zoomProgress > 0 && zoomProgress <= 1.1) {
+										progress = Math.max(progress, Math.min(zoomProgress, 1));
+									}
+								}
+							}
+						}
+					}
+				}
+			} catch (e) {
+				// Fall back to time-based progress if transform reading fails
+			}
+			
+			const easedProgress = ease(progress);
+			
+			// Use actual zoom if available from transform, otherwise interpolate
+			const currentZoom = actualZoom !== null ? actualZoom : (startZoom + (targetZoom - startZoom) * easedProgress);
+
+			// Interpolate bounds directly from start to target
+			// This avoids all coordinate conversion issues after panning
+			if (!startBounds || !targetBounds) {
+				animFrameId = null;
+				animStart = null;
+				return;
+			}
+			
+			// Interpolate in Mercator Y space for latitude (linear in pixel space)
+			const swY = startBounds.swY + (targetBounds.swY - startBounds.swY) * easedProgress;
+			const neY = startBounds.neY + (targetBounds.neY - startBounds.neY) * easedProgress;
+			// Longitude is linear, interpolate directly
+			const swLng = startBounds.swLng + (targetBounds.swLng - startBounds.swLng) * easedProgress;
+			const neLng = startBounds.neLng + (targetBounds.neLng - startBounds.neLng) * easedProgress;
+			
+			// Convert Mercator Y back to latitude
+			const swLat = mercatorYToLat(swY);
+			const neLat = mercatorYToLat(neY);
+
+			// Update SVG map with interpolated bounds
+			try {
+				if (!ixmaps.panHidden && ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && ixmaps.embeddedSVG.window.map.Api) {
+					ixmaps.embeddedSVG.window.map.Api.freezeMap(true);
+					ixmaps.embeddedSVG.window.map.Api.doSetMapToGeoBounds(
+						swLat,
+						swLng,
+						neLat,
+						neLng
+					);
+					ixmaps.embeddedSVG.window.map.Api.freezeMap(false);
+				}
+			} catch (e) {
+				console.warn('Error updating SVG map during zoom animation:', e);
+				// Clean up on error
+				animFrameId = null;
+				animStart = null;
+			}
+
+			// Continue animation if not complete
+			if (progress < 1) {
+				animFrameId = requestAnimationFrame(syncOverlay);
+			} else {
+				animFrameId = null;
+			}
+		}
+
 		// ---------------------
 		// define event handler
 		// ---------------------
 
 		LMap.on('zoomstart', function (n, s, a) {
+			_LOG("-- leaflet_zoom start --");
+			// Clean up any stale animation state from previous operations
+			if (animFrameId) {
+				cancelAnimationFrame(animFrameId);
+				animFrameId = null;
+			}
+			animStart = null;
+			// Set flag - zoomanim handler will start the animation loop
 			ixmaps.tmp.inZoom = true;
-			//ixmaps.embeddedSVG.window.map.Api.freezeMap(true);
 		});
 		LMap.on('zoom', function (n, s, a) {
+			_LOG("-- leaflet_zoom --");
 			if (!ixmaps.panHidden){
-				ixmaps.htmlgui_synchronizeSVG();
+				//ixmaps.htmlgui_synchronizeSVG();
 			}
 		});
+		LMap.on('zoomanim', function (e) {
+			_LOG("-- leaflet_zoomanim --");
+			
+			// Only animate zoom for Mercator projection
+			// For non-Mercator projections (orthographic, albers, lambert, etc.),
+			// skip animation and let zoomend handler perform synchronization
+			if (!isMercatorProjection()) {
+				return;
+			}
+			
+			// Stop any existing animation and reset all state
+			if (animFrameId) {
+				cancelAnimationFrame(animFrameId);
+				animFrameId = null;
+			}
+			
+			// Reset animation state to ensure clean start
+			animStart = null;
+			startZoom = null;
+			targetZoom = null;
+			startCenter = null;
+			targetCenter = null;
+			startBounds = null;
+			targetBounds = null;
+			
+			// Capture animation start and target state
+			startZoom = LMap.getZoom();
+			targetZoom = e.zoom;
+			
+			// Get the actual zoom center from the event or map
+			// For wheel zoom, Leaflet zooms to mouse position, which might be different from map center
+			// e.center is the target center for the zoom animation
+			if (e.center) {
+				// Use the center from the event (this is the actual zoom target)
+				targetCenter = e.center;
+				// Start center should be the current map center at animation start
+				startCenter = LMap.getCenter();
+			} else {
+				// Fallback: use current center for both (wheel zoom to current center)
+				startCenter = LMap.getCenter();
+				targetCenter = startCenter;
+			}
+			
+			// Capture the CURRENT bounds (these are correct, before animation starts)
+			// Store latitudes as Mercator Y for correct interpolation
+			var currentBounds = LMap.getBounds();
+			startBounds = {
+				swY: latToMercatorY(currentBounds.getSouthWest().lat),
+				swLng: currentBounds.getSouthWest().lng,
+				neY: latToMercatorY(currentBounds.getNorthEast().lat),
+				neLng: currentBounds.getNorthEast().lng
+			};
+			
+			// Calculate what the TARGET bounds will be at the end of animation
+			// The zoom scale factor determines how the bounds shrink/expand
+			var zoomDiff = targetZoom - startZoom;
+			var scale = Math.pow(2, zoomDiff); // 2x smaller bounds for +1 zoom, 2x larger for -1 zoom
+			
+			// Calculate half-sizes of current bounds in Mercator Y space (linear in pixels)
+			var halfYSpan = (startBounds.neY - startBounds.swY) / 2;
+			var halfLngSpan = (startBounds.neLng - startBounds.swLng) / 2;
+			
+			// New half-sizes after zoom (scaled by zoom factor)
+			var newHalfYSpan = halfYSpan / scale;
+			var newHalfLngSpan = halfLngSpan / scale;
+			
+			// Target center in Mercator Y
+			var targetCenterY = latToMercatorY(targetCenter.lat);
+			
+			// Target bounds centered on targetCenter with new span (in Mercator Y space)
+			targetBounds = {
+				swY: targetCenterY - newHalfYSpan,
+				swLng: targetCenter.lng - newHalfLngSpan,
+				neY: targetCenterY + newHalfYSpan,
+				neLng: targetCenter.lng + newHalfLngSpan
+			};
+			
+			// Set flag to indicate zoom animation is active
+			ixmaps.tmp.inZoom = true;
+			
+			// Initialize animation start time (will be set on first frame)
+			animStart = null;
+			
+			// Start animation loop - animStart will be set in first frame
+			animFrameId = requestAnimationFrame(function(timestamp) {
+				animStart = timestamp;
+				syncOverlay(timestamp);
+			});
+		});
+
 		LMap.on('zoomend', function (n, s, a) {
+			_LOG("-- leaflet_zoom end --");
+			
+			// Stop animation loop
+			if (animFrameId) {
+				cancelAnimationFrame(animFrameId);
+				animFrameId = null;
+			}
+			
+			// Reset animation state
+			animStart = null;
+			startZoom = null;
+			targetZoom = null;
+			startCenter = null;
+			targetCenter = null;
+			startBounds = null;
+			targetBounds = null;
 			ixmaps.tmp.inZoom = false;
-			//ixmaps.embeddedSVG.window.map.Api.freezeMap(false);
-			//ixmaps.htmlgui_synchronizeSVG();
+			
+			// Unfreeze map if frozen
+			if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && ixmaps.embeddedSVG.window.map.Api) {
+				ixmaps.embeddedSVG.window.map.Api.freezeMap(false);
+			}
+			
+			// Perform final synchronization with actual bounds (not interpolated)
+			ixmaps.htmlgui_synchronizeSVG(false);
 		});
 
 		LMap.on('movestart', function (n, s, a) {
@@ -187,7 +468,10 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		});
 		LMap.on('moveend', function (n, s, a) {
 			ixmaps.htmlgui_panSVGEnd();
-			ixmaps.embeddedSVG.window.map.Api.freezeMap(false);
+			// Only unfreeze if not in zoom animation
+			if (!ixmaps.tmp.inZoom && ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && ixmaps.embeddedSVG.window.map.Api) {
+				ixmaps.embeddedSVG.window.map.Api.freezeMap(false);
+			}
 			ixmaps.htmlgui_synchronizeSVG();
 		});
 

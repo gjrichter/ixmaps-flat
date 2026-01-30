@@ -554,7 +554,7 @@ $Log: htmlgui.js,v $
 
 	ixmaps.popupThemeEditor = function(position,szId){
 		ixmaps.editor = ixmaps.editor || {};
-		ixmaps.editor.szThemeId = szId;
+		ixmaps.editor.themeId = szId;
 		this.openDialog('editor',ixmaps.szResourceBase+'ui/html/tools/theme_editor.html','Theme Editor',position||'10,103',500,670);
 	};
 

@@ -82,10 +82,22 @@ window.ixmaps = window.ixmaps || {};
 
 		// if the parent does not provide a tooltip target, create it
 
-		if (!window.document.getElementById("tooltip")) {
+		var tooltipContainer = window.document.getElementById("tooltip");
+		if (!tooltipContainer) {
 			var div = document.createElement("div");
 			div.setAttributeNS(null, "id", "tooltip");
-			document.activeElement.appendChild(div);
+			// Ensure tooltip container is positioned correctly - append to body
+			document.body.appendChild(div);
+			// Set positioning styles to ensure tooltip is positioned relative to viewport
+			div.style.position = "fixed";
+			div.style.top = "0";
+			div.style.left = "0";
+			div.style.width = "0";
+			div.style.height = "0";
+			div.style.pointerEvents = "none";
+			div.style.zIndex = "10000";
+			div.style.overflow = "visible";
+			tooltipContainer = div;
 		}
 
 		// -----------------------------------------------------
@@ -114,7 +126,9 @@ window.ixmaps = window.ixmaps || {};
 
 		var szHtml = "";
 
-		szHtml += "<div id='tooltipDiv' style='position:absolute;left:" + xPos + "px;top:" + yPos + "px;font-family: arial, system;font-size:" + fontsize + "px;color: #444;background: white;border: 0.5px solid black;border-radius: 5px;padding:0.5em;;box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 3px 10px 0 rgba(0, 0, 0, 0.19);'>";
+		// Use fixed positioning so coordinates work with clientX/clientY (viewport coordinates)
+		// Initial position will be recalculated after we know the tooltip dimensions
+		szHtml += "<div id='tooltipDiv' style='position:fixed;left:" + xPos + "px;top:" + yPos + "px;font-family: arial, system;font-size:" + fontsize + "px;color: #444;background: white;border: 0.5px solid black;border-radius: 5px;padding:0.5em;;box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 3px 10px 0 rgba(0, 0, 0, 0.19);'>";
 
 		// insert tooltip content (szText) 
 		//
@@ -139,20 +153,31 @@ window.ixmaps = window.ixmaps || {};
 
 		// realize the tooltip
 
-		window.document.getElementById("tooltip").innerHTML = szHtml;
+		tooltipContainer.innerHTML = szHtml;
 
 		// position the tooltip 
-
-		var width = window.document.getElementById("tooltipDiv").clientWidth;
-		var height = window.document.getElementById("tooltipDiv").clientHeight;
-
-		xPos = xPos > window.innerWidth / 2 ? (xPos - width - 30) : xPos + 30;
-		yPos = yPos > window.innerHeight / 2 ? (yPos - height) : (yPos + 20);
-        
-        yPos = Math.min(Math.max(10,yPos),window.innerHeight-height-5);
-        
-		window.document.getElementById("tooltipDiv").style.left = xPos + "px";
-		window.document.getElementById("tooltipDiv").style.top = yPos + "px";
+		// Use requestAnimationFrame to ensure DOM is updated and layout is calculated
+		// This is critical for first tooltip call to get accurate dimensions
+		var tooltipDiv = window.document.getElementById("tooltipDiv");
+		if (tooltipDiv) {
+			// Always use requestAnimationFrame to ensure layout is complete
+			// This fixes the issue where first tooltip has wrong position
+			requestAnimationFrame(function() {
+				// Force layout recalculation by reading properties that trigger layout
+				var rect = tooltipDiv.getBoundingClientRect();
+				var width = rect.width || tooltipDiv.offsetWidth || tooltipDiv.clientWidth || window.innerWidth / 3;
+				var height = rect.height || tooltipDiv.offsetHeight || tooltipDiv.clientHeight || window.innerHeight / 3;
+				
+				// Recalculate position based on actual dimensions
+				var finalXPos = xPos > window.innerWidth / 2 ? (xPos - width - 30) : xPos + 30;
+				var finalYPos = yPos > window.innerHeight / 2 ? (yPos - height) : (yPos + 20);
+				finalYPos = Math.min(Math.max(10, finalYPos), window.innerHeight - height - 25);
+				
+				// Apply the corrected position
+				tooltipDiv.style.left = finalXPos + "px";
+				tooltipDiv.style.top = finalYPos + "px";
+			});
+		}
 
 		// adapt tooltip background to the map style
 

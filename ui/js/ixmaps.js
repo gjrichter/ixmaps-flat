@@ -28,7 +28,7 @@
  *   <body>
  *     <div id="map_div"></div>
  * 
- *     <script type="text/javascript" src = "../../ui/js/ixmaps.js" > </script>
+ *     <script type="text/javascript" src = "../../ixmaps.js" > </script>
  *     <script type="text/javascript" charset="utf-8">
  *
  *     ixmaps.Map("map_div", {
@@ -456,7 +456,7 @@
                 $(".title-field").css("right", "100px");
             }
         } else {
-            $(".map-legend").css("right", "25px");
+            $(".map-legend").css("right", "calc(4% - 4px)");
             $(".title-field").css("left", "100px");
         }
         setTimeout(() => {
@@ -673,7 +673,14 @@
             opt.legendState = opt.legend;
         }
 
-        ixmaps.legendState = (opt.legendState && opt.legendState == "closed") ? 0 : 1;
+        // Default to unfolded (1) if legendState is not defined
+        if (typeof opt.legendState === 'undefined' || opt.legendState === null) {
+            ixmaps.legendState = 1;
+            ixmaps.legendStateExplicitlyClosed = false;
+        } else {
+            ixmaps.legendState = (opt.legendState == "closed") ? 0 : 1;
+            ixmaps.legendStateExplicitlyClosed = (opt.legendState == "closed");
+        }
         
         ixmaps.fMapControls = true;
         let szControls = "small";
@@ -817,7 +824,7 @@
      *     <div id="map_div"></div>
      *   </body>
      * 
-     *     <script type="text/javascript" src = "../../ui/js/ixmaps.js" > </script>
+     *     <script type="text/javascript" src = "../../ixmaps.js" > </script>
      *     <script type="text/javascript" charset="utf-8">
      *
      *     ixmaps.embed("map_div",

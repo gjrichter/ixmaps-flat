@@ -59,7 +59,7 @@ window.ixmaps.data = window.ixmaps.data || {};
     // Create filter facets from theme data
     // ===========================================
 
-    ixmaps.data.getFacets = (mydata, szFilter, szFieldsA, szId, szMap, fFlag) => {
+    ixmaps.data.getDataFacets = (mydata, szFilter, szFieldsA, szId, szMap, fFlag) => {
         let facetsA = [];
         let sizefield = null;
 

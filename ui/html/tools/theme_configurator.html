@@ -2172,8 +2172,44 @@
                     changeCss(".container", "background-color:#666");
                 }
                 **/
-                 
-                ixmaps.editor.themeId = ixmaps.editor.themeId || szId || ixmaps.getThemes(null)[0].szId;
+                
+                // The theme ID for editing MUST be passed via ixmaps.editor.themeId namespace or szId parameter
+                // Use the same fallback logic as theme_editor
+                console.log("loadTheme: Checking theme ID - szId parameter:", szId);
+                console.log("loadTheme: ixmaps.editor.themeId =", ixmaps.editor ? ixmaps.editor.themeId : "no editor");
+                
+                // Priority 1: Use szId parameter if provided
+                if (szId) {
+                    ixmaps.editor.themeId = szId;
+                    console.log("loadTheme: Using szId parameter:", szId);
+                }
+                // Priority 2: Use existing editor.themeId if set
+                else if (ixmaps.editor && ixmaps.editor.themeId) {
+                    console.log("loadTheme: Using existing editor.themeId:", ixmaps.editor.themeId);
+                }
+                // Priority 3: Fallback to get active theme via getThemeObj() (same as theme_editor)
+                else {
+                    console.log("loadTheme: No themeId found, trying getThemeObj() fallback");
+                    var activeThemeObj = ixmaps.getThemeObj();  // No argument = uses getLegendThemeId() fallback
+                    
+                    if (activeThemeObj) {
+                        // Initialize editor namespace if it doesn't exist
+                        ixmaps.editor = ixmaps.editor || {};
+                        ixmaps.editor.themeId = activeThemeObj.szId || activeThemeObj.szName;
+                        console.log("loadTheme: Set editor.themeId from active theme:", ixmaps.editor.themeId);
+                    } else {
+                        // Last resort: get first theme from themes array
+                        var themes = ixmaps.getThemes(null);
+                        if (themes && themes.length > 0) {
+                            ixmaps.editor = ixmaps.editor || {};
+                            ixmaps.editor.themeId = themes[0].szId;
+                            console.log("loadTheme: Set editor.themeId from first theme in array:", ixmaps.editor.themeId);
+                        } else {
+                            console.error("loadTheme: No theme found! Cannot load theme.");
+                            return;
+                        }
+                    }
+                }
 
                 //var color_selected = "#48A542";
                 var color_selected = "#83bf80";
@@ -2589,12 +2625,45 @@
 
                     var output = $("#theme-exact-label")[0];
                     var szHTML = "<label style='color:#444'>colors and label:</label>";
+                    
+                    // Ensure colorsA is a valid array
+                    if (!colorsA || !Array.isArray(colorsA) || colorsA.length === 0) {
+                        // If colorsA is invalid, create a default array
+                        colorsA = [];
+                        for (var def = 0; def < nClasses; def++) {
+                            colorsA.push('#000000');
+                        }
+                    }
+                    
                     var c = 0;
                     for (i in szLabelA) {
 
                         szHTML += '<div class="input-group" style="margin-bottom:0.5em;width:100%">';
 
-                        szHTML += '<input type="color" class="color-box" style="border: none;margin: 0;height: 3em;" value="' + colorsA[c] +
+                        // Ensure color is in hex format for HTML5 color input
+                        // Handle cases where there aren't enough colors by cycling through the array
+                        var colorIndex = c % colorsA.length;
+                        var colorValue = colorsA[colorIndex];
+                        
+                        // Trim whitespace if it's a string
+                        if (colorValue && typeof colorValue === 'string') {
+                            colorValue = colorValue.trim();
+                        }
+                        
+                        // Convert to hex format if needed (ensure it starts with #)
+                        if (typeof _circ_getHexaColor !== 'undefined' && colorValue) {
+                            colorValue = _circ_getHexaColor(colorValue);
+                        } else if (colorValue && typeof colorValue === 'string' && colorValue.charAt(0) !== '#') {
+                            colorValue = '#' + colorValue;
+                        }
+                        
+                        // Ensure we have a valid hex color (3 or 6 digits), default to black if invalid
+                        if (!colorValue || colorValue === '#' || 
+                            !(/^#[0-9A-Fa-f]{3}$/.test(colorValue) || /^#[0-9A-Fa-f]{6}$/.test(colorValue))) {
+                            colorValue = '#000000';
+                        }
+
+                        szHTML += '<input type="color" class="color-box" style="border: none;margin: 0;height: 3em;" value="' + colorValue +
                             '">';
                         /**    
                         szHTML += '<a class="input-group-addon color-box" id="btnGroupAddon" style="width:2.3em;background:' + colorsA[c] +
@@ -2909,17 +2978,40 @@
                 $(".color-box").each(function(index) {
                     szUserColorA.push($(this).val());
                 });
+                
+                // Collect current labels from input fields to keep synchronized with colors
+                var szCurrentLabelA = new Array();
+                $("input[id^='chartLabel']").each(function(index) {
+                    szCurrentLabelA.push($(this).val());
+                });
+                
                 console.log("user colors");
                 console.log(szUserColorA);
+                console.log("current labels");
+                console.log(szCurrentLabelA);
+                
+                // Synchronize values and labels with colors to maintain order
+                // Always update labels/values if we have label inputs (for categorical themes)
+                if (szCurrentLabelA.length > 0) {
+                    // Update szValueA to match current labels
+                    szValueA = szCurrentLabelA.slice(0);
+                    // Set both label and values to keep them synchronized
+                    objTheme.style.label = szCurrentLabelA.slice(0);
+                    objTheme.style.values = szValueA;
+                } else if (typeof szUserLabelA !== 'undefined' && szUserLabelA && szUserLabelA.length > 0) {
+                    // Fallback to szUserLabelA if available
+                    szValueA = szUserLabelA.slice(0);
+                    objTheme.style.label = szUserLabelA.slice(0);
+                    objTheme.style.values = szValueA;
+                }
+                
                 if (szUserColorA.length) {
                     for (var i in szUserColorA){
                         ixmaps.editor.colorsA[i] = szUserColorA[i];
-                        //objTheme.style.label[i] = szUserLabelA[i];
                     }
                     console.log("new colors to set");
                     console.log(ixmaps.editor.colorsA);
                     objTheme.style.colorscheme = ixmaps.editor.colorsA;
-                    objTheme.style.values = szValueA;
                 }
  
                 var fValues = objTheme.style.type.match(/VALUES/);
@@ -3056,12 +3148,98 @@
                 objTheme.style.editor = true;
                 objTheme.style.datacache = null;
 
-                // make the new theme
+                // STEP 1: Get original positions before replacement to preserve theme sequence order
+                // We need to preserve BOTH:
+                // 1. SVG render position (in DOM parent: maplayer or mapobjects)
+                // 2. Themes array position (in the themes array)
+                var themeId = ixmaps.editor.themeId;
+                console.log("applyChanges: STEP 1 - Getting original positions for theme:", themeId);
+                
+                var originalRenderPosition = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeId);
+                console.log("applyChanges: Original SVG render position:", originalRenderPosition);
+                
+                var originalArrayPosition = ixmaps.embeddedSVG.window.map.Api.getThemeArrayPosition(themeId);
+                console.log("applyChanges: Original themes array position:", originalArrayPosition);
+                
+                // Only preserve positions if they're valid (>= 0)
+                var shouldRestoreRenderPosition = (originalRenderPosition >= 0);
+                var shouldRestoreArrayPosition = (originalArrayPosition >= 0);
+                console.log("applyChanges: shouldRestoreRenderPosition:", shouldRestoreRenderPosition);
+                console.log("applyChanges: shouldRestoreArrayPosition:", shouldRestoreArrayPosition);
+
+                // STEP 2: make the new theme (replace existing)
                 // -----------------------------
                 ixmaps.replaceTheme(ixmaps.editor.themeId,objTheme);
+                console.log("applyChanges: Theme replaced, themeId:", themeId);
+                
                 setTimeout(() => {
                     ixmaps.editor.loadTheme(ixmaps.editor.themeId);
                     },1000);
+
+                // STEP 3: Restore both positions after theme is replaced
+                // The theme needs time to initialize and create its chartGroup
+                // Use polling to wait for theme to be ready instead of fixed delay
+                if (shouldRestoreRenderPosition || shouldRestoreArrayPosition) {
+                    console.log("applyChanges: STEP 3 - Scheduling position restoration");
+                    console.log("applyChanges: Target SVG render position:", originalRenderPosition);
+                    console.log("applyChanges: Target themes array position:", originalArrayPosition);
+                    
+                    var maxAttempts = 20; // Maximum polling attempts
+                    var attemptDelay = 50; // Delay between attempts (ms)
+                    var attempts = 0;
+                    
+                    var tryRestorePositions = function() {
+                        attempts++;
+                        console.log("applyChanges: Position restoration attempt", attempts);
+                        
+                        // First, restore themes array position (this can be done immediately)
+                        if (shouldRestoreArrayPosition) {
+                            var arraySuccess = ixmaps.embeddedSVG.window.map.Api.moveThemeToArrayPosition(themeId, originalArrayPosition);
+                            console.log("applyChanges: moveThemeToArrayPosition result:", arraySuccess);
+                            var currentArrayPos = ixmaps.embeddedSVG.window.map.Api.getThemeArrayPosition(themeId);
+                            console.log("applyChanges: Current themes array position:", currentArrayPos);
+                        }
+                        
+                        // Check if theme has chartGroup (position will be >= 0 if ready) for SVG render position
+                        var currentRenderPos = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeId);
+                        console.log("applyChanges: Current SVG render position:", currentRenderPos);
+                        
+                        if (currentRenderPos >= 0 && shouldRestoreRenderPosition) {
+                            // Theme is ready, try to move it in SVG
+                            console.log("applyChanges: Theme ready, attempting to move SVG render position to", originalRenderPosition);
+                            var renderSuccess = ixmaps.embeddedSVG.window.map.Api.moveThemeToPosition(themeId, originalRenderPosition);
+                            console.log("applyChanges: moveThemeToPosition result:", renderSuccess);
+                            
+                            var finalRenderPos = ixmaps.embeddedSVG.window.map.Api.getThemeRenderPosition(themeId);
+                            console.log("applyChanges: Final SVG render position after move:", finalRenderPos);
+                            
+                            if (renderSuccess && finalRenderPos === originalRenderPosition) {
+                                console.log("applyChanges: ✅ SVG render position restored to", originalRenderPosition);
+                            } else if (renderSuccess) {
+                                console.warn("applyChanges: ⚠️ SVG move reported success but position is", finalRenderPos, "instead of", originalRenderPosition);
+                            } else {
+                                console.warn("applyChanges: ❌ Failed to restore SVG render position");
+                            }
+                            
+                            // Both positions restored (or attempted)
+                            console.log("applyChanges: ✅ Position restoration complete");
+                        } else if (currentRenderPos < 0 && shouldRestoreRenderPosition && attempts < maxAttempts) {
+                            // Theme not ready yet, try again
+                            console.log("applyChanges: Theme not ready yet, retrying in", attemptDelay, "ms");
+                            setTimeout(tryRestorePositions, attemptDelay);
+                        } else if (shouldRestoreRenderPosition && attempts >= maxAttempts) {
+                            console.error("applyChanges: ❌ Failed to restore SVG render position after", maxAttempts, "attempts - theme may not have initialized");
+                        } else if (!shouldRestoreRenderPosition) {
+                            // Only array position needed, already done
+                            console.log("applyChanges: ✅ Themes array position restored");
+                        }
+                    };
+                    
+                    // Start polling after initial delay
+                    setTimeout(tryRestorePositions, 100);
+                } else {
+                    console.warn("applyChanges: ⚠️ Position restoration skipped - both positions were invalid");
+                }
                 
                 ixmaps.editor.alert('<b>generating theme ...</b><img src="../../ui/resources/images/loading_blue.gif" id="load-file-spinner" style="height:48px;margin:-0.4em 0 0 0;">', "generating-on-bottom", "default");
             };
@@ -3728,30 +3906,44 @@
                 // Initialize theme configurator after resources loaded
                 // ===========================================
                 function initializeThemeConfigurator() {
-                    // resize();
-
-                    var themes = ixmaps.getThemes();
-                    for ( i in themes ){
-                        if ( !themes[i].szFlag.match(/FEATURE/) ){
-                            ixmaps.editor.themeId = themes[i].szId;
+                    // COPY EXACT PATTERN FROM THEME_EDITOR
+                    console.log("theme_configurator.html: ixmaps.editor =", ixmaps.editor);
+                    console.log("theme_configurator.html: ixmaps.editor.themeId =", ixmaps.editor ? ixmaps.editor.themeId : "no editor");
+                    
+                    // EXACT SAME PATTERN AS THEME_EDITOR:
+                    // Priority 1: From editor.themeId (set by parent before opening configurator)
+                    var themeIdToLoad = null;
+                    if (ixmaps.editor && ixmaps.editor.themeId) {
+                        themeIdToLoad = ixmaps.editor.themeId;
+                        console.log("theme_configurator.html: Using editor.themeId:", themeIdToLoad);
+                    }
+                    // Priority 2: Fallback - try to get from themes array
+                    else {
+                        console.log("theme_configurator.html: editor.themeId not set, using fallback");
+                        var themes = ixmaps.getThemes();
+                        for (var i in themes) {
+                            if (!themes[i].szFlag.match(/FEATURE/)) {
+                                themeIdToLoad = themes[i].szId;
+                                console.log("theme_configurator.html: Set themeId from themes array:", themeIdToLoad);
+                                break;
+                            }
                         }
                     }
-      
-                    // ===========================
-                    // do this on every new theme  
-                    // ===========================
-                    /**
-                    ixmaps.htmlgui_onDrawTheme = function() {
-                        setTimeout(() => {ixmaps.editor.loadTheme(ixmaps.editor.themeId)}, 10);
-                    };
-                    **/
-                    // ===========================
-                    // first time   
-                    // ===========================
                     
-                    console.log("init theme configurator: "+ixmaps.editor.themeId);
+                    console.log("theme_configurator.html: Final themeId =", themeIdToLoad);
                     
-                    ixmaps.editor.loadTheme(ixmaps.editor.themeId);
+                    // Get the theme object
+                    var themeObj = ixmaps.getThemeObj(themeIdToLoad);
+                    
+                    if (themeObj) {
+                        ixmaps.editor.mapId = themeIdToLoad;
+                        
+                        // Load the theme
+                        ixmaps.editor.loadTheme(themeIdToLoad);
+                    } else {
+                        alert("Error: Theme not found. Cannot load configurator.");
+                        return;
+                    }
 
                     $(".theme-configurator").fadeIn();
                 }
