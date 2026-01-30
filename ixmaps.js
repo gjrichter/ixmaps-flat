@@ -72,31 +72,477 @@ for (var i in scriptsA) {
 //
 // The second option is the default option
 // The first option is used when the ixmaps user wants to load the ixmaps API explicitly
+// 
+// different coding examples
+// 
+//  ixmaps.Map("map_div", {
+//      mode: "pan"
+//  }).then(map => map
+//      .view([51.43209416269992, 19.80295632748655], 3.8)
+//      .layer(world_grid)
+//  );
+//
+//  ixmaps.Map("map_div", {
+//      mode: "pan"
+//  })
+//  .view([51.43209416269992, 19.80295632748655], 3.8)
+//  .layer(world_grid)
+// 
+//  let myMap = ixmaps.Map("map_div", {
+//      mode: "pan"
+//  });
+//  myMap.view([51.43209416269992, 19.80295632748655], 3.8);
+//  myMap.layer(world_grid);
+//
+
 
 window.ixmaps = ixmaps || {};
 
+/**
+ * Queuing Mechanism:
+ * 
+ * MapBuilder uses a queuing system to allow method chaining before the map is ready.
+ * When chainable methods (view, layer, options, etc.) are called:
+ * 
+ * 1. If map is ready (this._ready && this._map):
+ *    - Methods execute immediately via this._map[method].apply(this._map, args)
+ * 
+ * 2. If map is not ready:
+ *    - Methods are queued in this._queue array as {method: string, args: Array}
+ *    - Queue preserves call order
+ * 
+ * 3. When map becomes ready (in MapBuilder constructor callback):
+ *    - _executeQueue() iterates through this._queue
+ *    - Each queued method executes in strict order on the map instance
+ *    - Queue is cleared after execution
+ * 
+ * This ensures fluent API calls work identically whether called before or after
+ * map initialization, matching the Promise-based .then() API behavior.
+ */
+
+var _scriptLoadPromise = null;
+var _scriptLoaded = false;
+var _realMapFunction = null;
+
+// Helper to ensure the map API is initialized
+function ensureMapInitialized() {
+    if (_scriptLoaded && _realMapFunction) {
+        return Promise.resolve();
+    }
+    if (_scriptLoadPromise) {
+        return _scriptLoadPromise;
+    }
+    _scriptLoadPromise = loadScript(szScript2).then(function() {
+        _scriptLoaded = true;
+        // Store reference to the real Map function from htmlgui_flat.js
+        _realMapFunction = ixmaps.Map;
+    });
+    return _scriptLoadPromise;
+}
+
 // first option: load the ixmaps API explicitly
 window.ixmaps.init = function () {
-    return loadScript(szScript2);
+    return ensureMapInitialized();
 }
-// second option: load the ixmaps API inplicity
-window.ixmaps.Map = function (div, options, callback) {
-    return new Promise((resolve, reject) => {
-        loadScript(szScript2).then(() => {
-            ixmaps.Map(div, options, (map) => {
-                if (callback) {
-                    callback(map);
-                } else {
-                    resolve(map);
+/**
+ * MapBuilder class for fluent API map configuration.
+ * Provides a builder pattern that queues method calls until the map is initialized,
+ * while also supporting the legacy Promise-based .then() pattern.
+ * 
+ * @class ixmaps.MapBuilder
+ * @constructor
+ * @param {string|HTMLElement} div - The target div element or its ID
+ * @param {Object} options - Map configuration options
+ * @param {Function} [callback] - Optional callback (legacy support)
+ */
+ixmaps.MapBuilder = function (div, options, callback) {
+    var self = this;
+    
+    // Properties
+    this._queue = [];           // Array of pending method calls {method, args}
+    this._map = null;           // Reference to actual map (null until ready)
+    this._ready = false;        // Boolean flag indicating initialization complete
+    this._error = null;         // Stores any error that occurred
+    this._promiseResolve = null; // For .then() support
+    this._promiseReject = null;  // For .then() support
+    this._callback = callback;   // Legacy callback support
+    this._projection = null;     // Store projection type for special handling
+    
+    // Start async initialization
+    ensureMapInitialized().then(function() {
+        // Use the stored reference to the real Map function from htmlgui_flat.js
+        // This avoids calling our own wrapper recursively
+        if (!_realMapFunction) {
+            throw new Error("Map API not loaded correctly - _realMapFunction is null");
+        }
+        
+        try {
+            _realMapFunction(div, options, function(map) {
+                if (!map) {
+                    self._onError(new Error("Map initialization returned null/undefined"), 'initialization');
+                    return;
+                }
+                
+                self._map = map;
+                self._ready = true;
+                
+                // If legacy callback was provided, call it and skip queue
+                if (self._callback) {
+                    try {
+                        self._callback(map);
+                    } catch (callbackError) {
+                        console.error("Error in Map callback:", callbackError);
+                    }
+                    return;
+                }
+                
+                // Execute queued method calls immediately - callback is called when map is ready
+                // This matches the behavior of the .then() version where methods are called
+                // directly on the map instance in the callback
+                self._executeQueue();
+                
+                // Resolve promise if .then() was called
+                if (self._promiseResolve) {
+                    self._promiseResolve(map);
                 }
             });
-        }).catch(reject);
+        } catch (mapError) {
+            self._onError(mapError, 'Map creation');
+        }
+    }).catch(function(error) {
+        self._onError(error, 'initialization');
+    });
+};
+
+ixmaps.MapBuilder.prototype = {
+    
+    /**
+     * Execute all queued method calls in strict order.
+     * Stops execution on first error.
+     * @private
+     */
+    _executeQueue: function() {
+        // Execute queue immediately - callback is called when map is ready
+        this._executeQueueNow();
+    },
+    
+    /**
+     * Actually execute the queued method calls.
+     * @private
+     */
+    _executeQueueNow: function() {
+        for (var i = 0; i < this._queue.length; i++) {
+            var call = this._queue[i];
+            try {
+                // Check if method exists on the map
+                if (typeof this._map[call.method] !== 'function') {
+                    throw new Error("Method '" + call.method + "' does not exist on map object");
+                }
+                // Execute method exactly as it would be called in .then() callback
+                this._map[call.method].apply(this._map, call.args);
+            } catch (error) {
+                this._onError(error, call.method);
+                return; // Stop execution on error
+            }
+        }
+        this._queue = [];
+    },
+    
+    /**
+     * Handle errors during queue execution or initialization.
+     * Logs error message, stops queue, and rejects promise if applicable.
+     * @private
+     * @param {Error} error - The error that occurred
+     * @param {string} methodName - Name of the method where error occurred
+     */
+    _onError: function(error, methodName) {
+        this._error = error;
+        var msg = "ixmaps.Map error in ." + methodName + "(): " + error.message;
+        console.error(msg);
+        
+        // Reject promise if .then() was called
+        if (this._promiseReject) {
+            this._promiseReject(error);
+        }
+    },
+    
+    /**
+     * Queue a method call or execute immediately if map is ready.
+     * @private
+     * @param {string} method - Method name to call
+     * @param {Array} args - Arguments to pass to the method
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    _queueOrExecute: function(method, args) {
+        if (this._error) {
+            // Don't queue more calls if an error occurred
+            return this;
+        }
+        
+        // List of supported chainable methods
+        var supportedMethods = [
+            'view', 'layer', 'options', 'on', 'attribution', 
+            'require', 'local', 'legend'
+        ];
+        
+        // Check if method is supported by the chaining API
+        if (supportedMethods.indexOf(method) === -1) {
+            var error = new Error(
+                "Method '" + method + "' is not supported by the fluent chaining API. " +
+                "Supported methods: " + supportedMethods.join(', ') + ". " +
+                "If you need to call this method, use the Promise-based API: " +
+                "ixmaps.Map(...).then(map => map." + method + "(...))"
+            );
+            this._onError(error, method);
+            return this;
+        }
+        
+        if (this._ready && this._map) {
+            // Map is ready, execute immediately
+            try {
+                if (typeof this._map[method] !== 'function') {
+                    throw new Error("Method '" + method + "' does not exist on map object");
+                }
+                this._map[method].apply(this._map, args);
+            } catch (error) {
+                this._onError(error, method);
+            }
+        } else {
+            // Map not ready, queue the call
+            this._queue.push({ method: method, args: args });
+        }
+        return this;
+    },
+    
+    // ==========================================
+    // Chainable Methods
+    // ==========================================
+    
+    /**
+     * MapBuilder Chainable Methods
+     * 
+     * All chainable methods follow the same pattern:
+     * 1. They accept method-specific parameters
+     * 2. They call _queueOrExecute() which either:
+     *    - Executes immediately if map is ready (this._ready && this._map)
+     *    - Queues the call if map is not ready yet
+     * 3. They return 'this' for method chaining
+     * 
+     * When the map becomes ready (after htmlgui_flat.js loads and initializes),
+     * all queued methods are executed in strict order via _executeQueue().
+     * This ensures fluent API calls work identically whether called before or
+     * after the map is ready, matching the behavior of the Promise-based .then() API.
+     */
+    
+    /**
+     * Set the map view (center and zoom level).
+     * Supports two signatures:
+     * - view([lat, lng], zoom) - Array with coordinates and zoom as separate argument
+     * - view({center: {lat, lng}, zoom: number}) - Object with center and zoom properties
+     * @param {Array|Object} center - Center coordinates [lat, lng] or {center: {lat, lng}, zoom: number}
+     * @param {number} [zoom] - Zoom level (if center is an array)
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    view: function(center, zoom) {
+        // Support both signatures: view([lat, lng], zoom) and view({center: {lat, lng}, zoom: number})
+        // Pass all arguments to preserve the exact call signature
+        var args = Array.prototype.slice.call(arguments);
+        return this._queueOrExecute('view', args);
+    },
+    
+    /**
+     * Add a layer/theme to the map.
+     * @param {Object} layerDef - Layer definition object (from ixmaps.layer().define())
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    layer: function(layerDef) {
+        return this._queueOrExecute('layer', [layerDef]);
+    },
+    
+    /**
+     * Set map options.
+     * @param {Object} opts - Map options
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    options: function(opts) {
+        return this._queueOrExecute('options', [opts]);
+    },
+    
+    /**
+     * Register an event handler.
+     * @param {string} event - Event name
+     * @param {Function} handler - Event handler function
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    on: function(event, handler) {
+        return this._queueOrExecute('on', [event, handler]);
+    },
+    
+    /**
+     * Set the map attribution text (displayed in the bottom left corner).
+     * @param {string} text - Attribution text (can include HTML)
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    attribution: function(text) {
+        return this._queueOrExecute('attribution', [text]);
+    },
+    
+    /**
+     * Set legend content (HTML string or URL).
+     * @param {string} legend - Legend HTML string or URL
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    legend: function(legend) {
+        return this._queueOrExecute('legend', [legend]);
+    },
+    
+    /**
+     * Load an external JavaScript file before map initialization.
+     * Can be called multiple times to load multiple scripts.
+     * @param {string} scriptPath - Path or URL to the JavaScript file to load
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    require: function(scriptPath) {
+        return this._queueOrExecute('require', [scriptPath]);
+    },
+    
+    /**
+     * Set a localized string translation.
+     * Maps a global (original) string to a localized version.
+     * Can be called multiple times to set multiple translations.
+     * @param {string} szGlobal - The original/global string to translate
+     * @param {string} szLocal - The localized translation
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     */
+    local: function(szGlobal, szLocal) {
+        return this._queueOrExecute('local', [szGlobal, szLocal]);
+    },
+    
+    // ==========================================
+    // Promise Support (Legacy API)
+    // ==========================================
+    
+    /**
+     * Promise-style then() for legacy API support.
+     * @param {Function} onFulfilled - Called when map is ready
+     * @param {Function} [onRejected] - Called on error
+     * @returns {Promise} Returns a Promise that resolves with the map
+     */
+    then: function(onFulfilled, onRejected) {
+        var self = this;
+        
+        return new Promise(function(resolve, reject) {
+            if (self._ready && self._map) {
+                // Already ready
+                try {
+                    var result = onFulfilled ? onFulfilled(self._map) : self._map;
+                    resolve(result);
+                } catch (error) {
+                    if (onRejected) {
+                        onRejected(error);
+                    }
+                    reject(error);
+                }
+            } else if (self._error) {
+                // Already errored
+                if (onRejected) {
+                    onRejected(self._error);
+                }
+                reject(self._error);
+            } else {
+                // Store resolve/reject for later
+                self._promiseResolve = function(map) {
+                    try {
+                        var result = onFulfilled ? onFulfilled(map) : map;
+                        resolve(result);
+                    } catch (error) {
+                        if (onRejected) {
+                            onRejected(error);
+                        }
+                        reject(error);
+                    }
+                };
+                self._promiseReject = function(error) {
+                    if (onRejected) {
+                        onRejected(error);
+                    }
+                    reject(error);
+                };
+            }
+        });
+    },
+    
+    /**
+     * Promise-style catch() for error handling.
+     * @param {Function} onRejected - Called on error
+     * @returns {Promise} Returns a Promise
+     */
+    catch: function(onRejected) {
+        return this.then(null, onRejected);
+    }
+};
+
+// second option: load the ixmaps API implicitly via fluent builder
+// Returns a MapBuilder instance that supports both fluent chaining and Promise .then()
+window.ixmaps.Map = function (div, options, callback) {
+    var builder = new ixmaps.MapBuilder(div, options, callback);
+    
+    // List of supported chainable methods
+    var supportedMethods = [
+        'view', 'layer', 'options', 'on', 'attribution', 
+        'require', 'local', 'legend', 'then', 'catch'
+    ];
+    
+    // Wrap with Proxy to intercept undefined method calls
+    return new Proxy(builder, {
+        get: function(target, prop) {
+            // If property exists on target or its prototype, return it (normal behavior)
+            // This includes all defined chainable methods and internal properties
+            if (prop in target || (typeof prop === 'string' && typeof target[prop] !== 'undefined')) {
+                return target[prop];
+            }
+            
+            // If it's a Symbol or special property, return it from target
+            if (typeof prop === 'symbol' || prop === 'constructor' || prop === 'toString' || prop === 'valueOf') {
+                return target[prop];
+            }
+            
+            // If it's an undefined method call, return a function that validates and throws
+            if (typeof prop === 'string') {
+                var error = new Error(
+                    "Method '" + prop + "' is not supported by the fluent chaining API. " +
+                    "Supported methods: " + supportedMethods.join(', ') + ". " +
+                    "If you need to call this method, use the Promise-based API: " +
+                    "ixmaps.Map(...).then(map => map." + prop + "(...))"
+                );
+                // Return a function that validates and throws the error when called
+                return function() {
+                    // Show alert for immediate feedback
+                    alert("Error: Method '" + prop + "' is not supported by the fluent chaining API.\n\n" +
+                          "Supported methods: " + supportedMethods.join(', ') + "\n\n" +
+                          "If you need to call this method, use the Promise-based API:\n" +
+                          "ixmaps.Map(...).then(map => map." + prop + "(...))");
+                    target._onError(error, prop);
+                    throw error;
+                };
+            }
+            
+            // For other properties, return undefined (normal JavaScript behavior)
+            return undefined;
+        }
     });
 };
 
 // log a message to the console
 // this message is displayed when the ixmaps.js file is loaded
 console.log("ixmaps.js loaded and waiting for initialization");
+
+
+// -------------------------------------------------
+//
+// T H E M E   C O N S T R U C T   A P I
+//
+// -------------------------------------------------
 
 /**
  * ixmaps API to define visualization layer
