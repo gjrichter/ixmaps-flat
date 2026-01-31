@@ -850,15 +850,18 @@
 
         ixmaps.szResourceBase = "../../";
 
+        // Resolve base URL for loading resources (ui/html/..., ui/css/..., etc.).
+        // Prefer htmlgui_flat.js (gives path to ui/); else ixmaps.js — for ixmaps.js use split("ixmaps.js")[0]
+        // so relative paths like ../../../ixmaps.js yield base "../../../" not "../../../ixmaps.js".
         let scriptsA = document.querySelectorAll("script");
-        for (var i in scriptsA) {
+        for (var i = 0; i < scriptsA.length; i++) {
             let scr = scriptsA[i].getAttribute("src");
-            if (scr && scr.match(/ixmaps.js/)) {
-                ixmaps.szResourceBase = (scr.split("ui/js/ixmaps.js")[0]);
+            if (scr && scr.indexOf("htmlgui_flat.js") !== -1) {
+                ixmaps.szResourceBase = (scr.split("ui/js/htmlgui_flat.js")[0]);
                 break;
             }
-            if (scr && scr.match(/htmlgui_flat.js/)) {
-                ixmaps.szResourceBase = (scr.split("ui/js/htmlgui_flat.js")[0]);
+            if (scr && scr.indexOf("ixmaps.js") !== -1) {
+                ixmaps.szResourceBase = (scr.split("ixmaps.js")[0]);
                 break;
             }
         }   
