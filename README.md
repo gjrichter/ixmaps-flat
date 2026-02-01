@@ -1,267 +1,134 @@
-# iXmaps Framework - Complete Documentation
+# ixMaps Framework
 
-A comprehensive JavaScript framework for creating interactive web maps with advanced data visualization capabilities.
+**ixMaps** is a JavaScript framework for creating interactive, data-driven web maps with sophisticated visualization capabilities. It combines SVG-based cartography with Leaflet/OpenStreetMap base maps to enable powerful geospatial data visualizations including choropleth maps, bubble charts, pie charts, and bar charts. The framework supports 15+ data formats (CSV, JSON, GeoJSON, Parquet, GeoPackage, etc.) and features an AI-assisted chat interface for intuitive map creation. With its fluent API and browser-based architecture, ixMaps allows both developers and non-technical users to create sophisticated interactive maps without server infrastructure.
 
-## 📚 Documentation Index
+## Key Features
 
-### Quick Start
-- **[Getting Started Guide](GETTING_STARTED.md)** - Installation, setup, and first steps
-- **[Basic Examples](GETTING_STARTED.md#your-first-data-visualization)** - Simple tutorials to get you up and running
+- **Interactive SVG-based mapping** with zoom, pan, and search functionality
+- **Multiple visualization types**: choropleth maps, bubble charts, pie charts, bar charts, and more
+- **Extensive data format support**: CSV, JSON, GeoJSON, TopoJSON, Parquet, GeoParquet, GeoPackage, FlatGeoBuf, KML, GML, and others
+- **AI-assisted interface** for natural language map creation
+- **Fluent API** with chainable builder pattern
+- **Multi-map support** for synchronized map instances
+- **Browser-based processing** with no server requirements
+- **Export capabilities** to standalone HTML or JSON projects
 
-### Complete Reference
-- **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference for all components
-- **[Advanced Examples](EXAMPLES.md)** - Real-world applications and complex implementations
+## Quick Start
 
-## 🚀 Framework Overview
-
-The iXmaps framework consists of four main components:
-
-### 1. **Data.js Library** 
-Powerful data processing engine supporting multiple formats:
-- **Supported Formats**: CSV, JSON, GeoJSON, KML, RSS, JSONstat, TopoJSON
-- **Data Transformation**: Filtering, pivoting, aggregation, calculated columns
-- **Multi-source Loading**: Combine data from multiple sources with broker pattern
-- **Real-time Updates**: Built-in support for live data feeds
-
-### 2. **iXmaps Core**
-SVG-based interactive mapping framework:
-- **Theme System**: Create dynamic visualizations with choropleth, bubble, and custom charts
-- **Interactive Features**: Zoom, pan, search, tooltips, legends
-- **Multi-layer Support**: Combine geographic and data layers
-- **Performance Optimized**: Efficient rendering for large datasets
-
-### 3. **UI Components**
-Rich HTML interface components:
-- **Tooltip System**: Basic and advanced templated tooltips
-- **Legend Components**: Automatic legend generation for themes and layers
-- **Search Interface**: Normal and advanced search capabilities
-- **Data Visualization**: Lists, facets, and interactive controls
-
-### 4. **Chart Extensions**
-D3.js-based visualization components:
-- **Built-in Charts**: Pinnacle, arrow, and lollipop charts
-- **Custom Charts**: Framework for creating custom D3 visualizations
-- **Integration**: Seamless integration with map themes
-
-## 📖 Documentation Sections
-
-### [Getting Started Guide](GETTING_STARTED.md)
-Perfect for beginners and new users:
-- Installation and setup instructions
-- Basic configuration examples
-- Your first data visualization
-- Common issues and solutions
-- Performance optimization tips
-
-### [Complete API Documentation](API_DOCUMENTATION.md)
-Comprehensive reference covering:
-
-#### Data.js Library API
-- `Data.Feed` - Loading external data sources
-- `Data.Table` - Data table manipulation and transformation
-- `Data.Column` - Column-specific operations
-- `Data.Broker` - Multi-source data loading
-- Factory methods and utilities
-
-#### iXmaps Core API
-- Map loading and configuration
-- Theme management and creation
-- Data querying and filtering
-- Chart creation and customization
-- Search functionality
-- Navigation controls
-
-#### UI Components API
-- HTML GUI initialization
-- Tooltip system (basic and advanced)
-- Legend components (theme and layer)
-- Data visualization components
-- Utility functions (formatting, colors, storage)
-
-#### Chart Components API
-- D3.js chart extensions
-- Custom chart creation
-- Integration patterns
-
-### [Advanced Examples](EXAMPLES.md)
-Real-world implementations including:
-
-#### Data Loading Examples
-- Multi-source CSV processing
-- Real-time data updates
-- Complex GeoJSON handling
-
-#### Visualization Examples
-- Multi-series time charts
-- Calendar heatmaps
-- Network diagrams
-
-#### Interactive Maps
-- Multi-theme comparison maps
-- Animated time series
-- Story-driven narratives
-
-#### Real-World Applications
-- COVID-19 dashboard (complete implementation)
-- Climate change analysis
-- Economic indicator mapping
-
-## 🛠 Key Features
-
-### Data Processing
-```javascript
-// Load and transform data in one chain
-Data.feed({source: "data.csv", type: "csv"})
-    .load(function(data) {
-        data.addColumn({destination: 'calculated'}, function(row) {
-            return row[0] * row[1]; // Calculate new values
-        })
-        .pivot({lead: 'region', cols: 'category'})
-        .sort('total', 'DOWN');
-    });
-```
-
-### Interactive Mapping
-```javascript
-// Create interactive choropleth map
-ixmaps.doCreateChart(
-    "population_density",    // theme ID
-    "density_per_km2",      // data field
-    null,                   // normalization field
-    "choropleth",           // chart type
-    "YlOrRd",              // color scheme
-    7                       // number of classes
-);
-```
-
-### Advanced Visualizations
-```javascript
-// Multi-source real-time dashboard
-var broker = Data.broker()
-    .addSource("live-data.json", "json")
-    .addSource("reference.csv", "csv")
-    .realize(function(datasets) {
-        createDashboard(datasets);
-    });
-```
-
-## 📊 Supported Data Formats
-
-| Format | Description | Example Use Case |
-|--------|-------------|------------------|
-| **CSV** | Comma-separated values | Statistical data, survey results |
-| **JSON** | JavaScript Object Notation | API responses, structured data |
-| **GeoJSON** | Geographic JSON | Geographic boundaries, features |
-| **KML** | Keyhole Markup Language | GPS data, geographic annotations |
-| **RSS** | Rich Site Summary | News feeds, blog updates |
-| **JSONstat** | Statistical JSON | Official statistics, census data |
-| **TopoJSON** | Topological JSON | Optimized geographic data |
-
-## 🎯 Visualization Types
-
-### Map-based Visualizations
-- **Choropleth Maps**: Color-coded regions based on data values
-- **Bubble Charts**: Proportional circles showing quantities
-- **Heat Maps**: Density-based visualizations
-- **Flow Maps**: Directional data visualization
-- **Multi-layer Maps**: Combined geographic and data layers
-
-### Chart Components
-- **Time Series**: Temporal data analysis
-- **Comparative Charts**: Side-by-side comparisons
-- **Network Diagrams**: Relationship visualization
-- **Custom D3 Charts**: Unlimited visualization possibilities
-
-## 🔧 Browser Compatibility
-
-- **Modern Browsers**: Chrome 60+, Firefox 55+, Safari 12+, Edge 79+
-- **SVG Support**: Required for map rendering
-- **ES5 Compatible**: Works with older browsers with polyfills
-- **Mobile Responsive**: Touch-enabled interactions
-
-## 📦 Dependencies
-
-### Required
-- **Core Framework**: Self-contained (no external dependencies for basic functionality)
-
-### Optional (for enhanced features)
-- **D3.js**: For advanced charting components
-- **jQuery**: For enhanced DOM manipulation (recommended)
-- **Mustache.js**: For advanced tooltip templating
-- **Turf.js**: For geographic calculations
-
-## 🚀 Quick Start Example
+### Simple HTML Example
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My iXmaps Application</title>
-    <script src="data.js/data.js"></script>
-    <script src="ui/js/htmlgui.js"></script>
+    <meta charset="UTF-8">
+    <title>Simple ixMaps Example</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="ixmaps/ui/js/htmlgui_flat.js"></script>
+    <style>
+        #map { width: 100%; height: 600px; }
+    </style>
 </head>
 <body>
-    <div id="map-container" style="width: 100%; height: 600px;"></div>
-    
+    <div id="map"></div>
+
     <script>
-        // Configure map
-        ixmaps.setMapFeatures("featurescaling:dynamic;dynamiclayer:true");
-        
-        // Load and visualize data
-        Data.feed({source: "sample-data.csv", type: "csv"})
-            .load(function(data) {
-                ixmaps.doCreateChart(
-                    "my_theme",
-                    "population",
-                    null,
-                    "choropleth",
-                    "Blues",
-                    5
-                );
-            });
+        ixmaps.Map("map", {
+            mapService: "leaflet_vt",
+            mapType: "OpenStreetMap",
+            legend: "true"
+        }, function(map) {
+            // Set initial view (latitude, longitude, zoom level)
+            map.view([42.0, 12.5], 6);
+
+            // Create a bubble chart layer from GeoJSON data
+            map.layer(
+                ixmaps.layer("cities")
+                    .data({
+                        url: "data/cities.geojson",
+                        type: "geojson"
+                    })
+                    .binding({
+                        position: "geometry",
+                        value: "population"
+                    })
+                    .style({
+                        colorscheme: ["#ffffb2", "#fd8d3c", "#bd0026"],
+                        opacity: 0.7
+                    })
+                    .type("CHART|BUBBLE")
+                    .define()
+            );
+        });
     </script>
 </body>
 </html>
 ```
 
-## 📈 Performance Tips
+This example creates an OpenStreetMap-based map centered on Italy, displaying cities as proportional bubbles sized by population data from a GeoJSON file.
 
-### Data Optimization
-- Enable caching for static datasets
-- Use appropriate data formats (TopoJSON for large geographic data)
-- Implement pagination for large datasets
+## Core API
 
-### Rendering Optimization
-- Use appropriate map features for your use case
-- Implement lazy loading for complex visualizations
-- Optimize color schemes and class counts
+### Map Initialization
 
-### Memory Management
-- Clean up event listeners when done
-- Remove unused themes and data references
-- Use efficient data structures for large datasets
+```javascript
+ixmaps.Map("container_id", {
+    mapService: "leaflet_vt",
+    mapType: "OpenStreetMap",
+    legend: "true"
+}, function(map) {
+    // Map is ready
+});
+```
 
-## 🤝 Contributing
+### Layer Definition (Fluent API)
 
-This documentation covers a comprehensive JavaScript mapping framework. To extend or modify:
+```javascript
+ixmaps.layer("layerName")
+    .data({url: "data.geojson", type: "geojson"})
+    .binding({position: "geometry", value: "fieldname"})
+    .style({colorscheme: ["#fff", "#000"], opacity: 0.8})
+    .type("CHOROPLETH|EQUIDISTANT")
+    .define()
+```
 
-1. **Fork the repository** and create feature branches
-2. **Follow the existing API patterns** for consistency
-3. **Add comprehensive documentation** for new features
-4. **Include examples** demonstrating usage
-5. **Test thoroughly** across different browsers and data types
+### Visualization Types
 
-## 📄 License
+- **FEATURE/FEATURES** - Raw geographic features with styling
+- **CHOROPLETH** - Color-coded areas by values (EQUIDISTANT, QUANTILE, NATURAL breaks)
+- **CHART|BUBBLE** - Proportional circles
+- **CHART|PIE** - Pie charts
+- **CHART|BAR** - Bar charts
+- **CHART|DOT** - Point markers
 
-The iXmaps framework is distributed under the MIT license, providing maximum flexibility for both open source and commercial use.
+## Documentation
 
-## 🔗 Additional Resources
+- [ixMaps Introduction](ixmaps_introduction.md) - Basic framework documentation
+- [Chat Application Guide](ixmaps_chat_app.md) - AI-assisted map creation
+- [Multi-Map Extension](MULTI_MAP_README.md) - Multiple synchronized maps
 
-- **[GitHub Repository](.)** - Source code and examples
-- **[API Reference](API_DOCUMENTATION.md)** - Complete function reference
-- **[Examples Collection](EXAMPLES.md)** - Real-world implementations
-- **[Getting Started](GETTING_STARTED.md)** - Step-by-step tutorials
+## Architecture
 
----
+The framework consists of several layers:
 
-**Ready to create amazing interactive maps?** Start with the [Getting Started Guide](GETTING_STARTED.md) and explore the [Examples](EXAMPLES.md) to see what's possible!
+1. **Core API Layer** (`ixmaps.js`) - Main entry points and public API
+2. **Theme/Layer Definition** (`ixmaps.themeConstruct`) - Builder pattern for layer configuration
+3. **Data Processing Layer** (`data.js`) - Multi-format data handling with DuckDB WASM
+4. **Map Rendering Engine** (`htmlgui.js`, `htmlgui_flat.js`) - Leaflet integration and UI
+5. **SVG Mapping System** (`/ixmaps/maps/svg/js/`) - SVG rendering and theme visualization
+6. **UI/Dialog System** (`/ixmaps/ui/`) - Legends, tooltips, and dialogs
+7. **Chat Application** (`/ixmaps/app/Chat/`) - AI-assisted interface
+
+## Requirements
+
+- jQuery 1.7.1+
+- Leaflet 1.9.4+ (included)
+- Modern web browser with JavaScript enabled
+
+## License
+
+[License information to be added]
+
+## Contributing
+
+[Contributing guidelines to be added]
