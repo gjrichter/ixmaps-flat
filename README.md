@@ -23,76 +23,156 @@
 <head>
     <meta charset="UTF-8">
     <title>Simple ixMaps Example</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="ixmaps/ui/js/htmlgui_flat.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
     <style>
-        #map { width: 100%; height: 600px; }
+        body { margin: 0; padding: 0; }
+        #map { width: 100%; height: 100vh; }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
     <script>
-        ixmaps.Map("map", {
-            mapService: "leaflet_vt",
-            mapType: "OpenStreetMap",
-            legend: "true"
-        }, function(map) {
-            // Set initial view (latitude, longitude, zoom level)
-            map.view([42.0, 12.5], 6);
+        // Define inline JSON data with city information
+        const cityData = [
+            { name: "Rome", pop: "2875472", lat: "41.893056", lon: "12.482778" },
+            { name: "Paris", pop: "7389520", lat: "48.856667", lon: "2.351944" },
+            { name: "Berlin", pop: "3531201", lat: "52.518611", lon: "13.408056" },
+            { name: "London", pop: "8787892", lat: "51.507222", lon: "-0.1275" }
+        ];
 
-            // Create a bubble chart layer from GeoJSON data
-            map.layer(
-                ixmaps.layer("cities")
-                    .data({
-                        url: "data/cities.geojson",
-                        type: "geojson"
-                    })
-                    .binding({
-                        position: "geometry",
-                        value: "population"
-                    })
-                    .style({
-                        colorscheme: ["#ffffb2", "#fd8d3c", "#bd0026"],
-                        opacity: 0.7
-                    })
-                    .type("CHART|BUBBLE")
-                    .define()
-            );
+        // Create the map and add a bubble chart layer
+        let _map = ixmaps.Map("map", {
+            mapType: "VT_TONER_LITE"
+        })
+        _map.options({
+            objectscaling: "dynamic",
+            basemapopacity: 0.5
         });
+        _map.view({
+            center: { lat: 48.0, lng: 10.0 },
+            zoom: 5
+        });
+        _map.layer(
+            ixmaps.layer("cities")
+                .data({ obj: cityData, type: "json" })
+                .binding({ geo: "lat|lon", value: "pop", title: "name" })
+                .style({
+                    colorscheme: ["#bd0026"],
+                    normalsizevalue: 10000000,
+                    units: "people"
+                })
+                .type("CHART|BUBBLE|SIZE|VALUES")
+                .title("European Cities Population")
+                .define()
+            );
     </script>
 </body>
 </html>
 ```
 
-This example creates an OpenStreetMap-based map centered on Italy, displaying cities as proportional bubbles sized by population data from a GeoJSON file.
+This example creates an interactive map centered on Europe, displaying major cities as proportional bubbles sized by population. The data is provided inline as a JSON object, so no external data files are needed.
+
+### Loading External Data
+
+You can also load data from external files:
+
+```javascript
+// From GeoJSON file
+let layer1 = ixmaps.layer("cities")
+    .data({ url: "data/cities.geojson", type: "geojson" })
+    .binding({ position: "geometry", value: "population" })
+    .type("CHART|BUBBLE")
+    .define();
+
+// From CSV file
+let layer2 = ixmaps.layer("data")
+    .data({ url: "data/statistics.csv", type: "csv" })
+    .binding({ geo: "latitude|longitude", value: "count" })
+    .type("CHOROPLETH|QUANTILE")
+    .define();
+
+// Add layers to the map
+map.layer(layer1);
+map.layer(layer2);
+```
 
 ## Core API
+
+### CDN
+
+Include ixMaps in your HTML from the CDN:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
+```
 
 ### Map Initialization
 
 ```javascript
-ixmaps.Map("container_id", {
-    mapService: "leaflet_vt",
-    mapType: "OpenStreetMap",
-    legend: "true"
+// Initialize map and store reference in variable
+let map = ixmaps.Map("container_id", {
+    mapType: "VT_TONER_LITE"  // or "OpenStreetMap", "CartoDB Positron", etc.
+});
+
+// Configure the map using fluent API
+map.view({
+        center: { lat: 42.0, lng: 12.5 },
+        zoom: 6
+    })
+    .options({
+        objectscaling: "dynamic",
+        basemapopacity: 0.5
+    });
+
+// Alternative: with callback function
+let map = ixmaps.Map("container_id", {
+    mapType: "OpenStreetMap"
 }, function(map) {
-    // Map is ready
+    // Map is ready, you can now add layers
+    map.view([42.0, 12.5], 6);
 });
 ```
 
 ### Layer Definition (Fluent API)
 
 ```javascript
-ixmaps.layer("layerName")
-    .data({url: "data.geojson", type: "geojson"})
-    .binding({position: "geometry", value: "fieldname"})
-    .style({colorscheme: ["#fff", "#000"], opacity: 0.8})
+// Create a layer and store reference
+let layer = ixmaps.layer("layerName")
+    .data({ url: "data.geojson", type: "geojson" })
+    .binding({ position: "geometry", value: "fieldname" })
+    .style({ colorscheme: ["#fff", "#000"], opacity: 0.8 })
     .type("CHOROPLETH|EQUIDISTANT")
-    .define()
+    .define();
+
+// Add the layer to the map
+map.layer(layer);
 ```
 
-### Visualization Types
+### Adding Multiple Layers
+
+```javascript
+// Create multiple layers
+let populationLayer = ixmaps.layer("population")
+    .data({ url: "data/population.csv", type: "csv" })
+    .binding({ geo: "lat|lon", value: "count" })
+    .style({ colorscheme: ["#ffffb2", "#bd0026"] })
+    .type("CHART|BUBBLE")
+    .define();
+
+let boundaryLayer = ixmaps.layer("boundaries")
+    .data({ url: "data/regions.geojson", type: "geojson" })
+    .binding({ position: "geometry" })
+    .style({ opacity: 0.3, stroke: "#333" })
+    .type("FEATURE")
+    .define();
+
+// Add all layers to the map
+map.layer(populationLayer)
+    .layer(boundaryLayer);
+```
+
+## Visualization Types
 
 - **FEATURE/FEATURES** - Raw geographic features with styling
 - **CHOROPLETH** - Color-coded areas by values (EQUIDISTANT, QUANTILE, NATURAL breaks)
