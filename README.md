@@ -13,6 +13,13 @@
 - **Browser-based processing** with no server requirements
 - **Export capabilities** to standalone HTML or JSON projects
 
+## CDN
+
+CDN_BASE=https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/
+
+Script:
+<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
+
 ## Quick Start
 
 ### Simple HTML Example
@@ -111,12 +118,12 @@ Include ixMaps in your HTML from the CDN:
 
 ```javascript
 // Initialize map and store reference in variable
-let map = ixmaps.Map("container_id", {
+let _map = ixmaps.Map("container_id", {
     mapType: "VT_TONER_LITE"  // or "OpenStreetMap", "CartoDB Positron", etc.
 });
 
 // Configure the map using fluent API
-map.view({
+_map.view({
         center: { lat: 42.0, lng: 12.5 },
         zoom: 6
     })
@@ -126,7 +133,7 @@ map.view({
     });
 
 // Alternative: with callback function
-let map = ixmaps.Map("container_id", {
+ixmaps.Map("container_id", {
     mapType: "OpenStreetMap"
 }, function(map) {
     // Map is ready, you can now add layers
