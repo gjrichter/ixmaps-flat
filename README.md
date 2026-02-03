@@ -100,8 +100,8 @@ let layer2 = ixmaps.layer("data")
     .define();
 
 // Add layers to the map
-map.layer(layer1);
-map.layer(layer2);
+_map.layer(layer1);
+_map.layer(layer2);
 ```
 
 ## Core API
@@ -153,7 +153,7 @@ let layer = ixmaps.layer("layerName")
     .define();
 
 // Add the layer to the map
-map.layer(layer);
+_map.layer(layer);
 ```
 
 ### Adding Multiple Layers
@@ -175,7 +175,7 @@ let boundaryLayer = ixmaps.layer("boundaries")
     .define();
 
 // Add all layers to the map
-map.layer(populationLayer)
+_map.layer(populationLayer)
     .layer(boundaryLayer);
 ```
 
