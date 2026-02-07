@@ -15941,9 +15941,10 @@ $Log: maptheme.js,v $
 							}
 						} else
 							if (this.szFlag.match(/SIZE/)) {
+								// AGGREGATE themes use nSize (count) for sort; non-aggregate use nValueSum
 								for (var i = 0; i < this.indexA.length; i++) {
-									nValue = this.itemA[this.indexA[i]].nValueSum;
-									if (!isNaN(nValue)) {
+									nValue = this.szFlag.match(/AGGREGATE/) ? this.itemA[this.indexA[i]].nSize : this.itemA[this.indexA[i]].nValueSum;
+									if (nValue != null && !isNaN(nValue)) {
 										chartYPosA.push({
 											a: this.indexA[i],
 											y: nValue
@@ -17838,12 +17839,12 @@ $Log: maptheme.js,v $
 		var chartNode = null;
 		var chartYPosA = [];
 		var chartsA = this.chartGroup.childNodes;
-		if (this.szFlag.match(/BUBBLE/) || this.szFlag.match(/SQUARE/) || this.szFlag.match(/BUFFER/) || this.szFlag.match(/TEXTONLY/)) {
+		if (this.szFlag.match(/BUBBLE/) || this.szFlag.match(/SQUARE/) || this.szFlag.match(/BUFFER/) || this.szFlag.match(/TEXTONLY/) || this.szFlag.match(/SYMBOL/)) {
 			for (var i = 0; i < chartsA.length; i++) {
 				var chartNode = chartsA.item(i);
 				chartYPosA[i] = {
 					node: chartNode,
-					y: Math.abs(Number(chartNode.getAttributeNS(szMapNs, "value")))
+					y: Math.abs(Number(chartNode.getAttributeNS(szMapNs, "value") || 0))
 				};
 			}
 		} else {
