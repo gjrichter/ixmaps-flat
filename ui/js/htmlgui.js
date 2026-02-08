@@ -1432,6 +1432,12 @@ $Log: htmlgui.js,v $
 				if (i == "obj") {
 					theme.style["dbtableObj"] = theme.data[i];
 				} else
+					if (i == "data") {
+						// "data" is alias for "obj" (inline GeoJSON/array)
+						if (theme.style["dbtableObj"] === undefined) {
+							theme.style["dbtableObj"] = theme.data[i];
+						}
+					} else
 					if (i == "name") {
 						theme.style["dbtable"] = theme.data[i];
 					} else

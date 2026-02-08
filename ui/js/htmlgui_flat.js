@@ -1133,6 +1133,16 @@
             return this;
         },
         layer: function (theme, flag) {
+            if (typeof theme === 'string') {
+                var lb = new ixmaps.themeConstruct(this.szMap, theme);
+                lb.__mapApi = this;
+                var self = this;
+                lb.define = function () {
+                    ixmaps.newTheme("layer", this.def, flag);
+                    return self;
+                };
+                return lb;
+            }
             ixmaps.newTheme("layer", theme, flag);
             return this;
         },
@@ -1348,6 +1358,10 @@
                     } else {
                         for (var i in dataObj) {
                             this.def.data[i] = dataObj[i];
+                        }
+                        // Support "data" as alias for "obj" (inline GeoJSON/array)
+                        if (dataObj.data !== undefined) {
+                            this.def.data.obj = dataObj.data;
                         }
                     }
 
