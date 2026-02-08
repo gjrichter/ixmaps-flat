@@ -1,17 +1,30 @@
 /**
  * ixmaps core library
- * 
- * This file loads the initial ixmaps API
- * 
- * the user can define map themes and embed the ixmaps map
- * 
- * 1. with ixmaps.layer(szLayerName,callback) 
- *    the user can define visualization themes
- * 
- * 2. with ixmaps.Map(targetDiv, options, callback)
- *    the user can embed the map into the target div
- *    and define a callback function which will receive the map handle with the ixmaps API 
- *    to load and handle visualization themes and map featiures
+ *
+ * This file loads the initial ixmaps API and exposes the public surface.
+ *
+ * **User entry points:**
+ * 1. `ixmaps.layer(szLayerName [, callback])` – define visualization themes (fluent builder).
+ * 2. `ixmaps.Map(targetDiv, options [, callback])` – embed the map and optionally receive
+ *    the map handle to load themes and control map features (fluent chaining or Promise).
+ * 3. `ixmaps.init()` – explicitly load the full API (htmlgui_flat.js) before using Map.
+ *
+ * **Public API surface (what this file exposes):**
+ * - `ixmaps` – global namespace; `version`, `JSON_Schema`, `init`, `Map`, `layer`, `Layer`, `theme`, `themeConstruct`, `MapBuilder`
+ * - `ixmaps.Map(div, options, callback)` – returns a Proxy around MapBuilder (chainable or .then())
+ * - `ixmaps.layer(szLayer, callback?)` – returns themeConstruct instance or layer definition JSON
+ * - `ixmaps.Layer` – alias for `ixmaps.layer`
+ * - `ixmaps.theme(szLayer)` – returns themeConstruct instance (used when `this.szMap` is set, e.g. inside embed)
+ * - `ixmaps.themeConstruct` – constructor for layer/theme definition builder
+ * - `ixmaps.MapBuilder` – internal builder used by Map(); documented for API clarity
+ *
+ * **File structure (for AI/navigation):**
+ * - Lines ~16–64: ixmaps object, loadScript, base URL resolution for htmlgui_flat.js
+ * - Lines ~66–127: Queuing mechanism comment, module state (_scriptLoadPromise, ensureMapInitialized, ixmaps.init)
+ * - Lines ~154–391: MapBuilder class (queue-or-execute, chainable methods, then/catch)
+ * - Lines ~394–539: window.ixmaps.Map – creates MapBuilder and wraps in Proxy for method validation
+ * - Lines ~547–931: Theme Construct API (themeConstruct, data/binding/type/style/meta/define)
+ * - Lines ~932–996: ixmaps.theme, ixmaps.layer, ixmaps.Layer
  */
 
 // Define the ixmaps object
@@ -43,16 +56,23 @@ function loadScript(src) {
 // This is the script with the complete ixmaps API
 let szScript2 = "ui/js/htmlgui_flat.js";
 
-// we make final URL to load the above script depending from the ixmaps.js path
-//
-// Find the script object that contains this ixmaps.js file
-// and use the URL of the script to build the complete URL to load the ixmaps API
-let scriptsA = document.querySelectorAll("script");
-for (var i in scriptsA) {
-    let scr = scriptsA[i].getAttribute("src");
-    if (scr && scr.match(/ixmaps.js/)) {
-        szScript2 = (scr.split("ixmaps.js")[0]) + szScript2;
-        break;
+// Resolve the base URL for loading htmlgui_flat.js from the location of this script.
+// We need the script that is actually executing (this file), not the first match in the DOM.
+// If this script is in <head>, another script (e.g. CDN) might match "ixmaps.js" first and
+// yield the wrong base, so we use document.currentScript when available. That way the script
+// works in both <head> and <body>.
+var _ixmapsScriptEl = typeof document !== "undefined" && document.currentScript;
+if (_ixmapsScriptEl && _ixmapsScriptEl.src && _ixmapsScriptEl.src.indexOf("ixmaps.js") !== -1) {
+    szScript2 = (_ixmapsScriptEl.src.split("ixmaps.js")[0]) + szScript2;
+} else {
+    // Fallback: first script whose src contains "ixmaps.js" (e.g. older browsers, or inline script)
+    var scriptsA = document.querySelectorAll("script");
+    for (var i = 0; i < scriptsA.length; i++) {
+        var scr = scriptsA[i].getAttribute("src");
+        if (scr && scr.indexOf("ixmaps.js") !== -1) {
+            szScript2 = (scr.split("ixmaps.js")[0]) + szScript2;
+            break;
+        }
     }
 }
 
@@ -124,7 +144,11 @@ var _scriptLoadPromise = null;
 var _scriptLoaded = false;
 var _realMapFunction = null;
 
-// Helper to ensure the map API is initialized
+/**
+ * Ensures the full ixmaps API (htmlgui_flat.js) is loaded. Resolves immediately if already loaded;
+ * otherwise loads the script once and caches the promise. Used by Map and init.
+ * @returns {Promise<void>} Resolves when the API is ready
+ */
 function ensureMapInitialized() {
     if (_scriptLoaded && _realMapFunction) {
         return Promise.resolve();
@@ -352,11 +376,27 @@ ixmaps.MapBuilder.prototype = {
     
     /**
      * Add a layer/theme to the map.
-     * @param {Object} layerDef - Layer definition object (from ixmaps.layer().define())
-     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     * Accepts either a layer name (string) for fluent definition, or a ready-made definition object.
+     * @param {string|Object} layerDefOrName - Layer name (string) to start a fluent chain, or layer definition object (from ixmaps.layer().define())
+     * @returns {ixmaps.MapBuilder|ixmaps.themeConstruct} If string: returns a layer builder with .data(), .binding(), .style(), .define(); .define() adds the layer and returns the map. If object: adds the layer and returns self.
+     * @example
+     * // Fluent: define layer from the map
+     * map.layer("roads").data({url: "data.geojson", type: "geojson"}).binding({geo: "geometry"}).style({}).define();
+     * @example
+     * // Definition object (unchanged)
+     * map.layer(ixmaps.layer("roads").data({url: "data.geojson", type: "geojson"}).define());
      */
-    layer: function(layerDef) {
-        return this._queueOrExecute('layer', [layerDef]);
+    layer: function(layerDefOrName) {
+        if (typeof layerDefOrName === 'string') {
+            var lb = new ixmaps.themeConstruct(this.szMap, layerDefOrName);
+            lb.__mapBuilder = this;
+            var self = this;
+            lb.define = function () {
+                return self._queueOrExecute('layer', [this.def]);
+            };
+            return lb;
+        }
+        return this._queueOrExecute('layer', [layerDefOrName]);
     },
     
     /**
@@ -482,18 +522,26 @@ ixmaps.MapBuilder.prototype = {
     }
 };
 
-// second option: load the ixmaps API implicitly via fluent builder
-// Returns a MapBuilder instance that supports both fluent chaining and Promise .then()
+/**
+ * Main map entry point: creates a map in the given container with optional fluent chaining or Promise API.
+ * Loads the full ixmaps API (htmlgui_flat.js) on first use. Returns a Proxy around MapBuilder so that
+ * unsupported method names yield a clear error and list of supported methods instead of undefined.
+ *
+ * @function ixmaps.Map
+ * @param {string|HTMLElement} div - Target container ID or element
+ * @param {Object} options - Map options (e.g. mode: "pan")
+ * @param {Function} [callback] - Optional legacy callback(map) when map is ready
+ * @returns {Proxy<ixmaps.MapBuilder>} Proxy around MapBuilder; supports view, layer, options, on, attribution, require, local, legend, then, catch
+ */
 window.ixmaps.Map = function (div, options, callback) {
     var builder = new ixmaps.MapBuilder(div, options, callback);
-    
-    // List of supported chainable methods
+
     var supportedMethods = [
-        'view', 'layer', 'options', 'on', 'attribution', 
+        'view', 'layer', 'options', 'on', 'attribution',
         'require', 'local', 'legend', 'then', 'catch'
     ];
-    
-    // Wrap with Proxy to intercept undefined method calls
+
+    // Proxy: intercept undefined property access to throw with supported-method list (AI/tooling-friendly)
     return new Proxy(builder, {
         get: function(target, prop) {
             // If property exists on target or its prototype, return it (normal behavior)
@@ -562,14 +610,6 @@ console.log("ixmaps.js loaded and waiting for initialization");
  */
 
 /**
- * ixmaps.themeConstruct  
- * @class It realizes an object to create a theme JSON 
- * @constructor
- * @param {Object} [map] a map object to define the theme for
- * @return A new ixmaps.themeConstruct object
- */
-
-/**
  * Builder class for creating map layer/theme definitions.
  * Provides a fluent API for configuring data sources, visualization types, bindings, and styles.
  * 
@@ -605,6 +645,7 @@ ixmaps.themeConstruct.prototype = {
      * @param {string} [dataObj.type] - Data type: "geojson"|"topojson"|"csv"|"json"|"kml"|"rss"|"ext"
      * @param {string} [dataObj.name] - Optional name for the data source
      * @param {Object} [dataObj.obj] - Inline data object (alternative to URL)
+     * @param {Object} [dataObj.data] - Inline data (alias for obj; GeoJSON/array/table)
      * @param {string} [dataObj.ext] - External data source identifier
      * @param {string} [dataObj.query] - SQL query for database sources
      * @param {string} [szType] - Data type (if dataObj is a string URL)
@@ -638,6 +679,10 @@ ixmaps.themeConstruct.prototype = {
                 } else {
                     for (var i in dataObj) {
                         this.def.data[i] = dataObj[i];
+                    }
+                    // Support "data" as alias for "obj" (inline GeoJSON/array)
+                    if (dataObj.data !== undefined) {
+                        this.def.data.obj = dataObj.data;
                     }
                 }
 
@@ -674,27 +719,56 @@ ixmaps.themeConstruct.prototype = {
         }
         return this;
     },
+    /**
+     * Set the data process/transform identifier for the layer.
+     * @param {string} szProcess - Process name or identifier
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     process: function (szProcess) {
         this.def.data.process = szProcess;
         return this;
     },
+    /**
+     * Set the data query (e.g. for external/DB sources).
+     * @param {string} szQuery - Query string
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     query: function (szQuery) {
         this.def.data.query = szQuery;
-        // alert("hi"); // DEBUG: Removed alert
         return this;
     },
+    /**
+     * Set the primary item/field name used for data binding (default "$item$").
+     * @param {string} szName - Field name
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     field: function (szName) {
         this.def.field = szName;
         return this;
     },
+    /**
+     * Set the secondary field name (e.g. for 100% normalization).
+     * @param {string} szName - Field name
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     field100: function (szName) {
         this.def.field100 = szName;
         return this;
     },
+    /**
+     * Set the lookup/join field for geometry or feature matching.
+     * @param {string} szName - Field name (e.g. "geometry", "fid")
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     lookup: function (szName) {
         this.def.style.lookupfield = szName;
         return this;
     },
+    /**
+     * Alias for lookup: set the geometry/position field.
+     * @param {string} szName - Field name
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     geo: function (szName) {
         this.def.style.lookupfield = szName;
         return this;
@@ -736,6 +810,11 @@ ixmaps.themeConstruct.prototype = {
         }
         return this;
     },
+    /**
+     * Set bindings from encoding-style objects (field or raw value per key).
+     * @param {Object} bObj - Keys are binding names; values are {field: string} or string
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     encoding: function (bObj) {
         this.def.binding = this.def.binding || {};
         for (var i in bObj) {
@@ -743,6 +822,11 @@ ixmaps.themeConstruct.prototype = {
         }
         return this;
     },
+    /**
+     * Set a filter expression for the layer (e.g. to limit visible features).
+     * @param {string} szFilter - Filter expression
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     filter: function (szFilter) {
         this.def.style = this.def.style || {};
         this.def.style.filter = szFilter;
@@ -870,6 +954,11 @@ ixmaps.themeConstruct.prototype = {
         }
         return this;
     },
+    /**
+     * Set the layer title (displayed in legend/UI).
+     * @param {string} szTitle - Title text
+     * @returns {ixmaps.themeConstruct} Returns self for chaining
+     */
     title: function (szTitle) {
         this.def.style.title = szTitle;
         return this;
@@ -924,14 +1013,17 @@ ixmaps.themeConstruct.prototype = {
     }
 };
 /**
-* ixmaps.theme 
-* get an ixmaps.themeConstructer instance
-* @param {String} [szLayer] the name of a layer to define or to refer
-* @return A new ixmaps.themeConstruct instance
-*/
+ * Returns a themeConstruct instance bound to the current map context (this.szMap).
+ * Use when defining layers from a context where the map is already set (e.g. inside ixmaps.embed).
+ * For standalone layer definitions (e.g. passed to ixmaps.Map().layer(...)), use ixmaps.layer() instead.
+ *
+ * @function ixmaps.theme
+ * @param {string} [szLayer] - Layer name/identifier
+ * @returns {ixmaps.themeConstruct} New themeConstruct instance
+ */
 ixmaps.theme = function (szLayer) {
     return new ixmaps.themeConstruct(this.szMap, szLayer);
-}
+};
 
 /**
  * Creates a new map layer with a fluent/builder API.
@@ -976,12 +1068,11 @@ ixmaps.layer = function (szLayer, callback) {
 }
 
 /**
- * Convenience alias for {@link ixmaps.layer}. Provides the same behaviour while
- * avoiding namespace conflicts with existing APIs.
+ * Alias for {@link ixmaps.layer}. Same behaviour; use when "Layer" is preferred (e.g. to avoid conflicts with other APIs).
  * @function ixmaps.Layer
- * @param {String} [szLayer] the name of a layer to define or to refer
- * @param {Function} [callback] optional callback function
- * @return A new ixmaps.themeConstruct instance
+ * @param {string} [szLayer] - Layer name/identifier
+ * @param {Function} [callback] - Optional callback(layerBuilder) that receives the builder; when used, returns layer definition JSON
+ * @returns {ixmaps.themeConstruct|Object} themeConstruct instance or layer definition object if callback provided
  */
 ixmaps.Layer = function (szLayer, callback) {
     return ixmaps.layer(szLayer, callback);
