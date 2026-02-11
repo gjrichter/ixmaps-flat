@@ -6615,6 +6615,20 @@ $Log: maptheme.js,v $
 		var lastExecutionTime = 0;
 		for (var i = 0; i < this.themesA.length; i++) {
 
+			// Sync fVisible for scale-dependent FEATURE themes (no realize/redraw)
+			if (this.themesA[i].szFlag.match(/FEATURE/) &&
+				(this.themesA[i].nFeatureUpper || this.themesA[i].nFeatureLower) &&
+				this.themesA[i].fDone) {
+				var scale = map.Scale.nTrueMapScale * map.Scale.nZoomScale;
+				var inScale = !(this.themesA[i].nFeatureLower && scale <= this.themesA[i].nFeatureLower) &&
+					!(this.themesA[i].nFeatureUpper && scale > this.themesA[i].nFeatureUpper);
+				var wasVisible = this.themesA[i].fVisible;
+				this.themesA[i].fVisible = inScale;
+				if (wasVisible !== inScale) {
+					try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.themesA[i].szId); } catch (e) {}
+				}
+			}
+
 			if (nZoomChangeFactor && (nZoomChangeFactor != 1)) {
 				if (this.themesA[i].szFlag.match(/FEATURE/)) {
 					if (this.themesA[i].nFeatureUpper ||
@@ -7850,9 +7864,16 @@ $Log: maptheme.js,v $
 		}
 
 		if (this.szFlag.match(/FEATURE/)) {
+			var wasVisible = this.fVisible;
 			if ((this.nFeatureLower && (map.Scale.nTrueMapScale * map.Scale.nZoomScale <= this.nFeatureLower)) ||
 				(this.nFeatureUpper && (map.Scale.nTrueMapScale * map.Scale.nZoomScale > this.nFeatureUpper))) {
+				this.fVisible = false;
+				try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.szId); } catch (e) {}
 				return;
+			}
+			this.fVisible = true;
+			if (!wasVisible) {
+				try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.szId); } catch (e) {}
 			}
 		}
 
@@ -8340,7 +8361,8 @@ $Log: maptheme.js,v $
 	MapTheme.prototype.redraw = function (fEnable) {
 
 
-		if (this.szFlag.match(/FEATURE/)) {
+		// FEATURE-only themes skip redraw here; FEATURE|CHOROPLETH must repaint (e.g. after fillopacity change)
+		if (this.szFlag.match(/FEATURE/) && !this.szFlag.match(/CHOROPLETH/)) {
 			return;
 		}
 

@@ -1157,6 +1157,16 @@
             return this;
         },
 
+        redrawTheme: function (szThemeId) {
+            ixmaps.redrawTheme(szThemeId);
+            return this;
+        },
+
+        refreshTheme: function (szThemeId) {
+            ixmaps.refreshTheme(szThemeId);
+            return this;
+        },
+
         removeTheme: function (szTheme) {
             ixmaps.removeTheme(szTheme);
             return this;
