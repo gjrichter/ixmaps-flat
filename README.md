@@ -49,30 +49,29 @@ Script:
         ];
 
         // Create the map and add a bubble chart layer
-        let _map = ixmaps.Map("map", {
+        let myMap = ixmaps.Map("map", {
             mapType: "VT_TONER_LITE"
         })
-        _map.options({
+        myMap.options({
             objectscaling: "dynamic",
             basemapopacity: 0.5
         });
-        _map.view({
+        myMap.view({
             center: { lat: 48.0, lng: 10.0 },
             zoom: 5
         });
-        _map.layer(
-            ixmaps.layer("cities")
-                .data({ obj: cityData, type: "json" })
-                .binding({ geo: "lat|lon", value: "pop", title: "name" })
-                .style({
-                    colorscheme: ["#bd0026"],
-                    normalsizevalue: 10000000,
-                    units: "people"
-                })
-                .type("CHART|BUBBLE|SIZE|VALUES")
-                .title("European Cities Population")
-                .define()
-            );
+        myMap.layer("cities")
+            .data({ obj: cityData, type: "json" })
+            .binding({ geo: "lat|lon", value: "pop", title: "name" })
+            .style({
+                colorscheme: ["#bd0026"],
+                normalsizevalue: 10000000,
+                units: "people"
+            })
+            .type("CHART|BUBBLE|SIZE|VALUES")
+            .title("European Cities Population")
+            .define()
+      
     </script>
 </body>
 </html>
@@ -100,8 +99,8 @@ let layer2 = ixmaps.layer("data")
     .define();
 
 // Add layers to the map
-_map.layer(layer1);
-_map.layer(layer2);
+myMap.layer(layer1);
+myMap.layer(layer2);
 ```
 
 ## Core API
@@ -118,12 +117,12 @@ Include ixMaps in your HTML from the CDN:
 
 ```javascript
 // Initialize map and store reference in variable
-let _map = ixmaps.Map("container_id", {
+let myMap = ixmaps.Map("container_id", {
     mapType: "VT_TONER_LITE"  // or "OpenStreetMap", "CartoDB Positron", etc.
 });
 
 // Configure the map using fluent API
-_map.view({
+myMap.view({
         center: { lat: 42.0, lng: 12.5 },
         zoom: 6
     })
@@ -153,7 +152,7 @@ let layer = ixmaps.layer("layerName")
     .define();
 
 // Add the layer to the map
-_map.layer(layer);
+myMap.layer(layer);
 ```
 
 ### Adding Multiple Layers
@@ -175,7 +174,7 @@ let boundaryLayer = ixmaps.layer("boundaries")
     .define();
 
 // Add all layers to the map
-_map.layer(populationLayer)
+myMap.layer(populationLayer)
     .layer(boundaryLayer);
 ```
 
