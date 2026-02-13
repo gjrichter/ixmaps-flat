@@ -77,7 +77,9 @@ Script:
 </html>
 ```
 
-This example creates an interactive map centered on Europe, displaying major cities as proportional bubbles sized by population. The data is provided inline as a JSON object, so no external data files are needed. See it in the [code viewer](https://gjrichter.github.io/MapCodeViewer/index.html?url=maps/first_demo.html) 
+See it in the [code viewer](https://gjrichter.github.io/MapCodeViewer/index.html?url=maps/first_demo.html) 
+
+This example creates an interactive map centered on Europe, displaying major cities as proportional bubbles sized by population. The data is provided inline as a JSON object, so no external data files are needed. 
 
 ### Loading External Data
 
