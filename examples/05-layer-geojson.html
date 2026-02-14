@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>iXMaps - Layer GeoJSON</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #map_div {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="map_div"></div>
+
+    <script type="text/javascript" src="../ixmaps.js"></script>
+    <script type="text/javascript">
+        ixmaps.Map("map_div", {
+            mapName: "geojsonMap",
+            mapService: "leaflet",
+            mapType: "OpenStreetMap",
+            align: "left",
+            toolbutton: true
+        }).then((map) => {
+            // Imposta la vista
+            map.view([42.5, 12.5], 6);
+
+            // Esempio: Aggiungi un layer con punti personalizzati
+            // Crea un GeoJSON inline per dimostrare la funzionalità
+            const demoData = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "name": "Roma",
+                            "population": 2873000
+                        },
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [12.4964, 41.9028]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "name": "Milano",
+                            "population": 1372000
+                        },
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [9.1900, 45.4642]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "name": "Napoli",
+                            "population": 967000
+                        },
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [14.2681, 40.8518]
+                        }
+                    }
+                ]
+            };
+
+            // Aggiungi il layer con i dati inline
+            map.layer(
+                ixmaps.layer("cities")
+                    .data({
+                        data: demoData,
+                        type: "geojson"
+                    })
+                    .type("FEATURE|SYMBOL|CHART|BUBBLE")
+                    .binding({
+                        position: "geometry",
+                        value: "population"
+                    })
+                    .style({
+                        colorscheme: "spectrum",
+                        linewidth: "2",
+                        opacity: "0.8"
+                    })
+                    .meta({
+                        title: "Città Italiane",
+                        snippet: "Popolazione per città"
+                    })
+                    .define()
+            );
+
+            console.log("Layer GeoJSON aggiunto con successo!");
+        });
+    </script>
+</body>
+</html>

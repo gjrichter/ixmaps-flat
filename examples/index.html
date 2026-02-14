@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>iXMaps - Examples Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .example-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .example-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        .example-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .example-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .example-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .example-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+        .example-features li {
+            padding: 5px 0;
+            color: #777;
+            font-size: 0.9em;
+        }
+        .example-features li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .info-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 30px;
+        }
+        .info-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .info-section p {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        .info-section code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #d63384;
+        }
+        .quick-start {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ iXMaps Examples</h1>
+            <p class="subtitle">Esempi pratici per iniziare con iXMaps</p>
+        </header>
+
+        <div class="examples-grid">
+            <a href="01-basic-map.html" class="example-card">
+                <div class="example-number">01</div>
+                <h3 class="example-title">Mappa Base</h3>
+                <p class="example-description">
+                    Il modo più semplice per iniziare con iXMaps.
+                </p>
+                <ul class="example-features">
+                    <li>Fullscreen responsive</li>
+                    <li>OpenStreetMap basemap</li>
+                    <li>Vista su Roma</li>
+                    <li>Codice minimo essenziale</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+
+            <a href="02-projection-basemap.html" class="example-card">
+                <div class="example-number">02</div>
+                <h3 class="example-title">Proiezione e Basemap</h3>
+                <p class="example-description">
+                    Mappa con proiezione Winkel Tripel e basemap personalizzata.
+                </p>
+                <ul class="example-features">
+                    <li>Proiezione Winkel Tripel</li>
+                    <li>Stamen Toner Lite basemap</li>
+                    <li>Pulsanti di controllo</li>
+                    <li>Funzione di ricerca</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+
+            <a href="03-different-projections.html" class="example-card">
+                <div class="example-number">03</div>
+                <h3 class="example-title">Proiezioni Multiple</h3>
+                <p class="example-description">
+                    Confronta 6 diverse proiezioni cartografiche in tempo reale.
+                </p>
+                <ul class="example-features">
+                    <li>6 proiezioni disponibili</li>
+                    <li>Cambio dinamico</li>
+                    <li>Interfaccia interattiva</li>
+                    <li>Educativo e dimostrativo</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+
+            <a href="04-fixed-layout.html" class="example-card">
+                <div class="example-number">04</div>
+                <h3 class="example-title">Layout Fisso</h3>
+                <p class="example-description">
+                    Mappa con design personalizzato e dimensioni fisse.
+                </p>
+                <ul class="example-features">
+                    <li>Design accattivante</li>
+                    <li>Dimensioni controllate</li>
+                    <li>Basemap Watercolor</li>
+                    <li>Guida utente integrata</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+
+            <a href="05-layer-geojson.html" class="example-card">
+                <div class="example-number">05</div>
+                <h3 class="example-title">Layer GeoJSON</h3>
+                <p class="example-description">
+                    Come aggiungere dati personalizzati con GeoJSON.
+                </p>
+                <ul class="example-features">
+                    <li>Dati GeoJSON inline</li>
+                    <li>Bubble chart visualization</li>
+                    <li>Binding con dati</li>
+                    <li>Esempio pratico completo</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+
+            <a href="06-multiple-basemaps.html" class="example-card">
+                <div class="example-number">06</div>
+                <h3 class="example-title">Basemap Selector</h3>
+                <p class="example-description">
+                    Interfaccia per cambiare basemap dinamicamente.
+                </p>
+                <ul class="example-features">
+                    <li>5 basemap disponibili</li>
+                    <li>Cambio in tempo reale</li>
+                    <li>UI interattiva</li>
+                    <li>Esempi di personalizzazione</li>
+                </ul>
+                <span class="btn">Visualizza →</span>
+            </a>
+        </div>
+
+        <div class="info-section">
+            <h2>🚀 Quick Start</h2>
+
+            <div class="quick-start">
+                <strong>Per iniziare subito:</strong>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li>Clicca su uno degli esempi sopra</li>
+                    <li>Guarda il codice sorgente (tasto destro → "Visualizza sorgente pagina")</li>
+                    <li>Copia e personalizza per le tue esigenze</li>
+                </ol>
+            </div>
+
+            <h3 style="margin-top: 30px;">Struttura Base</h3>
+            <p>Tutti gli esempi seguono questa struttura base:</p>
+            <pre style="background: #f5f5f5; padding: 20px; border-radius: 6px; overflow-x: auto;"><code>&lt;div id="map_div"&gt;&lt;/div&gt;
+
+&lt;script src="../ixmaps.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+    ixmaps.Map("map_div", {
+        mapName: "myMap",
+        mapService: "leaflet",
+        mapType: "OpenStreetMap"
+    }).then((map) =&gt; {
+        map.view([lat, lng], zoom);
+    });
+&lt;/script&gt;</code></pre>
+
+            <h3 style="margin-top: 30px;">📖 Documentazione</h3>
+            <p>
+                Per informazioni dettagliate, consulta:
+            </p>
+            <ul style="margin-left: 20px; color: #666;">
+                <li><code>README.md</code> nella cartella examples - Guida agli esempi</li>
+                <li><code>API_DOCUMENTATION.md</code> - Documentazione API completa</li>
+                <li><code>GETTING_STARTED.md</code> - Guida introduttiva</li>
+            </ul>
+
+            <h3 style="margin-top: 30px;">💡 Suggerimenti</h3>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.8;">
+                <li>Inizia dall'esempio <strong>01-basic-map.html</strong> per capire la struttura base</li>
+                <li>Usa <strong>03-different-projections.html</strong> per esplorare le proiezioni</li>
+                <li>Personalizza <strong>05-layer-geojson.html</strong> per i tuoi dati</li>
+                <li>Apri la console del browser (F12) per vedere i messaggi di debug</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>iXMaps - Interactive Thematic Maps</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">
+                Creato con ❤️ per rendere le mappe interattive accessibili a tutti
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
