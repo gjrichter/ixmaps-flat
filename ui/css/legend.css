@@ -29,11 +29,25 @@
 	}
 	.map-legend {
 		position:absolute;
-		top:13px;
-		right:4%;
+		top:11px;
+		right:calc(4% - 4px);
 		opacity:0.95;
 		xxmin-width:350px;
 		max-width:500px;
+	}
+	
+	/* When legend is unfolded, move it up */
+	.map-legend:not(.legend-folded) {
+		top: 11px !important;
+		right: calc(4% - 4px) !important;
+	}
+	
+	/* Move the scrollable legend content area up */
+	#map-legend-body > div {
+		margin-top: 0.2em !important;
+		margin-bottom: 0 !important;
+		margin-right: 24px !important;
+		margin-left: 0 !important;
 	}
 
 	.map-legend-pane:before {
@@ -50,6 +64,108 @@
 		opacity: 1;
 		border: solid #dddddd 0.1px;
 		border-radius: 0.8em;
+	}
+	
+	.map-legend-pane.legend-folded:before {
+		display: none;
+	}
+	
+	.map-legend-pane.legend-folded {
+		padding: 0.3em 0.5em !important;
+		width: auto !important;
+		min-width: auto !important;
+		max-width: none !important;
+	}
+	
+	.map-legend-pane.legend-folded #legend-type-switch {
+		display: block;
+		text-align: left;
+		width: 100%;
+	}
+	
+	.map-legend-pane.legend-folded #legend-closed-button {
+		float: left;
+		margin: 0;
+		clear: left;
+		display: inline-block !important;
+		visibility: visible !important;
+	}
+	
+	.map-legend-pane.legend-folded #map-legend-title-folded-wrapper {
+		display: block !important;
+		visibility: visible !important;
+	}
+	
+	.map-legend-pane.legend-folded a:has(#map-legend-title-folded-wrapper) {
+		display: block !important;
+		visibility: visible !important;
+		cursor: pointer !important;
+		text-decoration: none !important;
+		color: inherit !important;
+		pointer-events: auto !important;
+	}
+	
+	/* Fallback for browsers that don't support :has() */
+	.map-legend-pane.legend-folded #map-legend-title-folded-wrapper {
+		pointer-events: auto !important;
+		cursor: pointer !important;
+	}
+	
+	.map-legend-pane.legend-folded #map-legend-title-folded {
+		display: block !important;
+		visibility: visible !important;
+		margin: 0.3em 0;
+		padding: 0.2em 0.5em;
+		font-size: 1em;
+		line-height: 1.2;
+		font-weight: normal;
+	}
+	
+	.map-legend-pane.legend-folded #legend-type-switch {
+		display: block !important;
+		visibility: visible !important;
+	}
+	
+	/* Legend toggle button - styled like mode toggle button */
+	.legend-toggle-button {
+		width: auto;
+		min-width: 60px;
+		height: 36px;
+		padding: 0 12px;
+		background: white;
+		color: #2c3e50;
+		border-radius: 8px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		font-family: Arial, sans-serif;
+		line-height: 1;
+		cursor: pointer;
+		z-index: 10000;
+		transition: all 0.3s ease;
+		border: 1px solid #46494c;
+		margin: 0;
+	}
+	
+	.legend-toggle-button:hover {
+		transform: translateY(-1px);
+		background: #f8f9fa;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+	}
+	
+	.map-legend.legend-folded {
+		width: auto !important;
+		min-width: auto !important;
+		max-width: none !important;
+		right: auto !important;
+		left: 120px !important;
+		top: 7px !important;
 	}
 	.map-legend-pane {
 		padding:0.5em 1em .5em 1.5em;
@@ -117,9 +233,9 @@
 		border:solid #ddd 1px;
 	}
 	.legend-item-list{
-		margin-top: 0.2em;
+		margin-top: 0.5em;
 		border-spacing:2px;
-		line-height:1.2em;
+		line-height:1.1em;
 	}
 
 	@media screen and (max-width: 640px) {
@@ -137,7 +253,7 @@
 		}
 		.legend-item-list{
 			margin-top: 0.2em;
-			line-height:1.2em;
+			line-height:0.8em;
 		}
 		.theme-legend-item {
 			margin-bottom: -0.5em;
@@ -159,7 +275,7 @@
 		}
 		.legend-item-list{
 			margin-top: 0.2em;
-			line-height:1.2em;
+			line-height:0.8em;
 		}
 		.theme-legend-item {
 			margin-bottom: -0.5em;
@@ -298,6 +414,98 @@
 	}
 	#slider-text {
 		color:white;
+	}
+	
+	/* Layerlist legend styles */
+	.layerlist-item {
+		display: flex;
+		align-items: center;
+		padding: 0.25em 0;
+		border-bottom: 1px solid rgba(220,220,220,0.3);
+		font-family: "Helvetica Condensed", Frutiger, "Open Sans", Roboto, Avenir, sans-serif;
+		line-height: 1.2;
+	}
+	
+	.layerlist-item-clickable {
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+	}
+	
+	.layerlist-item-clickable:hover {
+		background-color: rgba(0, 0, 0, 0.05);
+	}
+	
+	.layerlist-item-hidden .layer-name {
+		color: #999 !important;
+	}
+	
+	.layerlist-item-hidden .layer-patch {
+		opacity: 0.4;
+	}
+
+	.layer-patch {
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		margin-right: 0.5em;
+		border: 1px solid rgba(0,0,0,0.2);
+		flex-shrink: 0;
+	}
+
+	.layer-name {
+		flex: 1;
+		font-size: 0.9em;
+		color: inherit;
+		font-family: "Helvetica Condensed", Frutiger, "Open Sans", Roboto, Avenir, sans-serif;
+		line-height: 1.2;
+	}
+
+	.layerlist-group {
+		margin-bottom: 0.6em;
+	}
+
+	.layerlist-group-title {
+		font-weight: 600;
+		font-size: 1em;
+		margin-bottom: 0.3em;
+		color: #333;
+		font-family: "Helvetica Condensed", Frutiger, "Open Sans", Roboto, Avenir, sans-serif;
+		line-height: 1.2;
+	}
+	
+	/* Minimal scrollbars for layerlist */
+	.layerlist-group::-webkit-scrollbar,
+	#map-legend-body::-webkit-scrollbar,
+	#map-legend-body > div::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+	
+	.layerlist-group::-webkit-scrollbar-track,
+	#map-legend-body::-webkit-scrollbar-track,
+	#map-legend-body > div::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	
+	.layerlist-group::-webkit-scrollbar-thumb,
+	#map-legend-body::-webkit-scrollbar-thumb,
+	#map-legend-body > div::-webkit-scrollbar-thumb {
+		background: rgba(0,0,0,0.2);
+		border-radius: 3px;
+	}
+	
+	.layerlist-group::-webkit-scrollbar-thumb:hover,
+	#map-legend-body::-webkit-scrollbar-thumb:hover,
+	#map-legend-body > div::-webkit-scrollbar-thumb:hover {
+		background: rgba(0,0,0,0.3);
+	}
+	
+	/* Firefox scrollbar */
+	.layerlist-group,
+	#map-legend-body,
+	#map-legend-body > div {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(0,0,0,0.2) transparent;
 	}
 		
 

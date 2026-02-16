@@ -1168,10 +1168,11 @@ $Log: htmlgui.js,v $
 	ixmaps.setTitle = function (szTitle) {
 
 		var szHtml = "";
+		// .map-overlay has top:11px in main.css, so use top:2px here to align with buttons at 13px (11+2)
 		if (ixmaps.legendAlign && ixmaps.legendAlign == "left") {
-			szHtml = "<div style='float:right;margin-right:1em;;margin-top:0.5em;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
+			szHtml = "<div style='float:right;margin-right:1em;position:relative;top:2px;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
 		} else {
-			szHtml = "<div style='position:relative;left:100px;top:10px;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
+			szHtml = "<div style='position:relative;left:100px;top:2px;font-style:arial,helvetica;font-size:22px'>" + szTitle + "</div>";
 		}
 		this.setMapOverlayHTML(szHtml);
 	};
@@ -1183,7 +1184,7 @@ $Log: htmlgui.js,v $
 	 * @type void
 	 */
 	ixmaps.setTitleBox = function (szTitle, szColor) {
-		ixmaps.setTitle("<span style='padding: 0.3em 1em;border:solid #ddd 1px;border-radius:0.2em;font-family:courier new,Raleway,arial,helvetica;background:" + (szColor || "rgba(255,255,255,0.9)") + ";color:" + (szColor ? "#fff" : "#888") + "'>" + szTitle + "</span");
+		ixmaps.setTitle("<span style='display:inline-flex;align-items:center;height:38px;box-sizing:border-box;padding:0 12px;border:1px solid #46494c;border-radius:8px;font-size:14px;font-family:courier new,Raleway,arial,helvetica;background:" + (szColor || "rgba(255,255,255,0.95)") + ";color:" + (szColor ? "#fff" : "#222") + "'>" + szTitle + "</span");
 	};
 
 	// -----------------------------------

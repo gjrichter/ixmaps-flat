@@ -215,6 +215,57 @@ window.ixmaps = window.ixmaps || {};
 	// --------------------------------
 
 	/**
+	 * __getLayerColor
+	 * Extract color from layer for display in legend patch
+	 * @param layer the layer object
+	 * @type string
+	 * @return color value (hex or rgb)
+	 */
+	__getLayerColor = function(layer) {
+		// Try to get color from first category
+		if (layer.categoryA) {
+			for (var c in layer.categoryA) {
+				if (layer.categoryA[c].fill && layer.categoryA[c].fill !== "none") {
+					return layer.categoryA[c].fill;
+				}
+			}
+		}
+		// Fallback to stroke color
+		if (layer.categoryA) {
+			for (var c in layer.categoryA) {
+				if (layer.categoryA[c].stroke) {
+					return layer.categoryA[c].stroke;
+				}
+			}
+		}
+		// Default colors by type
+		switch(layer.szType) {
+			case "polygon": return "#4a90e2";
+			case "line": return "#e24a4a";
+			case "point": return "#4ae24a";
+			default: return "#888888";
+		}
+	};
+
+	/**
+	 * __makeLayerlistItem
+	 * Create a simple layer list item with colored patch and name
+	 * @param layer the layer object
+	 * @param name the layer name
+	 * @type string
+	 * @return the legend element (HTML)
+	 */
+	__makeLayerlistItem = function(layer, name) {
+		var color = __getLayerColor(layer);
+		var displayName = layer.szLegendName || layer.szName || name;
+		
+		return '<div class="layerlist-item">' +
+			   '<span class="layer-patch" style="background-color:' + color + '"></span>' +
+			   '<span class="layer-name">' + displayName + '</span>' +
+			   '</div>';
+	};
+
+	/**
 	 * __makeLegendType  
 	 * make a part of the layer legend 
 	 * generates the legend elements of one layer with the given type (polygon,polyline,point,..) 
@@ -468,43 +519,133 @@ window.ixmaps = window.ixmaps || {};
 	 * @type boolean
 	 */
 	ixmaps.makeLayerLegend = function (nMaxHeight) {
-		var layerA = ixmaps.getLayer();
-
 		nMaxHeight = nMaxHeight || ixmaps.__layerLegendHeight || 300;
 		ixmaps.__layerLegendHeight = nMaxHeight;
 
 		if (!$("#map-legend")[0]) {
+			console.log("makeLayerLegend: #map-legend element not found");
 			return false;
 		}
 
 		var szLegend = "";
 
-		// try to get description from SVG legend
-		var description = ixmaps.embeddedSVG.window.map.SVGDocument.getElementById("legend:collapsable:documentinfo");
-		if (description) {
-			var title = description.childNodes.item(1);
-			szLegend += "<h3>" + title.childNodes.item(1).nodeValue + "</h3>";
+		// Get all themes and group them by type
+		var featureThemes = [];
+		var choroplethThemes = [];
+		var chartThemes = [];
+
+		try {
+			var themes = ixmaps.getThemes();
+			if (themes && themes.length > 0) {
+				console.log("makeLayerLegend: Found", themes.length, "themes");
+				for (var t = 0; t < themes.length; t++) {
+					var theme = themes[t];
+					var themeObj = ixmaps.getThemeObj(theme.szId);
+					if (!themeObj) continue;
+					
+					// Skip themes with SILENT or NOLEGEND flags
+					if (themeObj.szFlag && themeObj.szFlag.match(/SILENT|NOLEGEND/)) {
+						continue;
+					}
+					
+					var themeName = themeObj.szLegendName || themeObj.szName || themeObj.szTitle || theme.szId;
+					
+					// Determine theme type from flags
+					var themeType = "FEATURE"; // default
+					if (themeObj.szFlag) {
+						if (themeObj.szFlag.match(/CHOROPLETH/)) {
+							themeType = "CHOROPLETH";
+						} else if (themeObj.szFlag.match(/CHART|BUBBLE|DOT/)) {
+							themeType = "CHART";
+						} else if (themeObj.szFlag.match(/FEATURE/)) {
+							themeType = "FEATURE";
+						}
+					}
+					
+					// Create a layer-like object for the theme
+					var themeLayer = {
+						szType: themeType === "CHART" ? "point" : (themeType === "CHOROPLETH" ? "polygon" : "polygon"),
+						szName: themeName,
+						szLegendName: themeName,
+						themeType: themeType,
+						themeObj: themeObj
+					};
+					
+					// Get color from theme
+					if (themeObj.categoryA) {
+						for (var c in themeObj.categoryA) {
+							if (themeObj.categoryA[c].fill && themeObj.categoryA[c].fill !== "none") {
+								themeLayer.categoryA = {};
+								themeLayer.categoryA[c] = { fill: themeObj.categoryA[c].fill };
+								break;
+							}
+						}
+					}
+					// If no fill color, try stroke color
+					if (!themeLayer.categoryA && themeObj.categoryA) {
+						for (var c in themeObj.categoryA) {
+							if (themeObj.categoryA[c].stroke) {
+								themeLayer.categoryA = {};
+								themeLayer.categoryA[c] = { fill: themeObj.categoryA[c].stroke };
+								break;
+							}
+						}
+					}
+					
+					// Group by theme type
+					if (themeType === "FEATURE") {
+						featureThemes.push({layer: themeLayer, name: themeName});
+					} else if (themeType === "CHOROPLETH") {
+						choroplethThemes.push({layer: themeLayer, name: themeName});
+					} else if (themeType === "CHART") {
+						chartThemes.push({layer: themeLayer, name: themeName});
+					}
+				}
+				console.log("makeLayerLegend: Grouped themes - FEATURE:", featureThemes.length, "CHOROPLETH:", choroplethThemes.length, "CHART:", chartThemes.length);
+			} else {
+				console.log("makeLayerLegend: No themes found");
+			}
+		} catch(e) {
+			console.error("makeLayerLegend: Error getting themes:", e);
+		}
+		
+		// Build legend HTML with grouped sections by theme type
+		if (featureThemes.length > 0) {
+			szLegend += "<div class='layerlist-group'>";
+			szLegend += "<div class='layerlist-group-title'>Features</div>";
+			for (var i = 0; i < featureThemes.length; i++) {
+				szLegend += __makeLayerlistItem(featureThemes[i].layer, featureThemes[i].name);
+			}
+			szLegend += "</div>";
 		}
 
-		szLegend += "<ul>";
-
-		for (a in layerA) {
-			szLegend += __makeLegendType(layerA[a], a, "polygon");
-		}
-		//szLegend += "<div style='height:0.7em;'></div>";
-		for (a in layerA) {
-			szLegend += __makeLegendType(layerA[a], a, "line");
-		}
-		//szLegend += "<div style='height:0.7em;'></div>";
-		for (a in layerA) {
-			szLegend += __makeLegendType(layerA[a], a, "point");
+		if (choroplethThemes.length > 0) {
+			szLegend += "<div class='layerlist-group'>";
+			szLegend += "<div class='layerlist-group-title'>Choropleths</div>";
+			for (var i = 0; i < choroplethThemes.length; i++) {
+				szLegend += __makeLayerlistItem(choroplethThemes[i].layer, choroplethThemes[i].name);
+			}
+			szLegend += "</div>";
 		}
 
-		szLegend += "</ul>";
+		if (chartThemes.length > 0) {
+			szLegend += "<div class='layerlist-group'>";
+			szLegend += "<div class='layerlist-group-title'>Charts</div>";
+			for (var i = 0; i < chartThemes.length; i++) {
+				szLegend += __makeLayerlistItem(chartThemes[i].layer, chartThemes[i].name);
+			}
+			szLegend += "</div>";
+		}
+		
+		// Check if we have any themes to display
+		var polygonLayers = featureThemes.concat(choroplethThemes);
+		var pointLayers = chartThemes;
+		var lineLayers = [];
 
 		// no elements in legend 
 		// then exit
-		if (szLegend == "<ul></ul>") {
+		if (szLegend === "" || (polygonLayers.length === 0 && lineLayers.length === 0 && pointLayers.length === 0)) {
+			console.log("makeLayerLegend: No layers found, returning false");
 			return false;
 		}
 
@@ -518,7 +659,7 @@ window.ixmaps = window.ixmaps || {};
 			var szHtml = "";
 
 			if (!description) {
-				szHtml += "<h3 id='map-legend-title' style='margin-top:0.5em;'>Map Layer";
+				szHtml += "<h3 id='map-legend-title' style='margin-top:0.5em;'>Map Layers";
 				szHtml += "</h3>";
 			} else {
 				szHtml += "<div style='height:0.5em;'></div>";
@@ -550,14 +691,6 @@ window.ixmaps = window.ixmaps || {};
 		$("#map-legend-list").html(szLegend);
 		$("#map-legend").show();
 
-		// set some css styles
-		//
-		$("div.list-group").css(list_group);
-		$("div.list-group-item").css(list_group_item);
-		$("div.list-group-item-left").css(list_group_item_left);
-		$("div.list-group-item-right").css(list_group_item_right);
-		$("ul").css(ul_);
-
 		return true;
 	}
 
@@ -576,6 +709,169 @@ window.ixmaps = window.ixmaps || {};
 		}
 		__old__htmlgui_onZoomAndPan(nZoom);
 	};
+
+	/**
+	 * Initialize layer legend on map ready if legend type is "layer"
+	 * @type void
+	 */
+	var __old_onMapReady = ixmaps.onMapReady;
+	ixmaps.onMapReady = function() {
+		if (__old_onMapReady) {
+			__old_onMapReady.apply(this, arguments);
+		}
+		// If legend type is "layer" and map is loaded, show layer legend
+		if (ixmaps.legendType === "layer" && ixmaps.loadedMap) {
+			setTimeout(function() {
+				__tryInitLayerLegend();
+			}, 500); // Delay to ensure map is fully initialized
+		}
+	};
+
+	/**
+	 * Try to initialize layer legend when map becomes available
+	 * This handles cases where onMapReady might have already been called
+	 * @returns {boolean} true if initialization was successful, false otherwise
+	 */
+	function __tryInitLayerLegend() {
+		console.log("__tryInitLayerLegend called:", {
+			legendType: ixmaps.legendType,
+			loadedMap: !!ixmaps.loadedMap,
+			hasMakeLayerLegend: typeof ixmaps.makeLayerLegend === 'function',
+			hasLegendElement: !!$("#map-legend")[0],
+			hasThemes: !!(ixmaps.loadedProject && ixmaps.loadedProject.themes),
+			externalLegend: !!(ixmaps.legend && ixmaps.legend.externalLegend),
+			legendState: ixmaps.legendState,
+			hasGetLayer: typeof ixmaps.getLayer === 'function'
+		});
+		
+		if (ixmaps.legendType === "layer" && 
+			ixmaps.loadedMap && 
+			ixmaps.makeLayerLegend &&
+			$("#map-legend")[0] &&
+			!(ixmaps.legend && ixmaps.legend.externalLegend)) {
+			
+			// Check if layers are available
+			var layerA = null;
+			try {
+				if (typeof ixmaps.getLayer === 'function') {
+					layerA = ixmaps.getLayer();
+					var layerCount = layerA ? Object.keys(layerA).length : 0;
+					console.log("__tryInitLayerLegend: Layers available:", layerCount);
+					
+					// If no layers yet, return false but don't give up (will retry)
+					if (!layerA || layerCount === 0) {
+						console.log("__tryInitLayerLegend: No layers available yet, will retry");
+						return false;
+					}
+				} else {
+					console.log("__tryInitLayerLegend: ixmaps.getLayer() not available");
+					return false;
+				}
+			} catch(e) {
+				console.log("__tryInitLayerLegend: Error checking layers:", e);
+				return false;
+			}
+			
+			// Ensure legend state is set to show the legend
+			if (typeof ixmaps.legendState === 'undefined' || ixmaps.legendState === 0) {
+				ixmaps.legendState = 1;
+			}
+			
+			// Show the legend if it's hidden
+			if ($("#map-legend").is(":hidden")) {
+				$("#map-legend").show();
+			}
+			
+			try {
+				console.log("Calling ixmaps.makeLayerLegend()");
+				var result = ixmaps.makeLayerLegend(window.innerHeight * 0.75);
+				console.log("makeLayerLegend returned:", result);
+				if (result) {
+					// If layer legend was successfully created, ensure legend pane is shown
+					// Note: __switchLegendPanes is in legend.js scope, so we can't call it directly
+					// But makeLayerLegend should have already populated the legend content
+					return true;
+				} else {
+					console.log("__tryInitLayerLegend: makeLayerLegend returned false - no layers found");
+				}
+			} catch(e) {
+				console.error("Failed to initialize layer legend:", e);
+			}
+		}
+		return false;
+	}
+
+	// Try initialization immediately if map is already loaded
+	if (typeof window !== 'undefined' && window.ixmaps && window.ixmaps.loadedMap) {
+		setTimeout(function() {
+			console.log("layer_legend.js: Trying to initialize layer legend (map already loaded)");
+			__tryInitLayerLegend();
+		}, 1000);
+	}
+
+	// Also try when DOM is ready
+	if (typeof $ !== 'undefined') {
+		$(document).ready(function() {
+			setTimeout(function() {
+				console.log("layer_legend.js: Trying to initialize layer legend (DOM ready)");
+				__tryInitLayerLegend();
+			}, 1500);
+		});
+	}
+	
+	// Also try periodically until successful (with max attempts)
+	var __initAttempts = 0;
+	var __maxInitAttempts = 10;
+	var __initInterval = setInterval(function() {
+		__initAttempts++;
+		if (__initAttempts > __maxInitAttempts) {
+			clearInterval(__initInterval);
+			return;
+		}
+		if (ixmaps.legendType === "layer" && 
+			ixmaps.loadedMap && 
+			$("#map-legend")[0] &&
+			!(ixmaps.loadedProject && ixmaps.loadedProject.themes)) {
+			console.log("layer_legend.js: Periodic check - attempting to initialize layer legend");
+			if (__tryInitLayerLegend()) {
+				clearInterval(__initInterval);
+			}
+		}
+	}, 2000);
+
+	// Hook into htmlgui_onDrawTheme to check if we should show layer legend instead
+	var __old_htmlgui_onDrawTheme = ixmaps.htmlgui_onDrawTheme;
+	if (typeof ixmaps.htmlgui_onDrawTheme === 'function') {
+		ixmaps.htmlgui_onDrawTheme = function(szId) {
+			// If legend type is "layer", show layer legend instead of theme legend
+			if (ixmaps.legendType === "layer") {
+				setTimeout(__tryInitLayerLegend, 100);
+				// Still call the original function but it will be intercepted by legend.js logic
+				if (__old_htmlgui_onDrawTheme) {
+					__old_htmlgui_onDrawTheme.apply(this, arguments);
+				}
+				return;
+			}
+			// Otherwise, call the original function
+			if (__old_htmlgui_onDrawTheme) {
+				__old_htmlgui_onDrawTheme.apply(this, arguments);
+			}
+		};
+	}
+	
+	// Hook into htmlgui_onNewTheme to ensure layer legend shows when no themes are present
+	var __old_htmlgui_onNewTheme = ixmaps.htmlgui_onNewTheme;
+	if (typeof ixmaps.htmlgui_onNewTheme === 'function') {
+		ixmaps.htmlgui_onNewTheme = function(szId) {
+			if (__old_htmlgui_onNewTheme) {
+				__old_htmlgui_onNewTheme.apply(this, arguments);
+			}
+			// If legend type is "layer", try to show layer legend
+			if (ixmaps.legendType === "layer") {
+				setTimeout(__tryInitLayerLegend, 200);
+			}
+		};
+	}
 
 	/**
 	 * end of namespace

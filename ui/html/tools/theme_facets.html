@@ -1,42 +1,49 @@
-﻿<!DOCTYPE html>
-
+<!DOCTYPE html>
+<!--
+  theme_facets.html — Facet filter UI for a map theme.
+  Shows categorical/range facets for the current theme; user can filter by value,
+  toggle "active" vs "all" facets, and switch "by counts" vs "by values".
+  Requires ixmaps API from parent/opener; loads facet.js, show_facets.js, etc.
+-->
 <html lang="en">
 
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
-<meta http-equiv="Content-Language" content="en-us" />
-<meta name="copyright" content="Guenter Richter"/>
-<meta name="author" content="service@medienobjekte.de"/>
-<meta name="description" content="Interactive &amp; estensible maps in SVG"/>
-<meta name="revisit-after" content="30 days"/>
-<meta name="distribution" content="Global"/>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+	<meta http-equiv="Content-Language" content="en-us" />
+	<meta name="copyright" content="Guenter Richter" />
+	<meta name="author" content="service@medienobjekte.de" />
+	<meta name="description" content="Interactive &amp; extensible maps in SVG — theme facet filter" />
+	<meta name="revisit-after" content="30 days" />
+	<meta name="distribution" content="Global" />
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/css/bootstrap-slider.min.css" />
+	<!-- Bootstrap slider for range facets -->
+	<link rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/css/bootstrap-slider.min.css" />
 
-<!-- Bootstrap core CSS -->
-<link href="../assets/css/bootstrap.css" rel="stylesheet">
-
-<!-- Custom styles for this template -->
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="../assets/css/icomoon.css" rel="stylesheet" >
 
 	<style>
+		/* Tables: facet value lists */
 		table {
 			background: #F7F6EF;
 			border-radius: 0.3em;
-			xxpadding: 0.4em 0.8em;
 		}
 
 		td {
 			border: dotted #888800 0.1px;
 		}
 
+		/* Buttons: active/all, by counts/values */
 		button {
 			background: none;
 			border: #dddddd solid 1px;
 			border-radius: 0.3em;
 			padding: 0.4em 0.8em;
 		}
+
+		button:hover {
+			cursor: pointer;
+		}
+
 		.btn {
 			background: none;
 			border: #dddddd solid 1px;
@@ -44,6 +51,7 @@
 			padding: 0.4em 0.8em;
 			color: #444444;
 		}
+
 		.btn:hover {
 			background: #f8f8f8;
 			border: #dddddd solid 1px;
@@ -51,32 +59,21 @@
 			padding: 0.4em 0.8em;
 			color: #444444;
 		}
-		.btn-block {
-			background: none;
-			border: #dddddd solid 1px;
-			border-radius: 0.3em;
-			padding: 0.4em 0.8em;
-		}
+
+		.btn-block,
 		.btn-primary {
 			background: none;
 			border: #dddddd solid 1px;
 			border-radius: 0.3em;
 			padding: 0.4em 0.8em;
 		}
-		.badge {
+
+		.badge,
+		.badge-primary,
+		.badge-pill {
 			background: none;
 			color: #444444;
 			font-weight: normal;
-		}
-		.badge-primary {
-		}
-		
-		.badge-pill {
-		}	
-		
-badge badge-primary badge-pill pull-right
-		button:hover {
-			cursor: pointer;
 		}
 
 		.left {
@@ -86,14 +83,9 @@ badge badge-primary badge-pill pull-right
 		a {
 			text-decoration: none;
 		}
-		
-		
-		
-		
-
 	</style>
-<style type="text/css">
-
+	<style type="text/css">
+		/* Typography */
 		h1,
 		h2,
 		h3,
@@ -123,6 +115,7 @@ badge badge-primary badge-pill pull-right
 			text-decoration: none;
 		}
 
+		/* Facet filter search input */
 		.filter-input {
 			width: 275px;
 			margin: 0;
@@ -136,12 +129,14 @@ badge badge-primary badge-pill pull-right
 			color: #444;
 		}
 
+		/* Range slider labels */
 		.minvalue,
 		.maxvalue {
 			margin-left: 1em;
 			margin-right: 1em;
 		}
 
+		/* Bootstrap-slider handle override */
 		.slider-handle {
 			position: absolute;
 			top: 0px;
@@ -157,123 +152,145 @@ badge badge-primary badge-pill pull-right
 			border-color: transparent;
 			border-image: initial;
 		}
-
-</style>
+	</style>
 
 </head>
 
-<body style="margin:0px;padding:0px;" onload="">
+<body style="margin:0px;padding:0px;">
 
-	<!-- Container -->
-	<div id="container" style="padding:2.5em 1em;vertical-align:middle;background-color:rgba(255,255,255,0.9);" >
+	<!-- Main container: toolbar + facet list (filled by makeFacets / showFacets) -->
+	<div id="container" style="padding:2.5em 1em;vertical-align:middle;background-color:rgba(255,255,255,0.9);">
 
-
+		<!-- Toggle which facets are visible: only those with active filter, or all -->
 		<div class="btn-group" style="margin-top:0.8em;margin-bottom:0em;">
-			<button id="btn-only-active" type="button" class="btn btn-default" onclick="$('.facet').hide();">active</button>
-			<button id="btn-all"         type="button" class="btn btn-default" onclick="$('.facet').show();">all</button>
+			<button id="btn-only-active" type="button" class="btn btn-default"
+				onclick="$('.facet').hide();">active</button>
+			<button id="btn-all" type="button" class="btn btn-default" onclick="$('.facet').show();">all</button>
 		</div>
+		<!-- Toggle facet list display: by counts vs by values (shown when facets support it) -->
 		<div id="facets-counts-values" class="btn-group" style="margin-top:0.8em;margin-bottom:0em;display:none">
-			<button id="btn-count" type="button" class="btn btn-default" onclick="ixmaps.data.fShowFacetValues = false;ixmaps.htmlgui_onZoomAndPan()">by counts</button>
-			<button id="btn-values" type="button" class="btn btn-default" onclick="ixmaps.data.fShowFacetValues = true;ixmaps.htmlgui_onZoomAndPan()">by values</button>
+			<button id="btn-count" type="button" class="btn btn-default"
+				onclick="ixmaps.data.fShowFacetValues = false;ixmaps.htmlgui_onZoomAndPan()">by counts</button>
+			<button id="btn-values" type="button" class="btn btn-default"
+				onclick="ixmaps.data.fShowFacetValues = true;ixmaps.htmlgui_onZoomAndPan()">by values</button>
 		</div>
 
+		<!-- Facet list placeholder; replaced by makeFacets/showFacets (or "generating facets..." until ready) -->
 		<div id="facetDiv" style="margin-bottom:1em;width:100%">
-			<h2 style="padding:0.2em 0.5em;background:#dddddd;border-radius:5px;color:white">generating facets ...<img src='../../resources/images/loading_blue.gif' style='display:block;margin:0.2em auto;height:64px'></h2>
+			<h2 style="padding:0.2em 0.5em;background:#dddddd;border-radius:5px;color:white">generating facets ...<img
+					src="https://gjrichter.github.io/ixmaps_flat/ui/resources/images/loading_blue.gif"
+					style="display:block;margin:0.2em auto;height:64px" alt=""></h2>
 		</div>
 
 	</div>
 
- 	<script type="text/javascript" src="../assets/js/jquery-3.5.1.min.js"></script>
-    <script type="text/javascript" src="../assets/js/bootstrap.min.js"></script>
-
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/bootstrap-slider.min.js"></script>
-	<script src="../../../../data.min.js/data.js"></script>
 
 	<script type="text/javascript">
 
-		// ===========================================
-		//
-		// !! get ixmaps api from story parent/opener
-		//
-		// ===========================================
-
+		// -----------------------------------------------------------------------
+		// Resolve ixmaps API from parent window (iframe) or opener (popup).
+		// Required for theme data and map API (changeThemeStyle, etc.).
+		// -----------------------------------------------------------------------
 		ixmaps = window.ixmaps || null;
-		if ( window.opener ){
+		if (window.opener) {
 			ixmaps = window.opener.ixmaps;
-		}else
-		if ( parent ){
+		} else if (parent && parent.window && parent.window.ixmaps) {
 			ixmaps = parent.window.ixmaps;
 		}
-		else{
-			alert("error: missing parent window for themes !");
+		if (!ixmaps) {
+			alert("Error: theme_facets requires the map window (parent or opener). Load this page inside the map UI.");
 		}
-
 		ixmaps.initialized = true;
-		
+
 		ixmaps.data = ixmaps.data || {};
+		/** true = show facet values in list; false = show counts (e.g. for numeric bins) */
 		ixmaps.data.fShowFacetValues = true;
-        
-		// -----------------------------------------------
-		// refresh theme on zoom and pan ! 
-		// defined here to be exportable with map sharing
-		// -----------------------------------------------
 
-		ixmaps.htmlgui_onZoomAndPan = function(nZoom){
-			setTimeout("ixmaps.data.makeFacets(null,'facetDiv')",10);
-		};
-
-		$.when(
-			$.getScript(ixmaps.szResourceBase+"ui/js/tools/filter.js"),
-			$.getScript(ixmaps.szResourceBase+"ui/js/tools/format.js"),
-			$.Deferred(function (deferred) {
-				$(deferred.resolve);
-			})
-		).done(function () {
-            
-            var themes = ixmaps.getThemes();
-            for ( var i in themes ){
-                if ( !themes[i].szFlag.match(/FEATURE/) ){
-                    ixmaps.data.szThemeId = themes[i].szId;
-                }
-            }
-
- 			var objTheme = ixmaps.getThemeObj(ixmaps.data.szThemeId);
-            
-			if ( !objTheme ){
+		/**
+		 * Build and display facets for the current theme (ixmaps.data.szThemeId).
+		 * Ensures theme is categorical/ranges, reads filter from theme definition,
+		 * calls getFacets (facet.js) and showFacets (show_facets.js) to fill #facetDiv.
+		 */
+		ixmaps.data.makeFacets = function () {
+			var objTheme = ixmaps.getThemeObj(ixmaps.data.szThemeId);
+			if (!objTheme) {
 				$("#container").html("<h3 style='margin-top:-0.5em'>No data to create facets!</h3><p>Please go back to 'Configure' and load some data or a project!</p>");
 				return;
 			}
 
-			if ( !objTheme.szFlag.match(/CATEGORICAL/) ){
-				ixmaps.changeThemeStyle(null,objTheme.szId,"type:RANGES","add");
+			// Ensure theme supports categorical/ranges for faceting
+			if (!objTheme.szFlag.match(/CATEGORICAL/)) {
+				ixmaps.changeThemeStyle(null, objTheme.szId, "type:RANGES", "add");
 			}
 
 			var objThemeDefinition = ixmaps.getThemeDefinitionObj(ixmaps.data.szThemeId);
-
-			if ( !objThemeDefinition ){
-				$("#facets").html("<h3>...nessun tema da filtrare!</h3>");
+			if (!objThemeDefinition) {
+				$("#facetDiv").html("<h3>No theme definition to filter.</h3>");
 				return;
 			}
 
-            // theme data
-			// ------------------------------------
-			var szFilter = objThemeDefinition.style.filter;
-
-			if ( (typeof(szFilter) != "undefined") && (szFilter.length > 5) ){
-
-				// show filter in input field
-				// --------------------------
-				$("#query").val(szFilter);
-				setTimeout("ixmaps.data.makeFacets('"+szFilter.replace(/\'/g,"\\'")+"','facetDiv')",10);
-				//setTimeout('$("#btn-only-active").click();',10);
-
-			}else{
-				setTimeout("ixmaps.data.makeFacets(null,'facetDiv')",10);
+			// Normalize filter: theme definition may have filter as string or array of clauses
+			var szFilter = objThemeDefinition.style.filter || " ";
+			if (Array.isArray(szFilter)) {
+				szFilter = szFilter.length ? ('WHERE ' + szFilter.map(function (p) { return String(p).trim(); }).filter(Boolean).join(' AND ')) : " ";
+			} else if (typeof szFilter !== 'string') {
+				szFilter = szFilter != null ? String(szFilter) : " ";
 			}
 
+			var szId = ixmaps.data.szThemeId;
+			var facetsA = ixmaps.data.getFacets(szFilter.replace(/\'/g, "\\'"), 'user_legend', null, szId, "map", "NONUMERIC");
+			ixmaps.data.showFacets(szFilter, "facetDiv", facetsA);
+			$("#facetDiv").show();
+		};
+
+		// -----------------------------------------------------------------------
+		// Hook map zoom/pan and theme redraw so facets refresh (e.g. viewport change).
+		// Defined here so shared/exported maps keep facet behaviour.
+		// -----------------------------------------------------------------------
+		var old_onZoomAndPan = ixmaps.htmlgui_onZoomAndPan;
+		var old_onDrawTheme = ixmaps.htmlgui_onDrawTheme;
+
+		ixmaps.data._makeFacetsDebounceTimer = null;
+		ixmaps.data._makeFacetsDebounceMs = 150;
+
+		ixmaps.htmlgui_onZoomAndPan = function () {
+			if (ixmaps.data._makeFacetsDebounceTimer) clearTimeout(ixmaps.data._makeFacetsDebounceTimer);
+			ixmaps.data._makeFacetsDebounceTimer = setTimeout(function () {
+				ixmaps.data._makeFacetsDebounceTimer = null;
+				ixmaps.data.makeFacets();
+			}, ixmaps.data._makeFacetsDebounceMs);
+			if (old_onZoomAndPan) old_onZoomAndPan();
+		};
+
+		ixmaps.htmlgui_onDrawTheme = function (szId) {
+			ixmaps.data.makeFacets();
+			if (old_onDrawTheme) old_onDrawTheme(szId);
+		};
+
+		// Load facet tools then pick first non-FEATURE theme and build facets
+		$.when(
+			$.getScript(ixmaps.szResourceBase + "ui/js/tools/facet.js"),
+			$.getScript(ixmaps.szResourceBase + "ui/js/tools/show_facets.js"),
+			$.getScript(ixmaps.szResourceBase + "ui/js/tools/show_word_cloud.js"),
+			$.getScript(ixmaps.szResourceBase + "ui/js/tools/format.js"),
+			$.Deferred(function (deferred) { $(deferred.resolve); })
+		).done(function () {
+
+			if (!ixmaps.data.szThemeId) {
+				// Default to first data theme (skip FEATURE-only themes) if none set (e.g. by Chat)
+				var themes = ixmaps.getThemes();
+				for (var i in themes) {
+					if (!themes[i].szFlag.match(/FEATURE/)) {
+						ixmaps.data.szThemeId = themes[i].szId;
+						break;
+					}
+				}
+			}
+			ixmaps.data.makeFacets();
 		});
-	
+
 	</script>
 </body>
-</html>
 
+</html>
