@@ -15902,7 +15902,7 @@ $Log: maptheme.js,v $
 			// 
 			this.fSorted = false;
 
-			if (this.fSortBeforeDraw && ((this.nMin != this.nMax) || this.szSizeField) &&
+			if (this.fSortBeforeDraw && ((this.nMin != this.nMax) || this.szSizeField || this.szFlag.match(/\bSORT\b/)) &&
 				(!this.szFlag.match(/NOSRT/) && !this.szFlag.match(/\bDOT\b/)) &&
 				(!this.szFlag.match(/NOSIZE/) || this.szFlag.match(/3D/) || this.szFlag.match(/\bSORT\b/)) &&
 				(!this.szFlag.match(/CATEGORICAL/) || this.szFlag.match(/AGGREGATE/) || this.szSizeField || this.szFlag.match(/\bSORT\b/))) {
@@ -15938,9 +15938,10 @@ $Log: maptheme.js,v $
 				} else {
 
 					// sort by value 
+					// use nSize for sort only when: CATEGORICAL with sizefield, or AGGREGATE|SUM
 					// -------------
 					var nValue;
-					if ((this.szSizeField || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/SUM/)))) {
+					if ((this.szSizeField && this.szFlag.match(/CATEGORICAL/)) || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/SUM/))) {
 						for (var i = 0; i < this.indexA.length; i++) {
 							nValue = this.itemA[this.indexA[i]].nSize;
 							if (!isNaN(nValue)) {
@@ -15951,7 +15952,7 @@ $Log: maptheme.js,v $
 							}
 						}
 					} else
-						if ((this.szSizeField || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/MEAN/)))) {
+						if (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/MEAN/)) {
 							for (var i = 0; i < this.indexA.length; i++) {
 								nValue = this.itemA[this.indexA[i]].nValuesA[this.nActualFrame || 0];
 								if (!isNaN(nValue)) {
@@ -15963,9 +15964,13 @@ $Log: maptheme.js,v $
 							}
 						} else
 							if (this.szFlag.match(/SIZE/)) {
-								// AGGREGATE themes use nSize (count) for sort; non-aggregate use nValueSum
+								// AGGREGATE with sizefield: sort by nSize; AGGREGATE without sizefield (value from value field): sort by nValuesA; non-aggregate: nValueSum
 								for (var i = 0; i < this.indexA.length; i++) {
-									nValue = this.szFlag.match(/AGGREGATE/) ? this.itemA[this.indexA[i]].nSize : this.itemA[this.indexA[i]].nValueSum;
+									if (this.szFlag.match(/AGGREGATE/)) {
+										nValue = this.szSizeField ? this.itemA[this.indexA[i]].nSize : (this.itemA[this.indexA[i]].nValuesA[this.nActualFrame || 0]);
+									} else {
+										nValue = this.itemA[this.indexA[i]].nValueSum;
+									}
 									if (nValue != null && !isNaN(nValue)) {
 										chartYPosA.push({
 											a: this.indexA[i],
