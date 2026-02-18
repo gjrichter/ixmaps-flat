@@ -168,6 +168,15 @@ function ensureMapInitialized() {
 window.ixmaps.init = function () {
     return ensureMapInitialized();
 }
+function _warnParam(method, message, value) {
+    console.warn("ixmaps." + method + "(): " + message +
+        (value !== undefined ? " \u2014 got: " + JSON.stringify(value) : ""));
+}
+
+function _isNum(v) {
+    return Number.isFinite(Number(v));
+}
+
 /**
  * MapBuilder class for fluent API map configuration.
  * Provides a builder pattern that queues method calls until the map is initialized,
@@ -305,7 +314,7 @@ ixmaps.MapBuilder.prototype = {
         
         // List of supported chainable methods
         var supportedMethods = [
-            'view', 'layer', 'options', 'on', 'attribution', 
+            'view', 'center', 'zoom', 'layer', 'options', 'on', 'attribution', 
             'require', 'local', 'legend'
         ];
         
@@ -360,18 +369,79 @@ ixmaps.MapBuilder.prototype = {
     
     /**
      * Set the map view (center and zoom level).
-     * Supports two signatures:
+     * Supports three signatures:
      * - view([lat, lng], zoom) - Array with coordinates and zoom as separate argument
      * - view({center: {lat, lng}, zoom: number}) - Object with center and zoom properties
-     * @param {Array|Object} center - Center coordinates [lat, lng] or {center: {lat, lng}, zoom: number}
+     * - view({lat, lng, zoom: number}) - Flat object with lat, lng, and zoom at top level
+     * @param {Array|Object} center - Center as [lat, lng], or {center: {lat, lng}, zoom}, or {lat, lng, zoom}
      * @param {number} [zoom] - Zoom level (if center is an array)
      * @returns {ixmaps.MapBuilder} Returns self for chaining
+     * @example
+     * map.view({ lat: 42.5, lng: 12.8, zoom: 6 });
      */
     view: function(center, zoom) {
-        // Support both signatures: view([lat, lng], zoom) and view({center: {lat, lng}, zoom: number})
-        // Pass all arguments to preserve the exact call signature
+        if (arguments.length === 0) {
+            _warnParam('view', 'missing parameters');
+        } else if (Array.isArray(center)) {
+            if (center.length < 2) _warnParam('view', 'array must have at least 2 elements [lat, lng]', center);
+            else if (!_isNum(center[0]) || !_isNum(center[1])) _warnParam('view', 'array elements must be numbers [lat, lng]', center);
+            if (zoom !== undefined && !_isNum(zoom)) _warnParam('view', 'zoom must be a number', zoom);
+        } else if (center && typeof center === 'object') {
+            if (center.center != null && center.zoom !== undefined) {
+                if (!_isNum(center.center.lat) || !_isNum(center.center.lng)) _warnParam('view', 'center.lat and center.lng must be numbers', center.center);
+                if (!_isNum(center.zoom)) _warnParam('view', 'zoom must be a number', center.zoom);
+            } else if ('lat' in center && 'lng' in center) {
+                if (!_isNum(center.lat) || !_isNum(center.lng)) _warnParam('view', 'lat and lng must be numbers', center);
+                if (center.zoom !== undefined && !_isNum(center.zoom)) _warnParam('view', 'zoom must be a number', center.zoom);
+            } else {
+                _warnParam('view', 'object must have {lat, lng, zoom} or {center: {lat, lng}, zoom}', center);
+            }
+        } else if (center != null) {
+            _warnParam('view', 'expected [lat, lng], {lat, lng, zoom}, or {center: {lat, lng}, zoom}', center);
+        }
         var args = Array.prototype.slice.call(arguments);
         return this._queueOrExecute('view', args);
+    },
+    
+    /**
+     * Set the map center (lat/lng) without changing zoom.
+     * Accepts [lat, lng], { lat, lng }, or { center: { lat, lng } }.
+     * @param {Array|Object} center - Center as [lat, lng] or { lat, lng } or { center: { lat, lng } }
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     * @example
+     * map.center({ lat: 42.5, lng: 12.8 });
+     */
+    center: function(center) {
+        if (arguments.length === 0) {
+            _warnParam('center', 'missing parameter');
+        } else if (Array.isArray(center)) {
+            if (center.length < 2) _warnParam('center', 'array must have at least 2 elements [lat, lng]', center);
+            else if (!_isNum(center[0]) || !_isNum(center[1])) _warnParam('center', 'array elements must be numbers [lat, lng]', center);
+        } else if (center && typeof center === 'object') {
+            if (center.center != null) {
+                if (!_isNum(center.center.lat) || !_isNum(center.center.lng)) _warnParam('center', 'center.lat and center.lng must be numbers', center.center);
+            } else if ('lat' in center && 'lng' in center) {
+                if (!_isNum(center.lat) || !_isNum(center.lng)) _warnParam('center', 'lat and lng must be numbers', center);
+            } else {
+                _warnParam('center', 'object must have {lat, lng} or {center: {lat, lng}}', center);
+            }
+        } else if (center != null) {
+            _warnParam('center', 'expected [lat, lng], {lat, lng}, or {center: {lat, lng}}', center);
+        }
+        return this._queueOrExecute('center', Array.prototype.slice.call(arguments));
+    },
+    
+    /**
+     * Set the map zoom level without changing center.
+     * @param {number} level - Zoom level
+     * @returns {ixmaps.MapBuilder} Returns self for chaining
+     * @example
+     * map.zoom(6);
+     */
+    zoom: function(level) {
+        if (arguments.length === 0) _warnParam('zoom', 'missing parameter');
+        else if (!_isNum(level)) _warnParam('zoom', 'expected a number', level);
+        return this._queueOrExecute('zoom', Array.prototype.slice.call(arguments));
     },
     
     /**
@@ -387,6 +457,8 @@ ixmaps.MapBuilder.prototype = {
      * map.layer(ixmaps.layer("roads").data({url: "data.geojson", type: "geojson"}).define());
      */
     layer: function(layerDefOrName) {
+        if (arguments.length === 0) _warnParam('layer', 'missing parameter');
+        else if (typeof layerDefOrName !== 'string' && (typeof layerDefOrName !== 'object' || layerDefOrName === null)) _warnParam('layer', 'expected a string (layer name) or layer definition object', layerDefOrName);
         if (typeof layerDefOrName === 'string') {
             var lb = new ixmaps.themeConstruct(this.szMap, layerDefOrName);
             lb.__mapBuilder = this;
@@ -405,6 +477,7 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     options: function(opts) {
+        if (opts == null || typeof opts !== 'object' || Array.isArray(opts)) _warnParam('options', 'expected an object', opts);
         return this._queueOrExecute('options', [opts]);
     },
     
@@ -415,6 +488,8 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     on: function(event, handler) {
+        if (typeof event !== 'string') _warnParam('on', 'event name must be a string', event);
+        if (typeof handler !== 'function') _warnParam('on', 'handler must be a function', handler);
         return this._queueOrExecute('on', [event, handler]);
     },
     
@@ -424,6 +499,7 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     attribution: function(text) {
+        if (typeof text !== 'string') _warnParam('attribution', 'expected a string', text);
         return this._queueOrExecute('attribution', [text]);
     },
     
@@ -433,6 +509,7 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     legend: function(legend) {
+        if (typeof legend !== 'string') _warnParam('legend', 'expected a string', legend);
         return this._queueOrExecute('legend', [legend]);
     },
     
@@ -443,6 +520,7 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     require: function(scriptPath) {
+        if (typeof scriptPath !== 'string') _warnParam('require', 'expected a string (script path or URL)', scriptPath);
         return this._queueOrExecute('require', [scriptPath]);
     },
     
@@ -455,6 +533,8 @@ ixmaps.MapBuilder.prototype = {
      * @returns {ixmaps.MapBuilder} Returns self for chaining
      */
     local: function(szGlobal, szLocal) {
+        if (typeof szGlobal !== 'string') _warnParam('local', 'first argument (global string) must be a string', szGlobal);
+        if (typeof szLocal !== 'string') _warnParam('local', 'second argument (local string) must be a string', szLocal);
         return this._queueOrExecute('local', [szGlobal, szLocal]);
     },
     
@@ -537,7 +617,7 @@ window.ixmaps.Map = function (div, options, callback) {
     var builder = new ixmaps.MapBuilder(div, options, callback);
 
     var supportedMethods = [
-        'view', 'layer', 'options', 'on', 'attribution',
+        'view', 'center', 'zoom', 'layer', 'options', 'on', 'attribution',
         'require', 'local', 'legend', 'then', 'catch'
     ];
 

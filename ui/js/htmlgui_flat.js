@@ -1043,6 +1043,16 @@
             return this;
         },
 
+        center: function (center) {
+            ixmaps.setCenter(center);
+            return this;
+        },
+
+        zoom: function (nZoom) {
+            ixmaps.setZoom(nZoom);
+            return this;
+        },
+
         flyTo: function (center, zoom) {
             ixmaps.flyTo(center, zoom);
             return this;

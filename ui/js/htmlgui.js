@@ -812,6 +812,9 @@ $Log: htmlgui.js,v $
 			}else{
 				ixmaps.SVGmapHeight = window.innerHeight - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY - $("#ixmap").parent().offset().top;
 			}
+			if (ixmaps.SVGmapHeight <= 0) {
+				ixmaps.SVGmapHeight = ($("#ixmap").parent().height() || (window.innerHeight - 10)) - __mapTop - __mapFooter - __SVGmapPosY - __SVGmapOffY;
+			}
 
 
 			//$("#attribution-div").css("bottom","15px");
@@ -2947,6 +2950,12 @@ $Log: htmlgui.js,v $
 		return ixmaps;
 	};
 	
+	var _warnCore = function (method, message, value) {
+		console.warn("ixmaps." + method + "(): " + message +
+			(value !== undefined ? " \u2014 got: " + JSON.stringify(value) : ""));
+	};
+	var _isFiniteNum = function (v) { return Number.isFinite(Number(v)); };
+
 	/**
 	 * setView
 	 * @param center the new center of the view
@@ -2954,33 +2963,67 @@ $Log: htmlgui.js,v $
 	 * @return void
 	 */
 	ixmaps.setView = function (center, nZoom) {
-		// GR 04.03.2023 view in object syntax
-		if ((typeof (center) != "array") && center.center && center.zoom) {
-			ixmaps.htmlgui_setCenterAndZoom({
-				lat: center.center.lat,
-				lng: center.center.lng
-			}, center.zoom);
+		if (center == null) {
+			_warnCore('setView', 'center is required');
+			return ixmaps;
+		}
+		if (center && typeof center === 'object' && !Array.isArray(center)) {
+			if (center.center != null && center.zoom !== undefined) {
+				if (!_isFiniteNum(center.center.lat) || !_isFiniteNum(center.center.lng)) _warnCore('setView', 'invalid center coordinates', center.center);
+				if (!_isFiniteNum(center.zoom)) _warnCore('setView', 'invalid zoom', center.zoom);
+				ixmaps.htmlgui_setCenterAndZoom({
+					lat: center.center.lat,
+					lng: center.center.lng
+				}, center.zoom);
+			} else if ('lat' in center && 'lng' in center && center.zoom !== undefined) {
+				if (!_isFiniteNum(center.lat) || !_isFiniteNum(center.lng)) _warnCore('setView', 'invalid center coordinates', { lat: center.lat, lng: center.lng });
+				if (!_isFiniteNum(center.zoom)) _warnCore('setView', 'invalid zoom', center.zoom);
+				ixmaps.htmlgui_setCenterAndZoom({
+					lat: center.lat,
+					lng: center.lng
+				}, center.zoom);
+			} else {
+				ixmaps.htmlgui_setCenterAndZoom({
+					lat: center[0],
+					lng: center[1]
+				}, nZoom);
+			}
 		} else {
-			// GR 15.08.2018 call 2 times needed (magick)
+			if (Array.isArray(center)) {
+				if (!_isFiniteNum(center[0]) || !_isFiniteNum(center[1])) _warnCore('setView', 'invalid center coordinates', center);
+			}
+			if (nZoom !== undefined && !_isFiniteNum(nZoom)) _warnCore('setView', 'invalid zoom', nZoom);
 			ixmaps.htmlgui_setCenterAndZoom({
 				lat: center[0],
 				lng: center[1]
 			}, nZoom);
 		}
-		//ixmaps.htmlgui_synchronizeSVG(false);
 		return ixmaps;
 	};
 	/**
 	 * setCenter
-	 * @param center the new center of the view
+	 * @param center the new center - [lat, lng], { lat, lng }, or { center: { lat, lng } }
 	 * @return void
 	 */
 	ixmaps.setCenter = function (center) {
-		ixmaps.htmlgui_setCenter({
-			lat: center[0],
-			lng: center[1]
-		});
-		//ixmaps.htmlgui_synchronizeSVG(true);
+		if (center == null) {
+			_warnCore('setCenter', 'center is required');
+			return ixmaps;
+		}
+		var pt;
+		if (center && typeof center === 'object' && !Array.isArray(center)) {
+			if (center.center != null) {
+				pt = { lat: center.center.lat, lng: center.center.lng };
+			} else if ('lat' in center && 'lng' in center) {
+				pt = { lat: center.lat, lng: center.lng };
+			} else {
+				pt = { lat: center[0], lng: center[1] };
+			}
+		} else {
+			pt = { lat: center[0], lng: center[1] };
+		}
+		if (!_isFiniteNum(pt.lat) || !_isFiniteNum(pt.lng)) _warnCore('setCenter', 'invalid center coordinates', pt);
+		ixmaps.htmlgui_setCenter(pt);
 		return ixmaps;
 	};
 	/**
@@ -2989,6 +3032,7 @@ $Log: htmlgui.js,v $
 	 * @return void
 	 */
 	ixmaps.setZoom = function (nZoom) {
+		if (!_isFiniteNum(nZoom)) _warnCore('setZoom', 'zoom must be a number', nZoom);
 		ixmaps.htmlgui_setZoom(nZoom);
 		//ixmaps.htmlgui_synchronizeSVG(false);
 		return ixmaps;
