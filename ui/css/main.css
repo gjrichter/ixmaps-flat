@@ -86,16 +86,20 @@ a:hover {
 
 .search-box {
     width: 275px;
+    height: 40px;
     margin: 0;
     float: left;
     outline: none;
     font-size: 1.2em;
     border: 0;
     margin-left: 0.2em;
+    padding: 0 10px;
+    box-sizing: border-box;
 }
 
 .search-container {
     width: 275px;
+    height: 40px;
     margin: 0;
     float: left;
     outline: none;
@@ -104,6 +108,7 @@ a:hover {
     border-radius: 6px;
     background: #ffffff url(../resources/images/search.png) no-repeat 98% 50%;
     background-size: 28px;
+    box-sizing: border-box;
 }
 
 .search-btn {
@@ -655,4 +660,142 @@ p.legend-description {
     right: auto;
     left: 0;
   }
+}
+
+/* ===== DARK MAP CONTROLS ===== */
+
+.dark-controls .mode-toggle {
+    background: #222;
+    color: #ccc;
+    border-color: #666;
+}
+
+.dark-controls .mode-toggle:hover {
+    background: #333;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark-controls .mode-toggle.info-mode {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.dark-controls .mode-toggle.info-mode:hover {
+    background: #331111;
+}
+
+.dark-controls .zoom-button-container {
+    background-color: rgba(34, 34, 34, 0.9);
+    border-color: #666;
+}
+
+.dark-controls .zoom-button-icon,
+.dark-controls .zoom-icon,
+.dark-controls .icon-context {
+    color: #ccc;
+}
+
+.dark-controls .tool-button,
+.dark-controls .toolbutton {
+    background: #222;
+    border-color: #666;
+    color: #ccc;
+}
+
+.dark-controls .search-button-icon {
+    color: #ccc;
+}
+
+.dark-controls .tool-button:hover,
+.dark-controls .toolbutton:hover {
+    background: #333;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark-controls .toolbutton img,
+.dark-controls .tool-button img {
+    filter: brightness(2);
+}
+
+.dark-controls .legend-toggle-button {
+    background: #222;
+    color: #ccc;
+    border-color: #666;
+}
+
+.dark-controls .legend-toggle-button:hover {
+    background: #333;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark-controls .popout-button-container {
+    background-color: rgba(34, 34, 34, 0.7);
+    border-color: #666;
+}
+
+.dark-controls .popout-button-icon {
+    color: #ccc;
+}
+
+.dark-controls .context-menu-button {
+    color: #ccc;
+}
+
+.dark-controls .context-menu-button:hover {
+    background-color: #333;
+}
+
+.dark-controls #map-legend-external-fold-button {
+    background: rgba(34, 34, 34, 0.9) !important;
+    border-color: #666 !important;
+    color: #ccc;
+}
+
+.dark-controls .attribution-div {
+    color: #888;
+}
+
+.dark-controls .footer-button {
+    color: #6aa3d5;
+}
+
+/* Search input and dropdown (dark theme) */
+.dark-controls .search-container {
+    background: #222;
+    border-color: #666;
+    background-image: none;
+}
+
+.dark-controls .search-box {
+    background: transparent;
+    color: #eee;
+}
+
+.dark-controls .search-box::placeholder {
+    color: #888;
+}
+
+.dark-controls .search-box::-webkit-input-placeholder {
+    color: #888;
+}
+
+.dark-controls .search-box::-moz-placeholder {
+    color: #888;
+}
+
+.dark-controls .result-list {
+    background: #222;
+    border-color: #666;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.dark-controls .result-item {
+    background: #222;
+    color: #ccc;
+    border-bottom-color: #444;
+}
+
+.dark-controls .result-item:hover,
+.dark-controls .result-item.selected {
+    background: #333;
 }

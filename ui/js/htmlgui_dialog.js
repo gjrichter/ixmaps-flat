@@ -885,6 +885,7 @@ $Log: htmlgui.js,v $
 			//$("#ixmap").css({"background":"black"});
 			$("#gmap").css({"background":"black"});
 			$("#story_board").css({"background":"black"});
+			$("#ixmap").addClass("dark-controls");
 
 			// GR 18.06.2019 change color of sidebar body, for legend left/right
 			try{
@@ -917,6 +918,7 @@ $Log: htmlgui.js,v $
 			$("#ixmap").css({"background":"#D4DADC"});
 			//$("#gmap").css({"background":"#D4DADC"});
 			$("#story_board").css({"background":"#D4DADC"});
+			$("#ixmap").removeClass("dark-controls");
 			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
 			$( "#switchlegendbutton" ).css("border-color","#dddddd");
 
@@ -926,6 +928,7 @@ $Log: htmlgui.js,v $
 			$("#ixmap").css({"background":"none"});
 			$("#gmap").css({"background":"none"});
 			$("#story_board").css({"background":"#ffffff"});
+			$("#ixmap").removeClass("dark-controls");
 			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
 			$( "#switchlegendbutton" ).css("border-color","#dddddd");
 
@@ -936,6 +939,7 @@ $Log: htmlgui.js,v $
 			$("#ixmap").css({"background":szId});
 			$("#gmap").css({"background":szId});
 			$("#story_board").css({"background":szId});
+			$("#ixmap").removeClass("dark-controls");
 			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
 			$( "#switchlegendbutton" ).css("border-color","#dddddd");
 
@@ -947,6 +951,7 @@ $Log: htmlgui.js,v $
 			$("#story_board").css({"background":"#ffffff"});
 			$( "#switchlegendbutton" ).css("background-color","#ffffff");
 			$( "#switchlegendbutton" ).css("border-color","#dddddd");
+			$("#ixmap").removeClass("dark-controls");
 
 			changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
 		}

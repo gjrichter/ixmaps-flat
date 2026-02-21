@@ -160,8 +160,9 @@
 }
 
 .search-box {
-    height: 24px;
-    padding: 7px;
+    height: 40px;
+    padding: 0 10px;
+    box-sizing: border-box;
 }
 
 /* ===== EMBED LOGO ===== */

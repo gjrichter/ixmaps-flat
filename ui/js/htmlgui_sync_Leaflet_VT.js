@@ -900,7 +900,7 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			subdomains: ['a', 'b', 'c', 'd']
 		});
 
-		__cssControls = function (szId) { return;
+		__cssControls = function (szId) {
 			if (!szId) {
 				return;
 			}

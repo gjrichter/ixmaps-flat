@@ -1570,9 +1570,11 @@ $Log: htmlgui.js,v $
 		}
 
 		// GR 07.02.20221 check and preset default values for geojson/topojson
-		if (theme.style["dbtabletype"] && theme.style["dbtabletype"](/geojson|topojson/i)) {
+		if (theme.style["dbtableType"] && theme.style["dbtableType"].match(/geojson|topojson/i)) {
 			theme.style["lookupfield"] = theme.style["lookupfield"] || "geometry";
-			theme.style["type"] = theme.style["type"] || "FEATURES|NOLEGEND";
+			if (!theme.style["type"] || theme.style["type"] === "CHART|DOT") {
+				theme.style["type"] = "FEATURES|NOLEGEND";
+			}
 		}
 
 		// GR 25.01.2022 new: user defined data given by object
