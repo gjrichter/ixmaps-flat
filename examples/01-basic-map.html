@@ -18,13 +18,11 @@
 <body>
     <div id="map_div"></div>
 
-    <script type="text/javascript" src="../ixmaps.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
     <script type="text/javascript">
         // Crea la mappa e imposta la vista iniziale
         ixmaps.Map("map_div", {
-            mapName: "myMap",
-            mapService: "leaflet",
-            mapType: "OpenStreetMap"
+            mapType: "OpenStreetMap - Osmarenderer"
         }).then((map) => {
             // Centra la mappa su Roma con zoom 10
             map.view([41.9028, 12.4964], 10);
