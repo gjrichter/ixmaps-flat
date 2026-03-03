@@ -13329,7 +13329,7 @@ $Log: maptheme.js,v $
 				if (this.szLineColor) {
 					szShapeStyle += "stroke:" + this.szLineColor + ";";
 					if (this.nLineWidth != null && this.nLineWidth !== "") {
-						szShapeStyle += "stroke-width:" + Number(this.nLineWidth) + ";";
+						szShapeStyle += "stroke-width:" + (map.Scale.normalX(this.nLineWidth || 1) * this.nChartGroupScaleY / (map.fFeatureScalingDynamic ? 1 : map.Layer.nDynamicObjectScale))+";";
 					}
 				}
 				szShapeStyle += this.szStyle;
