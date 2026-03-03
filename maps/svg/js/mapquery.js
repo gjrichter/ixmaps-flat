@@ -24,7 +24,7 @@ $Log: mapquery.js,v $
 	document, window, alert, _TRACE, setTimeout,
 	ixMap, map, thisversion, szMapNs, SVGDocument, SVGRootElement, SVGPopupGroup, 
 	point, box, getMatrix, setMapTool,
-	displayMessage, _activeTheme, _activeItem, displayInfo, displayInfoDelayed, clearThemes, highLightList
+	displayMessage, _activeItem, displayInfo, displayInfoDelayed, clearThemes, highLightList
 	*/
 
 // .............................................................................
@@ -132,7 +132,7 @@ $Log: mapquery.js,v $
      * return the active theme
      */
     ixMap.Query.prototype.getActiveTheme = function () {
-        return this.map._activeTheme;
+        return null;
     };
     /**
      * looks for the info attribute of the given map theme 
@@ -830,7 +830,6 @@ $Log: mapquery.js,v $
 
             var foundNode = this.foundNodesA[nIndex].node;
             this.map._activeItem = foundNode;
-            this.map._activeTheme = null;
             clearThemes();
             map.highLightList.removeAll();
 

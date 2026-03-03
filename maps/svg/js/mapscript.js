@@ -3339,6 +3339,9 @@ $Log: mapscript.js,v $
                 lon0: this.nOrthographicLon0
             });
         }
+        if (this.szMapProjection == "WinkelTripel") {
+            return _WinkelTripelToLL(x, y);
+        }
         if (this.szMapUnits != "feet" && this.szMapUnits != "meter" && this.szMapUnits != "meters") {
             return new point(x, y);
         } else {
@@ -5206,109 +5209,20 @@ $Log: mapscript.js,v $
 
 
 
-    /**
-     * activate theme 
-     * @param szTheme the name of the theme to be activated
-     */
-    function activateTheme(szTheme) {
-
-        if (szTheme.match(/:label/)) {
-            return;
-        }
-
-        // subtract tile appendix
-        szTheme = map.Tiles.getMasterId(szTheme);
-
-        if (map._activeTheme == szTheme) {
-            return;
-        }
-
-        // GR 05.06.2012 
-        if (szTheme == "mapcanvas") {
-            return;
-        }
-
-        var legendIdent = map.SVGDocument.getElementById("legend:ident:" + szTheme);
-        if (legendIdent) {
-            clearThemes();
-            map._legendIdent = legendIdent;
-            var textNode = map._legendIdent.nextSibling.nextSibling;
-            if (textNode && textNode.nodeName == "text") {
-                try {
-                    var bBox = map.Dom.getBox(textNode);
-                    map._legendIdent.setAttributeNS(null, "width", bBox.width + map.Scale.normalX(10));
-                } catch (e) {}
-            }
-            map._legendIdent.style.setProperty("display", "inline", "");
-            map._activeTheme = szTheme;
-
-            // GR 25.10.2011 new; show info if we have an active theme
-            // --------------------------------------------------------
-            if (map.fActiveThemeInfo) {
-                var ptPos = new point(map.Scale.mapPosition.x, map.Scale.mapPosition.y + map.Scale.normalX(map.nToolMarginTop));
-                if (map.Viewport.szPopupAlignment.match(/TOP/)) {
-                    ptPos.y = map.Scale.bBox.height + map.Scale.mapPosition.y - map.Scale.normalY(38);
-                }
-                var _activeThemeInfo = new InfoContainer(map.SVGDocument, map.SVGMenuGroup, "movable", ptPos, {
-                    x: map.Scale.normalX(5),
-                    y: map.Scale.normalY(5)
-                }, "fix");
-                _activeThemeInfo.frameNode.style.setProperty("fill", "#fafafa", "");
-                _activeThemeInfo.setTitle("info on");
-                _activeThemeInfo.setOnRemove("clearThemes()");
-
-                var infoWorkspace = _activeThemeInfo.workspaceNode;
-                var szTextStyle = map.Scale.tStyle.Description.szStyle;
-                map.Dom.newText(infoWorkspace, map.Scale.normalX(5), map.Scale.tStyle.Description.nFontHeight, szTextStyle, textNode.firstChild.nodeValue);
-                _activeThemeInfo.reformat();
-            }
-            // --------------------------------------------------------
-
-            try {
-                map.HTMLWindow.ixmaps.htmlgui_setActiveTheme(szTheme);
-            } catch (e) {}
-            try {
-                map.Themes.redrawInfoAll(null);
-            } catch (e) {}
-        } else {
-            clearThemes();
-            _removeInfo(null);
-            map._activeTheme = szTheme;
-            try {
-                map.HTMLWindow.ixmaps.htmlgui_setActiveTheme(szTheme);
-            } catch (e) {}
-            try {
-                map.Themes.redrawInfoAll(null);
-            } catch (e) {}
-        }
-
-        // GR 21.01.2011 test test test
-        map.Layer.setPointerEvents(map._activeTheme);
-
-        map._activeItem = null;
-    }
-    /**
-     * get active theme 
-     */
+    /** activateTheme logic removed: no-op stub for callers */
+    function activateTheme(szTheme) {}
+    /** getActiveTheme logic removed: always null */
     function getActiveTheme() {
-        return map._activeTheme;
+        return null;
     }
-    /**
-     * is active theme 
-     */
+    /** isActiveTheme logic removed: always false */
     function isActiveTheme(szTheme) {
-        return (szTheme == map._activeTheme);
+        return false;
     }
+    /** deactivateTheme logic removed: no-op stub for callers */
+    function deactivateTheme(szTheme) {}
     /**
-     * deactive theme 
-     */
-    function deactivateTheme(szTheme) {
-        if (isActiveTheme(szTheme)) {
-            clearThemes();
-        }
-    }
-    /**
-     * clear highlight in legend
+     * clear highlight in legend (highLightList only; active-theme state removed)
      */
     function clearThemes() {
         if (map._legendIdent) {
@@ -7835,6 +7749,54 @@ $Log: mapscript.js,v $
         y = 0.5 * (y1 + y2);
 
         return new point(x, y);
+    };
+
+    const WINKEL_TRIPEL_LAT = 50.467 * _deg2rad; /* degrees to rad for cos */
+
+    /**
+     * Converts Winkel Tripel map coordinates (x, y) in metres to lon/lat in degrees.
+     * Uses Newton-Raphson iteration with the forward projection (no closed-form inverse).
+     * @param  x map x (metres)
+     * @param  y map y (metres)
+     * @return point with .x = longitude, .y = latitude (degrees)
+     */
+    const _WinkelTripelToLL = function (x, y) {
+        var R = WGS_84_EQ_RAD;
+        var cos50 = Math.cos(WINKEL_TRIPEL_LAT);
+        /* Initial guess: invert equirectangular half of the blend (2*x, 2*y ~ x2,y2) */
+        var lon_rad = (2 * x) / (R * cos50);
+        var lat_rad = (2 * y) / R;
+        lon_rad = Math.max(-Math.PI, Math.min(Math.PI, lon_rad));
+        lat_rad = Math.max(-Math.PI * 0.5, Math.min(Math.PI * 0.5, lat_rad));
+        var lat_deg = lat_rad * _rad2deg;
+        var lon_deg = lon_rad * _rad2deg;
+
+        var h = 1e-5;
+        var maxIter = 15;
+        var tol = 1e-9;
+
+        for (var iter = 0; iter < maxIter; iter++) {
+            var F0 = _LLtoWinkelTripel(lat_deg, lon_deg);
+            var F_lat = _LLtoWinkelTripel(lat_deg + h, lon_deg);
+            var F_lon = _LLtoWinkelTripel(lat_deg, lon_deg + h);
+            var dx = x - F0.x;
+            var dy = y - F0.y;
+            var j11 = (F_lat.x - F0.x) / h;
+            var j21 = (F_lat.y - F0.y) / h;
+            var j12 = (F_lon.x - F0.x) / h;
+            var j22 = (F_lon.y - F0.y) / h;
+            var det = j11 * j22 - j12 * j21;
+            if (Math.abs(det) < 1e-30) break;
+            var d_lat = (j22 * dx - j12 * dy) / det;
+            var d_lon = (-j21 * dx + j11 * dy) / det;
+            lat_deg += d_lat;
+            lon_deg += d_lon;
+            if (Math.abs(d_lat) < tol && Math.abs(d_lon) < tol) break;
+            lat_deg = Math.max(-90, Math.min(90, lat_deg));
+            lon_deg = Math.max(-180, Math.min(180, lon_deg));
+        }
+
+        return new point(lon_deg, lat_deg);
     };
 
     /**

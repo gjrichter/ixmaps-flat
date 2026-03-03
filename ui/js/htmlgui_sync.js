@@ -793,7 +793,7 @@ $Log: htmlgui_sync.js,v $
                                              + ptBlat + ", "
                                              + ptBlng );
 		} catch (e) {}
-
+		/** 
 		// do some coordinate smoothing
 		// wrap center lat between -180 and 180
 		while (ptLatLon.lng < -180) {
@@ -825,7 +825,7 @@ $Log: htmlgui_sync.js,v $
 		while (arrayPtLatLon[1].lng > ptLatLon.lng + 360) {
 			arrayPtLatLon[1].lng -= 360;
 		}
-		
+		*/
 		ixmaps.fInSVGSync = true;
 
 		// Check if projection is orthographic (or albers/lambert) - these projections need special zoom handling
@@ -861,8 +861,8 @@ $Log: htmlgui_sync.js,v $
 				var baseScale = 5.0;     // Scale at reference zoom level (reduced to make map smaller)
 				var svgZoomScale = baseScale * Math.pow(2, leafletZoom - referenceZoom);
 				// Ensure minimum zoom scale
-				if (svgZoomScale < 5.0) {
-					svgZoomScale = 5.0;
+				if (svgZoomScale < 1.0) {
+					svgZoomScale = 1.0;
 				}
 				// Set center first
 				//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
@@ -889,6 +889,7 @@ $Log: htmlgui_sync.js,v $
 
 			// GR 11.04.2013 same problem, part of the solution
 			// try to set the center explicitly
+			
 			setBoundsLatLonSilent(
 				ptLatLon.lat,
 				ptLatLon.lng,

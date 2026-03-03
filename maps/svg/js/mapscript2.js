@@ -27,10 +27,10 @@ $Log: mapscript2.js,v $
 	executeWithProgressBar, SVGLoaderTiles, SVGOrigViewBoxString,
 	SVGPopupGroup, SVGToolsGroup, SVGRootElement, SVGFixedGroup, SVGHiddenGroup, SVGNotifyGroup, SVGMenuGroup,
 	setTimeout, clearTimeout, alert, window, setMapTool, console, TRACE, _TRACE, _ERROR, _STATUS, displayMessage, displayTooltip,
-	displayTooltipText, _activeItem, isActiveTheme, activateTheme, deactivateTheme, Methods,
+	displayTooltipText, _activeItem, Methods,
 	displayScale, viewBox, viewBoxScale, box, getTranslate, setRotate, getRotateAttributeValue, getTranslateAttributeValue,
 	__maptheme_formatpart, MapObject, mouseObject, highLightList, killTooltip, highlightTheme, highlightThemeRemove,	
-	TextField, InfoContainer, _activeTheme, __scaleLineStyleString, __scaleTextStyleString, __scaleStyleString,
+	TextField, InfoContainer, __scaleLineStyleString, __scaleTextStyleString, __scaleStyleString,
 	szLocalPopupAlignment, szMapBackgroundStyle, szMapBackgroundColor, szMapToolType, __setContextMenu, __formatValue,
 	nMapBorderWidth, nToolMarginTop, fMapBorder, szMapBorderColor, fMapBorder3D, szMapPanBorderStyle, szMapPanBorderOnoverStyle, 
 	executeWithMessage, fNorthArrow, szNorthArrowPosition, nNormalButtonSize, fRotateOnMouseMove, fPanByViewer, fPreserveMapRatio,
@@ -358,7 +358,7 @@ $Log: mapscript2.js,v $
     ixMap.Viewport.prototype.clipLayer = function (szName, newWidth) {
 
         if (!szName) {
-            szName = map._activeTheme;
+            szName = null;
         }
         var layerObj = map.SVGDocument.getElementById(szName);
         var layerObjV = map.SVGDocument.getElementById(szName + ":values");
@@ -5516,15 +5516,9 @@ $Log: mapscript2.js,v $
                 idNode = idNode.parentNode;
             }
             var legendId = idNode.getAttributeNS(null, "id");
-            if (legendId && !legendId.match(/chartgroup/)) {
-                if (map._activeTheme != map.Tiles.getMasterId(legendId.split(':')[0])) {
-                    if (map.fHighlightHint) {
-                        szMode = "hint";
-                        retVal = false;
-                    } else {
-                        return false;
-                    }
-                }
+            if (legendId && !legendId.match(/chartgroup/) && map.fHighlightHint) {
+                szMode = "hint";
+                retVal = false;
             }
             map.highLightList.removeAll();
             var shapeNodesA = map.Layer.getLayerItemNodes(onoverShape);
@@ -5684,19 +5678,11 @@ $Log: mapscript2.js,v $
                 }
                 szId = clickNode.parentNode.getAttributeNS(null, "id");
                 if (szId && (szId != "PopupGroup") && (!szId.match(/widget/)) && (map.fActivateInfoOnClick || (map.szMapToolType == "info") || (map.szMapToolType == "clickinfo") || (map.szMapToolType === "") || (map.szMapToolType == "zoomrect"))) {
-                    if (isActiveTheme(map.Layer.getLayerName(szId))) {
-                        map.SVGPopupGroup.fu.clear();
-                        // fix an info popup to a permanent info bubble
-                        var fixedInfo = displayInfo(evt, clickShape, "add|fix|pointer");
-                    } else {
-                        activateTheme(szId.split(':')[0]);
-                        if (!map.szMapToolType.match(/select/)) {
-                            // GR 25.10.2011						setMapTool("info");
-                        }
-                        map.Zoom.cancel();
-                        this.defaultMouseOver(evt);
-                        killTooltip();
-                    }
+                    map.SVGPopupGroup.fu.clear();
+                    var fixedInfo = displayInfo(evt, clickShape, "add|fix|pointer");
+                    map.Zoom.cancel();
+                    this.defaultMouseOver(evt);
+                    killTooltip();
                 }
             }
         }
@@ -8563,13 +8549,6 @@ $Log: mapscript2.js,v $
     var setMapTool = function (szType) {
         //map.Layer.setPointerEvents(null);
 
-        if ((szType == "info") && (map.szMapToolType == "info")) {
-            deactivateTheme(map._activeTheme);
-        }
-        if ((szType == "pan")) {
-            deactivateTheme(map._activeTheme);
-        }
-
         // GR 12.07.2013 clear overlays
         killTooltip();
         killInfo();
@@ -11034,7 +11013,6 @@ $Log: mapscript2.js,v $
                 	break;
                 **/
             case 'setactive':
-                activateTheme(szThemeId);
                 break;
 
             case 'item':
@@ -11090,7 +11068,7 @@ $Log: mapscript2.js,v $
                     try {
                         this.lastItemObjectA[szItem] = eval(szOnActivate);
                         if (this.lastItemObjectA[szItem]) {
-                            this.lastItemObjectA[szItem].onremove = "map.Legend.setLegendCheckBox(null,'" + szId + "','unchecked');map.Legend.lastItemObjectA['" + szItem + "']=null;deactivateTheme('" + szItem + "')";
+                            this.lastItemObjectA[szItem].onremove = "map.Legend.setLegendCheckBox(null,'" + szId + "','unchecked');map.Legend.lastItemObjectA['" + szItem + "']=null";
                             this.lastItemObjectA[szItem].szItem = szItem;
                         }
                     } catch (e) {

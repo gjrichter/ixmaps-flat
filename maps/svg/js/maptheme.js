@@ -74,7 +74,6 @@ $Log: maptheme.js,v $
 	fTilesLoaded, 
 	fTransparentMap, 
 	fCheckLabelOverlap, 
-	_activeTheme, 
 	fDebug, 
 	JSLoader */
 
@@ -2480,20 +2479,6 @@ $Log: maptheme.js,v $
 		this.execute();
 	};
 
-	/**
-	 * activate a MapTheme 
-	 * @parameter evt the event
-	 * @parameter szId the id of the theme
-	 */
-	ixMap.Themes.prototype.activateTheme = function (evt, szId) {
-		var mapTheme = this.getTheme(szId);
-		if (mapTheme) {
-			mapTheme.fRedraw = true;
-			executeWithMessage(() => map.Themes.execute(), "... processing ...");
-		}
-		evt.stopPropagation();
-		evt.preventDefault();
-	};
 	/**
 	 * show a MapTheme 
 	 * @parameter evt the event
@@ -9479,26 +9464,26 @@ $Log: maptheme.js,v $
 				if (this.itemA[szId]) {
 					// add color value
 					if (this.szColorField) {
-						this.itemA[szId].szColor = (this.szColorField == "$index$") ? (j + 1) : __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nColorFieldIndex]));
+						this.itemA[szId].szColor = (this.szColorField == "$index$") ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nColorFieldIndex]));
 					}
 					// add symbol value
 					if (this.szSymbolField) {
-						this.itemA[szId].szSymbol = (this.szSymbolField == "$index$") ? (j + 1) : __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nSymbolFieldIndex]));
+						this.itemA[szId].szSymbol = (this.szSymbolField == "$index$") ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nSymbolFieldIndex]));
 					}
 					// add text value
 					if (this.szValueField) {
-						this.itemA[szId].szValue = (this.szValueField == "$index$") ? (j + 1) : __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nValueFieldIndex]));
+						this.itemA[szId].szValue = (this.szValueField == "$index$") ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nValueFieldIndex]));
 					}
 					// add time value
 					if (this.szTimeField) {
-						this.itemA[szId].szTime = (this.szTimeField == "$index$") ? (j + 1) : __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nTimeFieldIndex]));
+						this.itemA[szId].szTime = (this.szTimeField == "$index$") ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nTimeFieldIndex]));
 						if (isNaN(this.itemA[szId].szTime)) {
 							this.itemA[szId].szTime = this.itemA[szId].szTime.replace(/ - /g, "");
 						}
 					}
 					// add label value
 					if (this.szLabelField) {
-						this.itemA[szId].szLabel = (this.szLabelField == "$index$") ? (j + 1) : __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nLabelFieldIndex]));
+						this.itemA[szId].szLabel = (this.szLabelField == "$index$") ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nLabelFieldIndex]));
 						// GR 07.08.2018 if label field defined, overwrite exact value label for legend
 						// if (this.__fExact) {
 						//     this.szLabelA[nValueA[0]-1] = this.itemA[szId].szLabel;
@@ -9506,11 +9491,11 @@ $Log: maptheme.js,v $
 					}
 					// add title value
 					if (this.szTitleField) {
-						this.itemA[szId].szTitle = __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nTitleFieldIndex]));
+						this.itemA[szId].szTitle = __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nTitleFieldIndex]));
 					}
 					// add snippet value
 					if (this.szSnippetField) {
-						this.itemA[szId].szSnippet = __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nSnippetFieldIndex]));
+						this.itemA[szId].szSnippet = __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nSnippetFieldIndex]));
 					}
 					// add selection id if this.nFieldItemIndex >= 0 (item id differs from selection id))
 					if (szSelectionId) {
@@ -9520,7 +9505,7 @@ $Log: maptheme.js,v $
 					}
 					// add aggregation value
 					if (this.szAggregationField) {
-						this.itemA[szId].szAggregation = __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nAggregationFieldIndex]));
+						this.itemA[szId].szAggregation = __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nAggregationFieldIndex]));
 					}
 					// add PLOTXY values
 					if (this.szXField) {
@@ -10108,8 +10093,8 @@ $Log: maptheme.js,v $
 
 			const nAlphaValue = this.szAlphaField ? __scanValue(this.objTheme.dbRecords[j][this.objTheme.nAlphaFieldIndex]) : null;
 			let szTitle = this.szTitleField ? this.objTheme.dbRecords[j][this.objTheme.nTitleFieldIndex] : null;
-			const szColor = this.szColorField ? (this.szColorField === "$index$" ? (j + 1) : __mpap_decode_utf8(this.objTheme.dbRecords[j][this.objTheme.nColorFieldIndex])) : null;
-			const szTime = this.szTimeField ? (this.szTimeField === "$index$" ? (j + 1) : __mpap_decode_utf8(this.objTheme.dbRecords[j][this.objTheme.nTimeFieldIndex]).replace(/ - /g, " ")) : null;
+			const szColor = this.szColorField ? (this.szColorField === "$index$" ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nColorFieldIndex]))) : null;
+			const szTime = this.szTimeField ? (this.szTimeField === "$index$" ? (j + 1) : __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nTimeFieldIndex]).replace(/ - /g, " "))) : null;
 			const nX = this.szXField ? __scanValue(this.objTheme.dbRecords[j][this.objTheme.nXFieldIndex]) : null;
 			const nY = this.szYField ? __scanValue(this.objTheme.dbRecords[j][this.objTheme.nYFieldIndex]) : null;
 			const szValue = this.szValueField ? this.objTheme.dbRecords[j][this.objTheme.nValueFieldIndex] : null;
@@ -10274,7 +10259,7 @@ $Log: maptheme.js,v $
 			// if not, create the id of the point from its (aggregated) position 
 			// 
 			if (this.szAggregationField) {
-				var szAgId = __mpap_decode_utf8((this.objTheme.dbRecords[j][this.objTheme.nAggregationFieldIndex]));
+				var szAgId = __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nAggregationFieldIndex]));
 				szId = szThemeLayer + "::" + szAgId;
 				if (this.szTitleField == "$aggregation$") {
 					szTitle = szAgId;
@@ -13339,7 +13324,16 @@ $Log: maptheme.js,v $
 				break;
 
 			default:
-				shapeNode.setAttributeNS(null, "style", "fill:" + szColor + ";" + this.szStyle);
+				// CHOROPLETH polygon: apply theme linecolor/linewidth when defined
+				var szShapeStyle = "fill:" + szColor + ";";
+				if (this.szLineColor) {
+					szShapeStyle += "stroke:" + this.szLineColor + ";";
+					if (this.nLineWidth != null && this.nLineWidth !== "") {
+						szShapeStyle += "stroke-width:" + Number(this.nLineWidth) + ";";
+					}
+				}
+				szShapeStyle += this.szStyle;
+				shapeNode.setAttributeNS(null, "style", szShapeStyle);
 				break;
 		}
 		// GR 24.10.2017 set class
@@ -15357,21 +15351,40 @@ $Log: maptheme.js,v $
 		}
 
 		if (this.szFlag.match(/FEATURE/)) {
-			this.chartGroup = map.Dom.newGroup(map.Layer.layerNode, this.szThemesA[0]);
-			map.Dom.newGroup(map.Layer.layerNode, this.szThemesA[0] + ":label");
-			map.Layer.listA[this.szThemesA[0]] = new ixMap.Layer.Item(null);
-			map.Layer.listA[this.szThemesA[0]].szName = this.szThemesA[0];
-			map.Layer.listA[this.szThemesA[0]].szHighlight =
-				"fill:url(#DiagUp200000000);stroke:black;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;";
-			map.Layer.listA[this.szThemesA[0]].szSelection = this.szItemField;
-			if (this.nFeatureLower || this.nFeatureUpper) {
-				map.Layer.depListA[this.szThemesA[0]] = {};
-				map.Layer.depListA[this.szThemesA[0]].nLower = (this.nFeatureLower || 0);
-				map.Layer.depListA[this.szThemesA[0]].nUpper = (this.nFeatureUpper || 1000000000);
-				map.Layer.depListA[this.szThemesA[0]].shapeId = this.szThemesA[0];
-				map.Layer.depListA[this.szThemesA[0]].szDisplayAttribute = "none";
-				map.Layer.depListA[this.szThemesA[0]].szFeature = this.szThemesA[0];
-				setTimeout("map.Layer.switchScaleDependentLayer(null)", 10);
+			// Reuse existing layer group when multiple FEATURE themes share the same layer (e.g. base + choropleth)
+			var existingGroup = map.SVGDocument.getElementById(this.szThemesA[0]);
+			if (existingGroup && map.Layer.layerNode && map.Layer.layerNode.contains(existingGroup)) {
+				this.chartGroup = existingGroup;
+				if (!this.chartGroup.fu) {
+					this.chartGroup.fu = new Methods(this.chartGroup);
+				}
+				// Ensure scale-dependent layer entry exists if this theme has scale limits
+				if ((this.nFeatureLower || this.nFeatureUpper) && !map.Layer.depListA[this.szThemesA[0]]) {
+					map.Layer.depListA[this.szThemesA[0]] = {};
+					map.Layer.depListA[this.szThemesA[0]].nLower = (this.nFeatureLower || 0);
+					map.Layer.depListA[this.szThemesA[0]].nUpper = (this.nFeatureUpper || 1000000000);
+					map.Layer.depListA[this.szThemesA[0]].shapeId = this.szThemesA[0];
+					map.Layer.depListA[this.szThemesA[0]].szDisplayAttribute = "none";
+					map.Layer.depListA[this.szThemesA[0]].szFeature = this.szThemesA[0];
+					setTimeout("map.Layer.switchScaleDependentLayer(null)", 10);
+				}
+			} else {
+				this.chartGroup = map.Dom.newGroup(map.Layer.layerNode, this.szThemesA[0]);
+				map.Dom.newGroup(map.Layer.layerNode, this.szThemesA[0] + ":label");
+				map.Layer.listA[this.szThemesA[0]] = new ixMap.Layer.Item(null);
+				map.Layer.listA[this.szThemesA[0]].szName = this.szThemesA[0];
+				map.Layer.listA[this.szThemesA[0]].szHighlight =
+					"fill:url(#DiagUp200000000);stroke:black;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;";
+				map.Layer.listA[this.szThemesA[0]].szSelection = this.szItemField;
+				if (this.nFeatureLower || this.nFeatureUpper) {
+					map.Layer.depListA[this.szThemesA[0]] = {};
+					map.Layer.depListA[this.szThemesA[0]].nLower = (this.nFeatureLower || 0);
+					map.Layer.depListA[this.szThemesA[0]].nUpper = (this.nFeatureUpper || 1000000000);
+					map.Layer.depListA[this.szThemesA[0]].shapeId = this.szThemesA[0];
+					map.Layer.depListA[this.szThemesA[0]].szDisplayAttribute = "none";
+					map.Layer.depListA[this.szThemesA[0]].szFeature = this.szThemesA[0];
+					setTimeout("map.Layer.switchScaleDependentLayer(null)", 10);
+				}
 			}
 		} else {
 			this.chartGroup = map.Dom.newGroup(objectGroup, this.szId + ":chartgroup");
@@ -15902,7 +15915,7 @@ $Log: maptheme.js,v $
 			// 
 			this.fSorted = false;
 
-			if (this.fSortBeforeDraw && ((this.nMin != this.nMax) || this.szSizeField || this.szFlag.match(/\bSORT\b/)) &&
+			if (this.fSortBeforeDraw && ((this.nMin != this.nMax) || this.szSizeField) &&
 				(!this.szFlag.match(/NOSRT/) && !this.szFlag.match(/\bDOT\b/)) &&
 				(!this.szFlag.match(/NOSIZE/) || this.szFlag.match(/3D/) || this.szFlag.match(/\bSORT\b/)) &&
 				(!this.szFlag.match(/CATEGORICAL/) || this.szFlag.match(/AGGREGATE/) || this.szSizeField || this.szFlag.match(/\bSORT\b/))) {
@@ -15938,10 +15951,9 @@ $Log: maptheme.js,v $
 				} else {
 
 					// sort by value 
-					// use nSize for sort only when: CATEGORICAL with sizefield, or AGGREGATE|SUM
 					// -------------
 					var nValue;
-					if ((this.szSizeField && this.szFlag.match(/CATEGORICAL/)) || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/SUM/))) {
+					if ((this.szSizeField || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/SUM/)))) {
 						for (var i = 0; i < this.indexA.length; i++) {
 							nValue = this.itemA[this.indexA[i]].nSize;
 							if (!isNaN(nValue)) {
@@ -15952,7 +15964,7 @@ $Log: maptheme.js,v $
 							}
 						}
 					} else
-						if (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/MEAN/)) {
+						if ((this.szSizeField || (this.szFlag.match(/AGGREGATE/) && this.szFlag.match(/MEAN/)))) {
 							for (var i = 0; i < this.indexA.length; i++) {
 								nValue = this.itemA[this.indexA[i]].nValuesA[this.nActualFrame || 0];
 								if (!isNaN(nValue)) {
@@ -15964,14 +15976,13 @@ $Log: maptheme.js,v $
 							}
 						} else
 							if (this.szFlag.match(/SIZE/)) {
-								// AGGREGATE with sizefield: sort by nSize; AGGREGATE without sizefield (value from value field): sort by nValuesA; non-aggregate: nValueSum
 								for (var i = 0; i < this.indexA.length; i++) {
 									if (this.szFlag.match(/AGGREGATE/)) {
-										nValue = this.szSizeField ? this.itemA[this.indexA[i]].nSize : (this.itemA[this.indexA[i]].nValuesA[this.nActualFrame || 0]);
+										nValue = this.itemA[this.indexA[i]].nValuesA[this.nActualFrame || 0];
 									} else {
 										nValue = this.itemA[this.indexA[i]].nValueSum;
 									}
-									if (nValue != null && !isNaN(nValue)) {
+									if (!isNaN(nValue)) {
 										chartYPosA.push({
 											a: this.indexA[i],
 											y: nValue
@@ -24194,9 +24205,6 @@ $Log: maptheme.js,v $
 				chartButtonObj.setPosition(map.Scale.normalX(nChartSize + classOffset + 10), map.Scale.normalY(nChartSize));
 				chartButtonObj.scale(1.4, 1.4);
 				chartButtonObj = null;
-				if (map._activeTheme) {
-					map.Dom.newText(targetGroup.parentNode, map.Scale.normalX(nChartSize + classOffset + 20), map.Scale.normalY(nChartSize + 6), "font-family:arial;font-size:" + map.Scale.normalX(8) + "px;text-anchor:left;baseline-shift:-10%;fill:gray;stroke:none;pointer-events:none", "... " + map._activeTheme + "");
-				}
 			}
 			// make overview chart for bar/pie/donut charts
 			// --------------------------------------------

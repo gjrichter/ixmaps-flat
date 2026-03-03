@@ -3586,6 +3586,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "max-width": ""
             }).removeClass("legend-folded");
             $("#map-legend").removeClass("legend-folded");
+            $("#map-legend-external-legend-button").hide();
         } else
         if (ixmaps.legendState == 1) {
             $("#map-legend-body").show();
@@ -3608,8 +3609,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "max-width": ""
             }).removeClass("legend-folded");
             $("#map-legend").removeClass("legend-folded");
+            $("#map-legend-external-legend-button").hide();
         } else {
-            // When folded, hide everything except the button and title
+            // When folded, hide everything except the unfold button (shown outside pane)
             $("#map-legend-body").hide();
             $("#map-legend-snippet").hide();
             $("#map-legend-footer").hide();
@@ -3672,7 +3674,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 });
             }
             $("#legend-open-icon").hide();
-            // Collapse the legend pane but keep it visible with title/button
+            // When folded, hide the legend pane entirely
             $("#map-legend-pane").css({
                 "padding": "0.3em 0.5em",
                 "background": "rgba(255,255,255,0.9)",
@@ -3680,9 +3682,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
                 "width": "auto",
                 "min-width": "auto",
-                "max-width": "none",
-                "display": "block",
-                "visibility": "visible"
+                "max-width": "none"
             }).addClass("legend-folded");
             $("#map-legend").addClass("legend-folded").css({
                 "display": "block",
@@ -3693,6 +3693,37 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "display": "block",
                 "visibility": "visible"
             });
+            // Show external unfold button (outside pane) so it remains visible when pane is hidden (2px down, 5px right)
+            var legendButton = $("#map-legend-external-legend-button");
+            if (!legendButton.length) {
+                legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:99px;height:38px;font-size:11px;padding:0 14px;z-index:10000;">Legend</button>');
+                var mapContainer = $("#map-legend").parent();
+                if (mapContainer.length) {
+                    mapContainer.append(legendButton);
+                } else if ($("#ixmap").length) {
+                    $("#ixmap").append(legendButton);
+                } else {
+                    $("body").append(legendButton);
+                }
+                legendButton.on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    __toggleLegendPane();
+                    return false;
+                });
+            }
+            legendButton.css({
+                "display": "flex",
+                "position": "absolute",
+                "top": "13px",
+                "left": "99px",
+                "height": "38px",
+                "font-size": "11px",
+                "padding": "0 14px",
+                "z-index": "10000",
+                "visibility": "visible",
+                "opacity": "1"
+            }).show();
         }
 		
 		// If legend type is "layer" and legend is visible, ensure layer legend is shown

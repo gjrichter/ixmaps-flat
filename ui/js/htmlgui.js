@@ -2462,11 +2462,9 @@ $Log: htmlgui.js,v $
 	};
 
 	/**
-	 * Is called by the map to notify the active theme (necessary?)
+	 * Was called by the map to notify the active theme (activateTheme logic removed; no-op)
 	 */
-	ixmaps.htmlgui_setActiveTheme = function (szTheme) {
-		$("#switchinfobutton").show();
-	};
+	ixmaps.htmlgui_setActiveTheme = function (szTheme) {};
 
 	/**
 	 * Is called by the map to notify the actual theme (necessary?)

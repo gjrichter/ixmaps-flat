@@ -738,13 +738,15 @@
         }
         
         // if both width and height are given and expressed in "px" 
-        if (opt.width || opt.height && !opt.height.match(/%/)){
+        if ((opt.width || opt.height)){
             console.log("--- opt ---");
             console.log(opt);
             $(`#${uniqueDivId}`).css("width",opt.width||"100%");
             $(`#${uniqueDivId}`).css("height",opt.height||window.innerHeight+"px");
-            //$(`#${uniqueDivId}`).parent().css("width",opt.width||"100%");
-            $(`#${uniqueDivId}`).parent().css("height",opt.height||window.innerHeight+"px");
+            if (opt.width && opt.width.match(/px/))
+                $(`#${uniqueDivId}`).parent().css("width",opt.width||"100%");
+            if (opt.height && opt.height.match(/px/))
+                $(`#${uniqueDivId}`).parent().css("height",opt.height||window.innerHeight+"px");
             szMapSize = "fix";
         }
  
@@ -1148,12 +1150,22 @@
                 lb.__mapApi = this;
                 var self = this;
                 lb.define = function () {
-                    ixmaps.newTheme("layer", this.def, flag);
+                    var name = this.def.style.name || (this.def.meta ? this.def.meta.name : null);
+                    if (name && ixmaps.getThemeObj(name)) {
+                        ixmaps.replaceTheme(name, this.def, flag ? "silent|" + flag : "silent");
+                    } else {
+                        ixmaps.newTheme("layer", this.def, flag);
+                    }
                     return self;
                 };
                 return lb;
             }
-            ixmaps.newTheme("layer", theme, flag);
+            var name = theme.style.name || (theme.meta ? theme.meta.name : null);
+            if (name && ixmaps.getThemeObj(name)) {
+                ixmaps.replaceTheme(name, theme, flag != null && flag !== "" ? "silent|" + flag : "silent");
+            } else {
+                ixmaps.newTheme("layer", theme, flag);
+            }
             return this;
         },
         add: function (theme, flag) {
