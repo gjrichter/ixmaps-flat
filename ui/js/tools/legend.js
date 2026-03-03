@@ -2482,14 +2482,16 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     if (firstChart) {
                         var sThemeObj = firstChart.layer.themeObj;
                         var sThemeId = firstChart.layer.szId;
+                        var isVectorChart = sThemeObj.szFlag && sThemeObj.szFlag.match(/\bVECTOR\b/);
                         var scaleVal = 100;
                         try {
                             var sDef = sThemeObj.def && sThemeObj.def();
                             if (sDef && sDef.style && sDef.style.scale != null) { scaleVal = Math.max(25, Math.min(200, Math.round(parseFloat(String(sDef.style.scale)) * 100))); }
                         } catch (e) {}
                         if (sThemeObj.nScale != null) { scaleVal = Math.max(25, Math.min(200, Math.round(parseFloat(sThemeObj.nScale) * 100))); }
+                        var scaleLabel = isVectorChart ? "Line width" : "Chart size";
                         szHtml += "<div class='legend-bottom-slider' style='margin-top:0.6em;margin-bottom:0.4em;pointer-events:all'>";
-                        szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>Chart size: <span id='legend-scale-value'>" + scaleVal + "</span>%</label>";
+                        szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>" + scaleLabel + ": <span id='legend-scale-value'>" + scaleVal + "</span>%</label>";
                         szHtml += "<input type='range' min='25' max='200' value='" + scaleVal + "' class='slider' id='legendScaleSlider' data-theme-id='" + sThemeId.replace(/'/g, "&#39;") + "' style='width:50%;margin-top:0.4em'>";
                         szHtml += "</div>";
                     }
@@ -2661,16 +2663,18 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     szHtml += "</div>";
                 }
                 if (isChartTheme) {
+                    var isVectorTheme = themeObj.szFlag && themeObj.szFlag.match(/\bVECTOR\b/);
                     var scaleValT = 100;
                     try {
                         var defS = themeObj.def && themeObj.def();
                         if (defS && defS.style && defS.style.scale != null) { scaleValT = Math.max(25, Math.min(200, Math.round(parseFloat(String(defS.style.scale)) * 100))); }
                     } catch (e) {}
                     if (themeObj.nScale != null) { scaleValT = Math.max(25, Math.min(200, Math.round(parseFloat(themeObj.nScale) * 100))); }
+                    var scaleLabelT = isVectorTheme ? "Line width" : "Chart size";
                     var scaleSliderId = "legendScaleSlider_" + theme.szId.replace(/[^a-zA-Z0-9]/g, '_');
                     var scaleValueId = "legend-scale-value-" + theme.szId.replace(/[^a-zA-Z0-9]/g, '_');
                     szHtml += "<div class='legend-bottom-slider' style='margin-top:0.6em;margin-bottom:0.4em;pointer-events:all'>";
-                    szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>Chart size: <span id='"+scaleValueId+"'>" + scaleValT + "</span>%</label>";
+                    szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>" + scaleLabelT + ": <span id='"+scaleValueId+"'>" + scaleValT + "</span>%</label>";
                     szHtml += "<input type='range' min='25' max='200' value='"+scaleValT+"' class='slider' id='"+scaleSliderId+"' data-theme-id='"+theme.szId.replace(/'/g, "&#39;")+"' style='width:50%;margin-top:0.4em'>";
                     szHtml += "</div>";
                 }
@@ -2877,6 +2881,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                         var scaleSliderTh = document.getElementById(scaleSliderIdTh);
                         if (scaleSliderTh) {
                             var themeIdScale = themeForInit.szId;
+                            if (themeObjForInit.szFlag && themeObjForInit.szFlag.match(/\bVECTOR\b/)) {
+                                scaleSliderTh.setAttribute("data-last-pct", scaleSliderTh.value || "100");
+                            }
                             scaleSliderTh.oninput = function() {
                                 __noSlideRefresh = true;
                                 var tid = this.getAttribute("data-theme-id");
@@ -2885,7 +2892,16 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                                 $("#" + scaleValueIdTh).text(pct);
                                 var mapApi = ixmaps.api && ixmaps.api();
                                 if (mapApi && mapApi.changeThemeStyle) {
-                                    mapApi.changeThemeStyle(tid, "scale:" + (pct / 100), "set");
+                                    var tObj = ixmaps.getThemeObj(tid);
+                                    if (tObj && tObj.szFlag && tObj.szFlag.match(/\bVECTOR\b/)) {
+                                        var lastPct = parseInt(this.getAttribute("data-last-pct") || "100", 10);
+                                        var factor = pct !== 0 ? (lastPct / 100) / (pct / 100) : 1;
+                                        mapApi.changeThemeStyle(tid, "normalsizevalue:" + factor, "factor");
+                                        this.setAttribute("data-last-pct", String(pct));
+                                    } else {
+                                        mapApi.changeThemeStyle(tid, "scale:" + (pct / 100), "set");
+                                    }
+                                    if (mapApi.redrawTheme) { mapApi.redrawTheme(tid); }
                                 }
                             };
                             scaleSliderTh.onmouseup = scaleSliderTh.onpointerup = function() { __noSlideRefresh = false; };
@@ -2915,6 +2931,10 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 // Init chart size slider (layer list legend)
                 var scaleSlider = document.getElementById("legendScaleSlider");
                 if (scaleSlider) {
+                    var firstChartThemeObj = scaleSlider.getAttribute("data-theme-id") && ixmaps.getThemeObj(scaleSlider.getAttribute("data-theme-id"));
+                    if (firstChartThemeObj && firstChartThemeObj.szFlag && firstChartThemeObj.szFlag.match(/\bVECTOR\b/)) {
+                        scaleSlider.setAttribute("data-last-pct", scaleSlider.value || "100");
+                    }
                     scaleSlider.oninput = function() {
                         __noSlideRefresh = true;
                         var themeId = this.getAttribute("data-theme-id");
@@ -2923,7 +2943,16 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                         $("#legend-scale-value").text(pct);
                         var mapApi = ixmaps.api && ixmaps.api();
                         if (mapApi && mapApi.changeThemeStyle) {
-                            mapApi.changeThemeStyle(themeId, "scale:" + (pct / 100), "set");
+                            var themeObj = ixmaps.getThemeObj(themeId);
+                            if (themeObj && themeObj.szFlag && themeObj.szFlag.match(/\bVECTOR\b/)) {
+                                var lastPct = parseInt(this.getAttribute("data-last-pct") || "100", 10);
+                                var factor = pct !== 0 ? (lastPct / 100) / (pct / 100) : 1;
+                                mapApi.changeThemeStyle(themeId, "normalsizevalue:" + factor, "factor");
+                                this.setAttribute("data-last-pct", String(pct));
+                            } else {
+                                mapApi.changeThemeStyle(themeId, "scale:" + (pct / 100), "set");
+                            }
+                            if (mapApi.redrawTheme) { mapApi.redrawTheme(themeId); }
                         }
                     };
                     scaleSlider.onmouseup = scaleSlider.onpointerup = function() { __noSlideRefresh = false; };
@@ -3254,15 +3283,19 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		} catch (e) {}
 		// fallback: read from theme object (SVG map uses fillOpacity, nScale)
 		if (themeObj.fillOpacity !== undefined && themeObj.fillOpacity !== null) { fillOpacityVal = Math.round(parseFloat(themeObj.fillOpacity) * 100) || 90; fillOpacityVal = Math.max(0, Math.min(100, fillOpacityVal)); }
-		if (themeObj.nScale !== undefined && themeObj.nScale !== null) { scaleVal = Math.round(parseFloat(themeObj.nScale) * 100) || 100; scaleVal = Math.max(25, Math.min(200, scaleVal)); }
+		var isVector = themeObj.szFlag && themeObj.szFlag.match(/\bVECTOR\b/);
+		if (themeObj.nScale !== undefined && themeObj.nScale !== null) {
+			scaleVal = Math.round(parseFloat(themeObj.nScale) * 100) || 100; scaleVal = Math.max(25, Math.min(200, scaleVal));
+		}
 		if (isChoropleth) {
 			szHtml += "<div class='legend-bottom-slider' style='margin-top:0.6em;margin-bottom:0.4em;pointer-events:all'>";
 			szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>Opacity: <span id='legend-opacity-value'>" + fillOpacityVal + "</span>%</label>";
 			szHtml += "<input type='range' min='0' max='100' value='" + fillOpacityVal + "' class='slider' id='legendOpacitySlider' style='width:50%;margin-top:0.4em'>";
 			szHtml += "</div>";
 		} else if (isChart) {
+			var scaleLabelLegacy = isVector ? "Line width" : "Chart size";
 			szHtml += "<div class='legend-bottom-slider' style='margin-top:0.6em;margin-bottom:0.4em;pointer-events:all'>";
-			szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>Chart size: <span id='legend-scale-value'>" + scaleVal + "</span>%</label>";
+			szHtml += "<label style='font-size:0.85em;color:#555;display:block;margin-bottom:0.35em'>" + scaleLabelLegacy + ": <span id='legend-scale-value'>" + scaleVal + "</span>%</label>";
 			szHtml += "<input type='range' min='25' max='200' value='" + scaleVal + "' class='slider' id='legendScaleSlider' style='width:50%;margin-top:0.4em'>";
 			szHtml += "</div>";
 		}
@@ -3433,13 +3466,25 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		var scaleSlider = document.getElementById("legendScaleSlider");
 		if (scaleSlider) {
 			var themeIdForScale = szId;
+			if (themeObj.szFlag && themeObj.szFlag.match(/\bVECTOR\b/)) {
+				scaleSlider.setAttribute("data-last-pct", scaleSlider.value || "100");
+			}
 			scaleSlider.oninput = function() {
 				__noSlideRefresh = true;
 				var pct = parseInt(this.value, 10);
 				$("#legend-scale-value").text(pct);
 				var mapApi = ixmaps.api && ixmaps.api();
 				if (mapApi && mapApi.changeThemeStyle) {
-					mapApi.changeThemeStyle(themeIdForScale, "scale:" + (pct / 100), "set");
+					var themeObjScale = ixmaps.getThemeObj(themeIdForScale);
+					if (themeObjScale && themeObjScale.szFlag && themeObjScale.szFlag.match(/\bVECTOR\b/)) {
+						var lastPct = parseInt(this.getAttribute("data-last-pct") || "100", 10);
+						var factor = pct !== 0 ? (lastPct / 100) / (pct / 100) : 1;
+						mapApi.changeThemeStyle(themeIdForScale, "normalsizevalue:" + factor, "factor");
+						this.setAttribute("data-last-pct", String(pct));
+					} else {
+						mapApi.changeThemeStyle(themeIdForScale, "scale:" + (pct / 100), "set");
+					}
+					if (mapApi.redrawTheme) { mapApi.redrawTheme(themeIdForScale); }
 				}
 			};
 			scaleSlider.onmouseup = scaleSlider.onpointerup = function() { __noSlideRefresh = false; };
