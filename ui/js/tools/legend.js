@@ -2229,6 +2229,15 @@ window.ixmaps.legend = window.ixmaps.legend || {};
             }
         }
         
+        // If the map options explicitly disabled the theme legend,
+        // stop here after giving external legends (if any) a chance to load.
+        if (ixmaps.disableThemeLegend) {
+            if (typeof $ !== 'undefined') {
+                $("#map-legend").hide();
+            }
+            return;
+        }
+
         // Check if we should show legends for all themes
         if (1 || ixmaps.showAllThemesLegend) {
             // If slider is being dragged, don't regenerate legend - just update time span based on slider value

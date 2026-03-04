@@ -671,16 +671,51 @@
         // Ensure opt is always an object, even if undefined
         opt = opt || {};
 
-        // Map opt.legend to opt.legendState for backward compatibility
-        if (opt.legend && !opt.legendState) {
+        // ---------------------------------------------
+        // Legend behaviour (theme legend visibility)
+        // ---------------------------------------------
+        //
+        // Map opt.legend to opt.legendState for backward compatibility,
+        // but ignore values that explicitly disable the legend.
+        if (typeof opt.legend !== 'undefined' &&
+            opt.legend !== null &&
+            opt.legend !== false &&
+            opt.legend !== "false" &&
+            !opt.legendState) {
             opt.legendState = opt.legend;
         }
 
-        // Default to unfolded (1) if legendState is not defined
-        if (typeof opt.legendState === 'undefined' || opt.legendState === null) {
+        // Determine whether the theme legend should be completely disabled.
+        // Rules:
+        // - If neither legend nor legendState is defined  -> disable theme legend
+        // - If legend/legendState is "false" or false     -> disable theme legend
+        // - Otherwise                                     -> theme legend allowed
+        var hasLegendConfig = (typeof opt.legend !== 'undefined' && opt.legend !== null) ||
+                              (typeof opt.legendState !== 'undefined' && opt.legendState !== null);
+
+        if (!hasLegendConfig) {
+            ixmaps.disableThemeLegend = true;
+        } else if (opt.legend === false || opt.legend === "false" ||
+                   opt.legendState === false || opt.legendState === "false") {
+            ixmaps.disableThemeLegend = true;
+        } else {
+            ixmaps.disableThemeLegend = false;
+        }
+
+        // Set initial fold/unfold state for the (potential) theme legend
+        if (ixmaps.disableThemeLegend) {
+            // Explicitly disabled: treat as permanently closed
+            ixmaps.legendState = 0;
+            ixmaps.legendStateExplicitlyClosed = true;
+        } else if (typeof opt.legendState === 'undefined' ||
+                   opt.legendState === null ||
+                   opt.legendState === "" ||
+                   opt.legendState === "open") {
+            // Default to unfolded (1) if legendState is not defined or explicitly "open"
             ixmaps.legendState = 1;
             ixmaps.legendStateExplicitlyClosed = false;
         } else {
+            // "closed" keeps the panel present but folded
             ixmaps.legendState = (opt.legendState == "closed") ? 0 : 1;
             ixmaps.legendStateExplicitlyClosed = (opt.legendState == "closed");
         }
