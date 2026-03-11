@@ -28,10 +28,20 @@
     top: 13px;
     left: 10px;
     opacity: 0.95;
-    width: 0;
+    width: auto;
     line-height: 30px;
     display: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5em;
     z-index: 1000;
+}
+
+/* When nav is shown, use flex so PAN and LEGEND stay in one row */
+#onmapbuttondiv[style*="display: block"],
+#onmapbuttondiv[style*="display:block"] {
+    display: flex !important;
 }
 
 #onmapbuttondivbottom {
@@ -57,6 +67,18 @@
     height: 40px;
     width: 40px;
     display: none;
+}
+
+/* Legend button in toolbar: match PAN height, width from text, keep spacing */
+#legend-button-home {
+    margin-left: 0.5em;
+}
+#legend-button-home .toolbutton,
+.legend-toggle-button.toolbutton {
+    height: 35px !important;
+    width: auto !important;
+    min-width: 5.5em;
+    box-sizing: border-box;
 }
 
 .toolbutton label {

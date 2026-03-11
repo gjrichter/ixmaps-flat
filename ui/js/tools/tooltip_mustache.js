@@ -73,10 +73,17 @@ window.ixmaps = window.ixmaps || {};
 	ixmaps.htmlgui_onTooltipDisplay = function (evt, szText, szId) {
 
 		// avoid empty tooltips
-
 		if (!szText || szText.length <= 0) {
 			__fTooltipPin = false;
 			__fTooltipPinned = false;
+			return false;
+		}
+
+		// evt required for positioning
+		if (!evt || typeof evt.clientX !== "number") {
+			if (typeof console !== "undefined" && console.warn) {
+				console.warn("tooltip_mustache: htmlgui_onTooltipDisplay called without valid evt");
+			}
 			return false;
 		}
 
@@ -206,8 +213,10 @@ window.ixmaps = window.ixmaps || {};
 		if (__fTooltipPinned) {
 			return false;
 		}
-		//ixmaps.setMapOverlayHTML("");
-		window.document.getElementById("tooltip").innerHTML = "";
+		var tooltip = window.document.getElementById("tooltip");
+		if (tooltip) {
+			tooltip.innerHTML = "";
+		}
 		return true;
 	}
 
@@ -246,17 +255,24 @@ window.ixmaps = window.ixmaps || {};
 		var themeObj = ixmaps.getThemeObj(szId.split(":")[0]);
 
 		// check and if not the right theme (possible if onOver on map shape)
-		if (!(themeObj.szId == szId.split(":")[0])) {
+		if (!themeObj || !(themeObj.szId == szId.split(":")[0]) || themeObj.szOrigFlag == "FEATURE" ) {
+			console.log("look for CHOROPLETH");
 			// look in all CHOROPLETH themes for the a corrisponding one
 			//
 			var themes = ixmaps.getThemes();
-			for (i in themes) {
+			for (var i in themes) {
 				if (themes[i].szThemes == szId.split(":")[0] && themes[i].szFlag.match(/CHOROPLETH|FEATURES/)) {
 					themeObj = themes[i];
+					break;
 				}
 			}
-			
-			szId = themeObj.szId+":"+szId;
+			if (!themeObj) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: no theme found for id", szId.split(":")[0]);
+				}
+				return false;
+			}
+			szId = themeObj.szId + ":" + szId;
 		}
 
 		// ------------------------------------------
@@ -275,7 +291,7 @@ window.ixmaps = window.ixmaps || {};
 			szItem = szId.split(":text")[0].split(":");
 			szItem = szItem[1] + "::" + szItem[3];
 		} else {
-			szItem = szId.split(/\b\:\b/)[1];
+			szItem = szId.split(/\b\:\b/)[1] || szId;
 		}
 		
 		if (!szItem || !szItem.length || szItem.match(/mapbackground/i)) {
@@ -284,14 +300,33 @@ window.ixmaps = window.ixmaps || {};
 			return;
 		}
 		if (!szId.match(/\:\:/)) {
-			var obj = ixmaps.embeddedSVG.window.map.SVGDocument.getElementById(szItem);
-			var szChartId = szItem.match(/::/) ? szId : obj.parentNode.getAttribute("id");
-			var szIdA = szChartId.split("#");
-			if (szIdA.length > 1) {
-				var szIdAA = szIdA[1].split(/\b::\b/);
-				szChartId = szIdA[0] + "::" + szIdAA[1];
+			var obj = null;
+			try {
+				if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && ixmaps.embeddedSVG.window.map.SVGDocument) {
+					obj = ixmaps.embeddedSVG.window.map.SVGDocument.getElementById(szItem);
+				}
+			} catch (e) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: getElementById for szItem failed", e);
+				}
 			}
-			szItem = szChartId;
+			if (obj && obj.parentNode) {
+				var szChartId = szItem.match(/::/) ? szId : obj.parentNode.getAttribute("id");
+				var szIdA = (szChartId || "").split("#");
+				if (szIdA.length > 1) {
+					var szIdAA = szIdA[1].split(/\b::\b/);
+					szChartId = szIdA[0] + "::" + szIdAA[1];
+				}
+				szItem = szChartId;
+			}
+		}
+
+		// assert: theme has item data for this szItem
+		if (!themeObj.itemA || !themeObj.itemA[szItem]) {
+			if (typeof console !== "undefined" && console.warn) {
+				console.warn("tooltip_mustache: theme has no item for", szItem);
+			}
+			return false;
 		}
 		
 		// get data and tooltip (mustache) template
@@ -299,21 +334,26 @@ window.ixmaps = window.ixmaps || {};
 		//var szHtml = themeObj.szTooltip || "no template! ";
 		var szHtml = themeObj.szTooltip || "<span style='white-space:nowrap;font-size:1.5em'>{{theme.title}}</span><br>{{theme.item.title}}{{theme.item.chart}}";
 		
-		var data = ixmaps.map().getData(szId);
+		var data = ixmaps.map() ? ixmaps.map().getData(szId) : null;
 		
-		var nValue = themeObj.itemA[szItem].nValue || themeObj.itemA[szItem].nValuesA[0];
-		if (themeObj.itemA[szItem].nValuesA.length > 1){
-			nValue = 0;
-			for (i in themeObj.itemA[szItem].nValuesA){
-				nValue += themeObj.itemA[szItem].nValuesA[i];
+		var item = themeObj.itemA[szItem];
+		var nValuesA = item.nValuesA;
+		var nValue = item.nValue;
+		if (nValuesA && Array.isArray(nValuesA) && nValuesA.length > 0) {
+			nValue = nValue != null ? nValue : nValuesA[0];
+			if (nValuesA.length > 1) {
+				nValue = 0;
+				for (var ii in nValuesA) {
+					nValue += nValuesA[ii];
+				}
 			}
 		}
 		var szLabel = "";
-		if (themeObj.szFlag.match(/\bCLIP\b/)){
-			nValue = themeObj.itemA[szItem].nValuesA[themeObj.nActualFrame];
-			szLabel = themeObj.szXaxisA[themeObj.nActualFrame];
+		if (themeObj.szFlag.match(/\bCLIP\b/) && nValuesA && themeObj.nActualFrame != null) {
+			nValue = nValuesA[themeObj.nActualFrame];
+			szLabel = themeObj.szXaxisA ? themeObj.szXaxisA[themeObj.nActualFrame] : "";
 		}
-		var szTitle = themeObj.itemA[szItem].szTitle;
+		var szTitle = item.szTitle;
 	
 		// make data object to feed mustache rendering
 		
@@ -323,16 +363,16 @@ window.ixmaps = window.ixmaps || {};
 		dataObj.theme.title = themeObj.szTitle;
 		dataObj.theme.snippet = themeObj.szSnippet;
 		dataObj.theme.description = themeObj.szDescription;
-		dataObj.theme.chart = __add_chart(themeObj,szItem);
+		dataObj.theme.chart = __add_chart(themeObj, szItem);
 		dataObj.theme.item = dataObj.theme.item || {};
 		dataObj.theme.item.chart = dataObj.theme.chart;
-		dataObj.theme.item.data = __add_data(themeObj,szId);
-		dataObj.theme.item.value =  themeObj.itemA[szItem].szValue || ixmaps.formatValue(nValue,themeObj.nValueDecimals||2,"BLANK");
+		dataObj.theme.item.data = __add_data(themeObj, szId);
+		dataObj.theme.item.value = item.szValue || (ixmaps.formatValue ? ixmaps.formatValue(nValue, themeObj.nValueDecimals || 2, "BLANK") : String(nValue));
 		dataObj.theme.item.label = szLabel;
 		dataObj.theme.item.title = szTitle;
-		dataObj.theme.item.count = data.length;
-        dataObj.theme.item.class = themeObj.itemA[szItem].nClass;
-        dataObj.theme.item.label = themeObj.szLabelA?themeObj.szLabelA[themeObj.itemA[szItem].nClass]:"";
+		dataObj.theme.item.count = data ? data.length : 0;
+		dataObj.theme.item.class = item.nClass;
+		dataObj.theme.item.label = themeObj.szLabelA && item.nClass != null ? themeObj.szLabelA[item.nClass] : "";
         
 		dataObj.raw = {};
 		dataObj.local = {};
@@ -356,12 +396,21 @@ window.ixmaps = window.ixmaps || {};
 		// ------------------------------------------------------------------------------
 
 		if (typeof (Mustache) === "undefined") {
+			if (typeof console !== "undefined" && console.warn) {
+				console.warn("tooltip_mustache: Mustache not loaded");
+			}
 			alert("mustache not loaded!");
-		} else {
-			szHtml = Mustache.render(szHtml, dataObj);
-			ixmaps.htmlgui_onTooltipDisplay(evt, szHtml, szId);
+			return false;
 		}
-		
+		try {
+			szHtml = Mustache.render(szHtml, dataObj);
+		} catch (e) {
+			if (typeof console !== "undefined" && console.warn) {
+				console.warn("tooltip_mustache: Mustache.render failed", e);
+			}
+			szHtml = "<span style='color:#888'>Tooltip template error</span>";
+		}
+		ixmaps.htmlgui_onTooltipDisplay(evt, szHtml, szId);
 		return true;
 	};
 
@@ -376,10 +425,16 @@ window.ixmaps = window.ixmaps || {};
 	 * @public
 	 */
 	
-	var __add_chart = function(themeObj,szItem){
-		
+	var __add_chart = function (themeObj, szItem) {
+
 		var suffix = "";
 		var szHtml = "";
+		if (!themeObj || !themeObj.itemA || !themeObj.itemA[szItem]) {
+			if (typeof console !== "undefined" && console.warn) {
+				console.warn("tooltip_mustache: __add_chart missing theme or item", szItem);
+			}
+			return szHtml;
+		}
 
 		// ------------------------------------------
 		//
@@ -400,11 +455,25 @@ window.ixmaps = window.ixmaps || {};
 
 			// prepare chart hosting SVG div (is not the final host of the chart)
 			//
+			var chartDivEl = window.document.getElementById("chartDiv");
+			if (!chartDivEl) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: chartDiv not found");
+				}
+				return szHtml;
+			}
 			var szTarget = "<svg width='300' height='300' viewBox='0 0 6000 6000'><g id='getchartmenutarget' onmousemove='javascript:ixmaps.onMouseOver();' onmouseout='javascript:ixmaps.onMouseOut();' style='pointer-events:all'></g></svg>";
 			try {
-				window.document.getElementById("getchartmenutarget").remove();
-			} catch (e) {}
-			window.document.getElementById("chartDiv").innerHTML = szTarget;
+				var oldTarget = window.document.getElementById("getchartmenutarget");
+				if (oldTarget && oldTarget.remove) {
+					oldTarget.remove();
+				}
+			} catch (e) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: remove getchartmenutarget failed", e);
+				}
+			}
+			chartDivEl.innerHTML = szTarget;
 
 			// request chart from map 
 			// -----------------------
@@ -528,7 +597,25 @@ window.ixmaps = window.ixmaps || {};
 
 			// check if chart has been created 
 			//
-			var SVGBox = window.document.getElementById("getchartmenutarget").getBBox();
+			var chartTargetEl = window.document.getElementById("getchartmenutarget");
+			if (!chartTargetEl) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: getchartmenutarget not found after chart creation");
+				}
+				chartDivEl = window.document.getElementById("chartDiv");
+				if (chartDivEl && chartDivEl.remove) {
+					chartDivEl.remove();
+				}
+				return szHtml;
+			}
+			var SVGBox = null;
+			try {
+				SVGBox = chartTargetEl.getBBox ? chartTargetEl.getBBox() : null;
+			} catch (e) {
+				if (typeof console !== "undefined" && console.warn) {
+					console.warn("tooltip_mustache: getBBox failed", e);
+				}
+			}
 			if (SVGBox && SVGBox.width && SVGBox.height) {
 				
 				fThemeChart = true;
@@ -588,16 +675,22 @@ window.ixmaps = window.ixmaps || {};
 					//height *= 1.01;
 				}
 
-				window.document.getElementById("getchartmenutarget").parentNode.setAttribute("width", width);
-				window.document.getElementById("getchartmenutarget").parentNode.setAttribute("height", height);
-				window.document.getElementById("getchartmenutarget").parentNode.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
-
+				var parent = chartTargetEl.parentNode;
+				if (parent) {
+					parent.setAttribute("width", width);
+					parent.setAttribute("height", height);
+					parent.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
+				}
 				// then get the chart code (html,svg) and insert into the tooltip HTML code
-				szHtml += "<div id='tooltipChartContainer' style='overflow:auto'>"+ window.document.getElementById("chartDiv").innerHTML +"</div>";
+				szHtml += "<div id='tooltipChartContainer' style='overflow:auto'>" + (chartDivEl ? chartDivEl.innerHTML : "") + "</div>";
 				// and delete the temporary chart hosting div !!
-				window.document.getElementById("chartDiv").remove();
-			}else{
-				window.document.getElementById("chartDiv").remove();
+				if (chartDivEl && chartDivEl.remove) {
+					chartDivEl.remove();
+				}
+			} else {
+				if (chartDivEl && chartDivEl.remove) {
+					chartDivEl.remove();
+				}
 			}
 
 			//szHtml += "</div>";
@@ -847,15 +940,21 @@ window.ixmaps = window.ixmaps || {};
 	 * @public
 	 */
 	var showTooltip = function (evt, text) {
-		if (text && text.length) {
-			var page = document.getElementById("tooltipDiv");
-			var tooltip = document.getElementById("tooltip_2");
-			tooltip.innerHTML = text;
-			tooltip.style.display = "block";
-			tooltip.style.left = evt.pageX - parseFloat(page.style.left) - 20 + 'px';
-			tooltip.style.top = evt.pageY - parseFloat(page.style.top) + 20 + 'px';
+		if (!text || !text.length) {
+			return;
 		}
-	}
+		var page = document.getElementById("tooltipDiv");
+		var tooltip = document.getElementById("tooltip_2");
+		if (!tooltip) {
+			return;
+		}
+		tooltip.innerHTML = text;
+		tooltip.style.display = "block";
+		if (page && evt) {
+			tooltip.style.left = (evt.pageX - parseFloat(page.style.left || 0) - 20) + 'px';
+			tooltip.style.top = (evt.pageY - parseFloat(page.style.top || 0) + 20) + 'px';
+		}
+	};
 
 	/**
 	 * remove tooltip on chart
@@ -864,8 +963,10 @@ window.ixmaps = window.ixmaps || {};
 	 */
 	var hideTooltip = function () {
 		var tooltip = document.getElementById("tooltip_2");
-		tooltip.style.display = "none";
-	}
+		if (tooltip) {
+			tooltip.style.display = "none";
+		}
+	};
 
 	/**
 	 * onMouse over handler

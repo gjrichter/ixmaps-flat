@@ -2124,7 +2124,7 @@ $Log: maptheme.js,v $
 		if (!isNaN(Number(szId)) && (Number(szId) < this.themesA.length)) {
 			return this.themesA[Number(szId)];
 		}
-		return this.activeTheme;
+		return null;
 	};
 	/**
 	 * returns the index of a themes in the list
@@ -16561,6 +16561,7 @@ $Log: maptheme.js,v $
 				if (json.type == "Point") {
 
 					map.Layer.listA[this.szThemesA[0]].szType = "point";
+					this.szShapeType = "point";
 					var coordinatesA = json.coordinates;
 					
 					var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[1], coordinatesA[0]);
@@ -16579,6 +16580,13 @@ $Log: maptheme.js,v $
 					this.chartGroup.style.setProperty("fill", "none");
 
 					map.Layer.listA[this.szThemesA[0]].szType = "line";
+					this.szShapeType = "line";
+					if (this.szOrigFlag && this.szOrigFlag.match(/BUFFER/) && this.szShapeType == "line") {
+						this.szShapeType += "+buffer";
+					}
+					if (this.szOrigFlag && this.szOrigFlag.match(/FEATURE/) && this.szOrigFlag.match(/LINES/)) {
+						this.szShapeType = "line";
+					}
 					var coordinatesA = json.coordinates;
 					
 					var dParts = [];
@@ -16629,6 +16637,13 @@ $Log: maptheme.js,v $
 					this.chartGroup.style.setProperty("fill", "none");
 
 					map.Layer.listA[this.szThemesA[0]].szType = "line";
+					this.szShapeType = "line";
+					if (this.szOrigFlag && this.szOrigFlag.match(/BUFFER/) && this.szShapeType == "line") {
+						this.szShapeType += "+buffer";
+					}
+					if (this.szOrigFlag && this.szOrigFlag.match(/FEATURE/) && this.szOrigFlag.match(/LINES/)) {
+						this.szShapeType = "line";
+					}
 					var linesA = json.coordinates;
 					for (i in linesA) {
 						var coordinatesA = linesA[i];
@@ -16681,6 +16696,7 @@ $Log: maptheme.js,v $
 				if (json.type == "Polygon") {
 
 					map.Layer.listA[this.szThemesA[0]].szType = "polygon";
+					this.szShapeType = "polygon";
 					var linesA = json.coordinates;
 					
 					var d = "";
@@ -16776,6 +16792,7 @@ $Log: maptheme.js,v $
 					var x = [], y = [], count = []; // For center calculation (visible points only)
 
 					map.Layer.listA[this.szThemesA[0]].szType = "polygon";
+					this.szShapeType = "polygon";
 					var polygonA = json.coordinates;
 					
 					for (var p in polygonA) {

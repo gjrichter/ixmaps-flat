@@ -26,6 +26,56 @@ window.ixmaps.legend = window.ixmaps.legend || {};
     if (typeof ixmaps.legendType === 'undefined') {
         ixmaps.legendType = "theme"; // Default to normal theme legend
     }
+
+    /**
+     * __getLegendButtonContainer
+     * Returns the container for the "Legend" unfold button. Prefers #legend-button-home in mappage.html when present.
+     */
+    function __getLegendButtonContainer() {
+        var home = $("#legend-button-home");
+        if (home.length) return { el: home, inHome: true };
+        var mapContainer = $("#map-legend").parent();
+        if (mapContainer.length) return { el: mapContainer, inHome: false };
+        if ($("#ixmap").length) return { el: $("#ixmap"), inHome: false };
+        return { el: $("body"), inHome: false };
+    }
+
+    function __legendButtonIsInHome() {
+        return $("#legendToggle").length > 0;
+    }
+
+    /** Unfold legend button: use static #legendToggle in mappage.html (show/hide only, no creation) */
+    function __getUnfoldButton() {
+        return $("#legendToggle");
+    }
+
+    function __showUnfoldButton() {
+        __getUnfoldButton().show();
+    }
+
+    function __hideUnfoldButton() {
+        __getUnfoldButton().hide();
+    }
+
+    function __bindUnfoldButtonOnce() {
+        var el = __getUnfoldButton();
+        if (!el.length) return;
+        el.off("click.legendUnfold").on("click.legendUnfold", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if ($("#map-legend-external-fold-button").length) {
+                $("#map-legend-external-fold-button").trigger("click");
+            } else if (typeof __toggleLegendPane === "function") {
+                __toggleLegendPane();
+            } else {
+                ixmaps.legendState = 1;
+                if (typeof __redrawLegendContent === "function") __redrawLegendContent();
+                $("#map-legend").show();
+                __hideUnfoldButton();
+            }
+            return false;
+        });
+    }
     
     /**
      * __getLayerColor
@@ -1395,34 +1445,15 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     $("#map-legend-body").css("pointer-events","auto");
                     $("#map-legend-body .layerlist-item-clickable").css("pointer-events","auto");
                     
-                    // Create Legend button for when folded - positioned at same location as legend (top: 11px)
-                    // Always create it, even if initially unfolded (it will be hidden)
+                    // Use static #legendToggle (mappage.html): bind once, show when folded / hide when unfolded
                     var initialState = parseInt(ixmaps.legendState) || 1;
-                    // Remove existing button if it exists
-                    $("#map-legend-external-legend-button").remove();
-                    var legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;display:' + (initialState === 0 ? 'flex' : 'none') + ';z-index:10000;">Legend</button>');
-                    // Append to map container (same parent as legend)
-                    var mapContainer = $("#map-legend").parent();
-                    if (mapContainer.length) {
-                        mapContainer.append(legendButton);
-                    } else if ($("#ixmap").length) {
-                        $("#ixmap").append(legendButton);
-                    } else {
-                        $("body").append(legendButton);
-                    }
-                    legendButton.on('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Trigger the fold button click to unfold
-                        $("#map-legend-external-fold-button").trigger('click');
-                        return false;
-                    });
-                    
-                    // If initially folded, hide legend and show button
+                    __bindUnfoldButtonOnce();
                     if (initialState === 0) {
                         $("#map-legend").hide();
                         $("#map-legend-external-fold-button").hide();
-                        legendButton.css("display", "flex").show();
+                        __showUnfoldButton();
+                    } else {
+                        __hideUnfoldButton();
                     }
                     
                     
@@ -1441,45 +1472,15 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                         // Update state first (persists in memory for redraws)
                         ixmaps.legendState = newState;
                         
-                        // Update visibility: when folded, hide legend and show button; when unfolded, show legend and hide button
+                        // Update visibility: when folded, hide legend and show #legendToggle; when unfolded, show legend and hide it
                         if (newState === 0) {
-                            // Folded: hide legend, show Legend button (both at same position top: 11px)
                             $("#map-legend").hide();
-                            button.hide(); // Hide fold button when folded
-                            var legendButton = $("#map-legend-external-legend-button");
-                            if (!legendButton.length) {
-                                // Button doesn't exist, create it now
-                                legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;z-index:10000;">Legend</button>');
-                                var mapContainer = $("#map-legend").parent();
-                                if (mapContainer.length) {
-                                    mapContainer.append(legendButton);
-                                } else if ($("#ixmap").length) {
-                                    $("#ixmap").append(legendButton);
-                                } else {
-                                    $("body").append(legendButton);
-                                }
-                                legendButton.on('click', function(e) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    $("#map-legend-external-fold-button").trigger('click');
-                                    return false;
-                                });
-                            }
-                            // Ensure button is visible and properly styled
-                            legendButton.css({
-                                "display": "flex",
-                                "position": "absolute",
-                                "top": "11px",
-                                "left": "92px",
-                                "z-index": "10000",
-                                "visibility": "visible",
-                                "opacity": "1"
-                            }).show();
+                            button.hide();
+                            __showUnfoldButton();
                         } else {
-                            // Unfolded: redraw legend content to ensure all elements are drawn
                             __redrawLegendContent();
                             $("#map-legend").show();
-                            $("#map-legend-external-legend-button").hide();
+                            __hideUnfoldButton();
                             var newButton = $("#map-legend-external-fold-button");
                             newButton.show();
                             // Update fold button to show only up arrow (to fold)
@@ -1594,44 +1595,12 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     
                     // Simple show/hide - no complex manipulation, no re-rendering
                     if (newState === 0) {
-                        // Folded: hide legend, show Legend button
                         $("#map-legend").hide();
                         button.hide();
-                        var legendButton = $("#map-legend-external-legend-button");
-                        if (!legendButton.length) {
-                            // Button doesn't exist, create it now
-                            legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;z-index:10000;">Legend</button>');
-                            var mapContainer = $("#map-legend").parent();
-                            if (mapContainer.length) {
-                                mapContainer.append(legendButton);
-                            } else if ($("#ixmap").length) {
-                                $("#ixmap").append(legendButton);
-                            } else {
-                                $("body").append(legendButton);
-                            }
-                            legendButton.on('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // Simple unfold: redraw legend content and show the legend
-                                ixmaps.legendState = 1;
-                                __redrawLegendContent();
-                                $("#map-legend").show();
-                                $("#map-legend-external-legend-button").hide();
-                                $("#map-legend-external-fold-button").show().html('<span class="icon icon-arrow-up2"></span>');
-                                return false;
-                            });
-                        }
-                        legendButton.css({
-                            "display": "flex",
-                            "position": "absolute",
-                            "top": "13px",
-                            "left": "90px",
-                            "z-index": "10000"
-                        }).show();
+                        __showUnfoldButton();
                     } else {
-                        // Unfolded: simple show (no manipulation, no re-rendering, preserves position/margin)
                         $("#map-legend").show();
-                        $("#map-legend-external-legend-button").hide();
+                        __hideUnfoldButton();
                         button.show();
                         button.html('<span class="icon icon-arrow-up2"></span>');
                     }
@@ -1696,46 +1665,14 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 // Update state first (persists in memory for redraws)
                 ixmaps.legendState = newState;
                 
-                // Simple show/hide - no complex manipulation, no re-rendering
+                // Simple show/hide - use #legendToggle
                 if (newState === 0) {
-                    // Folded: hide legend, show Legend button
                     $("#map-legend").hide();
                     button.hide();
-                    var legendButton = $("#map-legend-external-legend-button");
-                    if (!legendButton.length) {
-                        // Button doesn't exist, create it now
-                        legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;z-index:10000;">Legend</button>');
-                        var mapContainer = $("#map-legend").parent();
-                        if (mapContainer.length) {
-                            mapContainer.append(legendButton);
-                        } else if ($("#ixmap").length) {
-                            $("#ixmap").append(legendButton);
-                        } else {
-                            $("body").append(legendButton);
-                        }
-                        legendButton.on('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            // Simple unfold: redraw legend content and show the legend
-                            ixmaps.legendState = 1;
-                            __redrawLegendContent();
-                            $("#map-legend").show();
-                            $("#map-legend-external-legend-button").hide();
-                            $("#map-legend-external-fold-button").show().html('<span class="icon icon-arrow-up2"></span>');
-                            return false;
-                        });
-                    }
-                    legendButton.css({
-                        "display": "flex",
-                        "position": "absolute",
-                        "top": "13px",
-                        "left": "90px",
-                        "z-index": "10000"
-                    }).show();
+                    __showUnfoldButton();
                 } else {
-                    // Unfolded: simple show (no manipulation, no re-rendering, preserves position/margin)
                     $("#map-legend").show();
-                    $("#map-legend-external-legend-button").hide();
+                    __hideUnfoldButton();
                     button.show();
                     button.html('<span class="icon icon-arrow-up2"></span>');
                 }
@@ -1900,40 +1837,17 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 $("#map-legend-delete").css("pointer-events","all");
                 $("#map-legend").show();
                 
-                // Create Legend button for when folded - positioned at same location as legend (top: 13px)
-                // Position it relative to the map container, not the legend body
+                // Use static #legendToggle: bind once, show when folded / hide when unfolded
                 var initialState = parseInt(ixmaps.legendState) || 1;
-                var legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;display:' + (initialState === 0 ? 'flex' : 'none') + ';z-index:10000;">Legend</button>');
-                // Append to map container (same parent as legend)
-                var mapContainer = $("#map-legend").parent();
-                if (mapContainer.length) {
-                    mapContainer.append(legendButton);
-                } else if ($("#ixmap").length) {
-                    $("#ixmap").append(legendButton);
-                } else {
-                    $("body").append(legendButton);
-                }
-                legendButton.on('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Simple unfold: redraw legend content and show the legend
-                    ixmaps.legendState = 1;
-                    __redrawLegendContent();
-                    $("#map-legend").show();
-                    $("#map-legend-external-legend-button").hide();
-                    $("#map-legend-external-fold-button").show().html('<span class="icon icon-arrow-up2"></span>');
-                    
-                    return false;
-                });
-                
-                // If initially folded, hide legend and show button
+                __bindUnfoldButtonOnce();
                 if (initialState === 0) {
                     $("#map-legend").hide();
                     $("#map-legend-external-fold-button").hide();
-                    legendButton.css("display", "flex").show();
+                    __showUnfoldButton();
+                } else {
+                    __hideUnfoldButton();
                 }
-                
+
                 // Attach click handler to fold button
                 $("#map-legend-external-fold-button").off('click').on('click', function(e) {
                     e.preventDefault();
@@ -1951,44 +1865,12 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     
                     // Simple show/hide - no complex manipulation, no re-rendering
                     if (newState === 0) {
-                        // Folded: hide legend, show Legend button
                         $("#map-legend").hide();
                         button.hide();
-                        var legendButton = $("#map-legend-external-legend-button");
-                        if (!legendButton.length) {
-                            // Button doesn't exist, create it now
-                            legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:90px;z-index:10000;">Legend</button>');
-                            var mapContainer = $("#map-legend").parent();
-                            if (mapContainer.length) {
-                                mapContainer.append(legendButton);
-                            } else if ($("#ixmap").length) {
-                                $("#ixmap").append(legendButton);
-                            } else {
-                                $("body").append(legendButton);
-                            }
-                            legendButton.on('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // Simple unfold: redraw legend content and show the legend
-                                ixmaps.legendState = 1;
-                                __redrawLegendContent();
-                                $("#map-legend").show();
-                                $("#map-legend-external-legend-button").hide();
-                                $("#map-legend-external-fold-button").show().html('<span class="icon icon-arrow-up2"></span>');
-                                return false;
-                            });
-                        }
-                        legendButton.css({
-                            "display": "flex",
-                            "position": "absolute",
-                            "top": "13px",
-                            "left": "90px",
-                            "z-index": "10000"
-                        }).show();
+                        __showUnfoldButton();
                     } else {
-                        // Unfolded: simple show (no manipulation, no re-rendering, preserves position/margin)
                         $("#map-legend").show();
-                        $("#map-legend-external-legend-button").hide();
+                        __hideUnfoldButton();
                         button.show();
                         button.html('<span class="icon icon-arrow-up2"></span>');
                     }
@@ -3640,7 +3522,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "max-width": ""
             }).removeClass("legend-folded");
             $("#map-legend").removeClass("legend-folded");
-            $("#map-legend-external-legend-button").hide();
+            __hideUnfoldButton();
         } else
         if (ixmaps.legendState == 1) {
             $("#map-legend-body").show();
@@ -3663,7 +3545,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "max-width": ""
             }).removeClass("legend-folded");
             $("#map-legend").removeClass("legend-folded");
-            $("#map-legend-external-legend-button").hide();
+            __hideUnfoldButton();
         } else {
             // When folded, hide everything except the unfold button (shown outside pane)
             $("#map-legend-body").hide();
@@ -3747,37 +3629,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "display": "block",
                 "visibility": "visible"
             });
-            // Show external unfold button (outside pane) so it remains visible when pane is hidden (2px down, 5px right)
-            var legendButton = $("#map-legend-external-legend-button");
-            if (!legendButton.length) {
-                legendButton = $('<button id="map-legend-external-legend-button" class="legend-toggle-button" style="position:absolute;top:13px;left:99px;height:38px;font-size:11px;padding:0 14px;z-index:10000;">Legend</button>');
-                var mapContainer = $("#map-legend").parent();
-                if (mapContainer.length) {
-                    mapContainer.append(legendButton);
-                } else if ($("#ixmap").length) {
-                    $("#ixmap").append(legendButton);
-                } else {
-                    $("body").append(legendButton);
-                }
-                legendButton.on('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    __toggleLegendPane();
-                    return false;
-                });
-            }
-            legendButton.css({
-                "display": "flex",
-                "position": "absolute",
-                "top": "13px",
-                "left": "99px",
-                "height": "38px",
-                "font-size": "11px",
-                "padding": "0 14px",
-                "z-index": "10000",
-                "visibility": "visible",
-                "opacity": "1"
-            }).show();
+            // Show static #legendToggle when folded
+            __bindUnfoldButtonOnce();
+            __showUnfoldButton();
         }
 		
 		// If legend type is "layer" and legend is visible, ensure layer legend is shown

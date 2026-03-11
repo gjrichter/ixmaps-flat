@@ -131,13 +131,13 @@
 	/* Legend toggle button - styled like mode toggle button */
 	.legend-toggle-button {
 		width: auto;
-		min-width: 60px;
-		height: 36px;
+		min-width: 5.5em;
+		height: 35px;
 		padding: 0 12px;
 		background: white;
 		color: #2c3e50;
 		border-radius: 8px;
-		display: flex;
+		display: inline-flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
@@ -148,11 +148,13 @@
 		letter-spacing: 0.5px;
 		font-family: Arial, sans-serif;
 		line-height: 1;
+		white-space: nowrap;
 		cursor: pointer;
 		z-index: 10000;
 		transition: all 0.3s ease;
 		border: 1px solid #46494c;
 		margin: 0;
+		box-sizing: border-box;
 	}
 	
 	.legend-toggle-button:hover {

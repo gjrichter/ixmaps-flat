@@ -503,7 +503,7 @@
         if (opt.toolbutton || opt.tools ) {
             //$("#switchtoolsbutton").show();
             $("#modeToggle").show();
-            setTimeout('$("#onmapbuttondiv").show();', 1000);
+            setTimeout(function() { $("#onmapbuttondiv").show().css("display", "flex"); }, 1000);
             $("#modeToggle").css("cursor", "pointer").click(function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -545,7 +545,7 @@
             $(".search-box").click(function (e) {
                 e.stopPropagation();
             });
-            setTimeout('$("#onmapbuttondiv").show();', 1000);
+            setTimeout(function() { $("#onmapbuttondiv").show().css("display", "flex"); }, 1000);
         }
 
         ixmaps.search.initSearch();
@@ -953,7 +953,7 @@
         this.szMap = null;
         this.szTheme = szTheme || null;
         this.obj = ixmaps.getThemeObj(szTheme) || null;
-        this.szTheme = this.obj.szId;
+        this.szTheme = this.obj?this.obj.szId:null;
     };
     ixmaps.themeApi.prototype = {
 
@@ -1068,6 +1068,10 @@
         setBounds: function (bounds) {
             ixmaps.setBounds(bounds);
             return this;
+        },
+
+        getBounds: function () {
+            return ixmaps.getBounds();
         },
         
         setView: function (center, zoom) {
@@ -1834,7 +1838,7 @@
             $(".search-box").click(function(e) {
                 e.stopPropagation();
             });
-            setTimeout('$("#onmapbuttondiv").show();', 1000);
+            setTimeout(function() { $("#onmapbuttondiv").show().css("display", "flex"); }, 1000);
         };
 
         ixmaps.search.positionResultList = function(input) {

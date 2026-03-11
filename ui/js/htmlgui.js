@@ -2949,6 +2949,29 @@ $Log: htmlgui.js,v $
 		//ixmaps.htmlgui_synchronizeSVG(false);
 		return ixmaps;
 	};
+
+	/**
+	 * getBounds
+	 * @return {number[]|null} [swLat, swLng, neLat, neLng] or null if map not ready
+	 */
+	ixmaps.getBounds = function () {
+		try {
+			if (typeof ixmaps.htmlgui_getBoundingBox !== 'function') {
+				return null;
+			}
+			var pts = ixmaps.htmlgui_getBoundingBox();
+			if (!pts || !Array.isArray(pts) || pts.length < 2 || !pts[0] || !pts[1]) {
+				return null;
+			}
+			var sw = pts[0], ne = pts[1];
+			if (typeof sw.lat !== 'number' || typeof sw.lng !== 'number' || typeof ne.lat !== 'number' || typeof ne.lng !== 'number') {
+				return null;
+			}
+			return [sw.lat, sw.lng, ne.lat, ne.lng];
+		} catch (e) {
+			return null;
+		}
+	};
 	
 	var _warnCore = function (method, message, value) {
 		console.warn("ixmaps." + method + "(): " + message +

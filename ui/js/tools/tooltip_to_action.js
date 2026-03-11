@@ -101,25 +101,6 @@ window.ixmaps = window.ixmaps || {};
 			var fThemeChart = false;
 			var fThemeData = false;
 
-			// get the theme object from item id
-			// ------------------------------------
-
-			// 1.try
-			var themeObj = ixmaps.getThemeObj(szId.split(":")[0]);
-
-			// check and if not the right theme (possible if onOver on map shape)
-			if (!(themeObj.szId == szId.split(":")[0])) {
-
-				// look in all CHOROPLETH themes for the a corrisponding one
-				//
-				var themes = ixmaps.getThemes();
-				for (i in themes) {
-					if (themes[i].szThemes == szId.split(":")[0] && themes[i].szFlag.match(/CHOROPLETH/)) {
-						themeObj = themes[i];
-					}
-				}
-			}
-
 			// get the item data -> the tooltip content
 			// ------------------------------------------
 
@@ -152,6 +133,28 @@ window.ixmaps = window.ixmaps || {};
 					szChartId = szIdA[0] + "::" + szIdAA[1];
 				}
 				szItem = szChartId;
+			}
+
+			// get the theme object from item id
+			// ------------------------------------
+
+			// 1.try
+			var themeObj = ixmaps.getThemeObj(szId.split(":")[0]);
+			
+			if (!themeObj)
+				return true;
+
+			// check and if not the right theme (possible if onOver on map shape)
+			if (themeObj && !(themeObj.szId == szId.split(":")[0])) {
+
+				// look in all CHOROPLETH themes for the a corrisponding one
+				//
+				var themes = ixmaps.getThemes();
+				for (i in themes) {
+					if (themes[i].szThemes == szId.split(":")[0] && themes[i].szFlag.match(/CHOROPLETH/)) {
+						themeObj = themes[i];
+					}
+				}
 			}
 
 			// call onOver actions
