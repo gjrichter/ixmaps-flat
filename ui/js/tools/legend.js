@@ -944,7 +944,8 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                         
                         // make the color bar even when symbol is displayed, with designated colors
                         if (fCountBars) {
-                            var nMaxBar = Math.min(100,($("#map-legend").width() - 20) * 0.5);
+                            var legendW = Math.max(200, $("#map-legend").width() || 0);
+                            var nMaxBar = Math.min(100, (legendW - 20) * 0.5);
                             var nBar = Math.ceil(Math.pow(sortA[i].count, 1) * Math.min(10, nMaxBar / Math.pow(nMaxCount, 1)));
                             szHtml += "<span style='display:inline-block;width:" + nBar + "px;font-size:0.5em;background:" + colorA[sortA[i].color] + "'>&nbsp;</span>";
                         } else {
@@ -977,7 +978,8 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 
                         // make the color bar
                         if (fCountBars) {
-                            var nMaxBar = Math.min(100,($("#map-legend").width() - 20) * 0.5);
+                            var legendW = Math.max(200, $("#map-legend").width() || 0);
+                            var nMaxBar = Math.min(100, (legendW - 20) * 0.5);
                             var nBar = Math.ceil(Math.pow(sortA[i].count, 1) * Math.min(10, nMaxBar / Math.pow(nMaxCount, 1)));
                             szHtml += "<span style='display:inline-block;width:" + nBar + "px;font-size:0.5em'>&nbsp;</span>";
                         } else {
@@ -3610,10 +3612,11 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 });
             }
             $("#legend-open-icon").hide();
-            // When folded, hide the legend pane entirely
+            // When folded, hide the legend pane entirely (use ixmaps.legendBackground if set)
+            var legendBg = (typeof ixmaps !== "undefined" && ixmaps.legendBackground) ? ixmaps.legendBackground : "rgba(255,255,255,0.9)";
             $("#map-legend-pane").css({
                 "padding": "0.3em 0.5em",
-                "background": "rgba(255,255,255,0.9)",
+                "background": legendBg,
                 "border": "1px solid rgba(0,0,0,0.1)",
                 "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
                 "width": "auto",
@@ -3659,6 +3662,11 @@ window.ixmaps.legend = window.ixmaps.legend || {};
      * @type void
      */
     __toggleLegendPane = function (i) {
+
+        // When unfolding from closed state, refresh legend content so count bars and theme data are up to date
+        if (ixmaps.legendState === 0 && __actualThemeId && typeof ixmaps.htmlgui_onDrawTheme === "function") {
+            ixmaps.htmlgui_onDrawTheme(__actualThemeId);
+        }
 
         if (i == 0) {
             __switchLegendPanes(-1);
@@ -3801,7 +3809,16 @@ window.ixmaps.legend = window.ixmaps.legend || {};
             changeCss(".loading-text", "color:#d8d8d8");
 
         } else 
-		if (szId.match(/#/i)) {
+		// explicit legend background color (hex, CSS color string, or named color)
+		// Examples: "#f5f5f0", "rgba(255,255,255,0.8)", "red"
+		if (
+			szId.match(/#/i) ||                      // hex
+			szId.match(/\(/) ||                      // functional rgb()/hsl()
+			szId.match(/rgba|rgb|hsl/i) ||           // explicit functions
+			// simple named colors that are not typical maptype IDs
+			(!szId.match(/dark|light|satellite|street|toner|positron|terrain|osm|mapbox|stamen/i) &&
+			 szId.match(/^[a-zA-Z]+$/))
+		) {
             changeCss(".map-legend-pane:before", "background:"+szId);
             changeCss(".map-legend", "background:"+szId);
             changeCss("#map-legend", "background:"+szId);
@@ -3810,6 +3827,12 @@ window.ixmaps.legend = window.ixmaps.legend || {};
         } else {
             changeCss(".loading-text", "background-color:rgba(255,255,255,0.5)");
             changeCss(".loading-text", "color:#666");
+            // Re-apply user legendBackground when basemap name is passed (container was removed above)
+            if (typeof ixmaps !== "undefined" && ixmaps.legendBackground) {
+                changeCss(".map-legend-pane:before", "background:" + ixmaps.legendBackground);
+                changeCss(".map-legend", "background:" + ixmaps.legendBackground);
+                changeCss("#map-legend", "background:" + ixmaps.legendBackground);
+            }
        }
     };
 
