@@ -69,6 +69,21 @@
         .button-vertical-align {
             vertical-align: -4px;
         }
+        #onmapbuttondiv {
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        #onmapbuttondiv .toolbar-first-row {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 3px;
+        }
+        #switchsearchbutton {
+            flex-basis: 100%;
+            height: 40px;
+            margin-top: 3px;
+        }
         .search-help-icon {
             height: 25px;
             margin-left: -5px;
@@ -320,6 +335,7 @@
 
         <nav id="onmapbuttondiv" class="z-index-1000 hidden" style="position:absolute;top:13px;left:10px;opacity:0.95;width:0px;line-height:30px;">
 
+            <div class="toolbar-first-row">
             <button type="button" id="opensidebarbutton" title="open sidebar" class="toolbutton shadow tool-button">
                 <label for="opensidebarbutton" class="tool-button-label">
                     <img id="opensidebarbuttonicon" src="https://gjrichter.github.io/ixmaps_flat/ui/resources/images/list-grey.png" style="height:24px;margin-left:-8px;margin-right:-4px;opacity:0.8" alt="open sidebar"/>
@@ -352,12 +368,12 @@
                 <div class="mode-label">LEGEND</div>
             </div>
 
-
             <button type="button" id="switchtoolsbutton" title="show toolbar" class="toolbutton shadow tool-button">
                 <label for="switchtoolsbutton" class="tool-button-label">
                     <img id="switchtoolsbuttonicon" src="https://gjrichter.github.io/ixmaps_flat/ui/resources/images/gear_empty.png" class="icon-margin" style="height:24px;" alt="show toolbar"/>
                 </label>
             </button>
+            </div>
 
             <button type="button" id="switchsearchbutton" title="show searchbar" class="toolbutton shadow tool-button button-vertical-align">
                 <label for="switchsearchbutton" class="tool-button-label">

@@ -379,6 +379,7 @@
     const __config_map_ui = function (opt) {
         // Ensure opt is always an object, even if undefined
         opt = opt || {};
+        var legendBg = opt.legendBackground || ixmaps.legendBackground || "rgba(255,255,255,0.9)";
 
         $("#map-overlay").css("pointer-events", "none");
         $("#map-overlay").css("width", "100%");
@@ -396,7 +397,7 @@
                 $(".map-legend").css("left", szLeft);
                 $(".map-legend").css("top", "12px");
                 $(".title-field").css("left", "100px");
-                $(".map-legend").css("background", "rgba(255,255,255,0.9");
+                $(".map-legend").css("background", legendBg);
                 $(".map-legend").css("padding", "0 1em");
                 $(".map-legend").css("border-radius", "0.5em");
             } else
@@ -407,7 +408,7 @@
                 var szRight = opt.align.split("right")[0] || "25px";
                 $(".map-legend").css("right", szRight);
                 $(".title-field").css("right", "100px");
-                $(".map-legend").css("background", "rgba(255,255,255,0.9");
+                $(".map-legend").css("background", legendBg);
                 $(".map-legend").css("padding", "0 1em");
                 $(".map-legend").css("border-radius", "0.5em");
             } else
@@ -719,6 +720,9 @@
             ixmaps.legendState = (opt.legendState == "closed") ? 0 : 1;
             ixmaps.legendStateExplicitlyClosed = (opt.legendState == "closed");
         }
+        if (opt.legendBackground != null && opt.legendBackground !== "") {
+            ixmaps.legendBackground = opt.legendBackground;
+        }
         
         ixmaps.fMapControls = true;
         let szControls = "small";
@@ -809,7 +813,7 @@
         map = new ixmaps.map(uniqueDivId, mapOptions);
         
         ixmaps.loadingMap = mapOptions.svg;
-
+        
         ixmaps.onMapReady = function (szMap) {
             const mapApi = new ixmaps.mapApi(szMap);
             
@@ -821,6 +825,16 @@
                     maptype: opt.maptype || opt.mapType || "Stamen - toner-lite",
                     ...opt
                 });
+            }
+
+            // Optional: explicit legend background override from embed options
+            // Usage: ixmaps.Map(..., { legendBackground: "#f5f5f0" });
+            if (opt.legendBackground && typeof ixmaps.htmlgui_setMapTypeBG === "function") {
+                try {
+                    ixmaps.htmlgui_setMapTypeBG(opt.legendBackground);
+                } catch (e) {
+                    console && console.warn && console.warn("legendBackground error:", e);
+                }
             }
             
             callback(mapApi);
