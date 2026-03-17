@@ -1572,7 +1572,7 @@ $Log: htmlgui.js,v $
 		// GR 07.02.20221 check and preset default values for geojson/topojson
 		if (theme.style["dbtableType"] && theme.style["dbtableType"].match(/geojson|topojson/i)) {
 			theme.style["lookupfield"] = theme.style["lookupfield"] || "geometry";
-			if (!theme.style["type"] || theme.style["type"] === "CHART|DOT") {
+			if (!theme.style["type"] ) {
 				theme.style["type"] = "FEATURES|NOLEGEND";
 			}
 		}
