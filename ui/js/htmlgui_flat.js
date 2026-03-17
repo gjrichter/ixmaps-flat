@@ -1088,6 +1088,10 @@
             return ixmaps.getBounds();
         },
         
+        getZoom: function () {
+            return ixmaps.getZoom();
+        },
+        
         setView: function (center, zoom) {
             ixmaps.setView(center, zoom);
             return this;
