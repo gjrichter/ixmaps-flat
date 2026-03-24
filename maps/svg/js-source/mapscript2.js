@@ -394,6 +394,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Zoom = function (nZoom) {
 
+        _TRACE("--- init zoom");
 
         /** the SVG node, that realises the internal map coordinate offset @type DOM node */
         this.canvasNode = map.SVGDocument.getElementById("mapcanvas");
@@ -424,6 +425,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Zoom.prototype.init = function () {
         if (map.Scale.initZoomNode) {
+            _TRACE("map.Scale.initZoomNode");
             var minBoundX = Number(map.Scale.initZoomNode.getAttribute('MinBoundX'));
             var maxBoundX = Number(map.Scale.initZoomNode.getAttribute('MaxBoundX'));
             var minBoundY = Number(map.Scale.initZoomNode.getAttribute('MinBoundY'));
@@ -1262,6 +1264,7 @@ $Log: mapscript2.js,v $
      * @param lonNE the longitude of the North East point
      */
     ixMap.Zoom.prototype.doZoomMapToLayer = function (szLayerName) {
+        _TRACE("---- ************ ----- doZoomMapToLayer -------------------");
 
         if (map.fPendingNewGeoBounds) {
             map.fPendingNewGeoBounds = false;
@@ -1315,6 +1318,7 @@ $Log: mapscript2.js,v $
                 		map.Dom.newShape('rect',objectGroup,allBox.x,allBox.y,allBox.width,allBox.height,"stroke:black;stroke-width:20;fill:none")
                 		map.Dom.newShape('line',objectGroup,allBox.x,allBox.y,allBox.x+allBox.width,allBox.y+allBox.height,"stroke:black;stroke-width:20;fill:none")
                 		map.Dom.newShape('line',objectGroup,allBox.x,allBox.y+allBox.height,allBox.x+allBox.width,allBox.y,"stroke:black;stroke-width:20;fill:none")
+                		_TRACE("box!!!:"+allBox.x+','+allBox.y+','+allBox.width+','+allBox.height);
                 	}catch (e){	}
                 **/
                 //map.hideMap();
@@ -1327,6 +1331,7 @@ $Log: mapscript2.js,v $
      * @param szId the item id (SVG id)
      */
     ixMap.Zoom.prototype.doZoomMapToItem = function (szId) {
+        _TRACE("---- ************ ----- doZoomMapToItem -------------------");
 
         if (map.fPendingNewGeoBounds) {
             map.fPendingNewGeoBounds = false;
@@ -1681,6 +1686,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Layer = function (evt) {
 
+        _TRACE("--- init layer");
 
         /** the SVG document containing the layer */
         this.document = evt ? evt.target.ownerDocument : map.SVGDocument;
@@ -1707,6 +1713,7 @@ $Log: mapscript2.js,v $
 
         var i = 0;
         var layerNodesA = map.SVGDocument.getElementsByTagNameNS(szMapNs, "theme");
+        _TRACE("--- - init layer list");
         if (layerNodesA.length) {
             this.listA["legend_body"] = new ixMap.Layer.Item(null);
             for (i = 0; i < layerNodesA.length; i++) {
@@ -1717,6 +1724,7 @@ $Log: mapscript2.js,v $
         if (scaleDepNodes.length <= 0) {
             return;
         }
+        _TRACE("--- - init scale dependent layer");
         for (i = 0; i < scaleDepNodes.length; i++) {
             var depId = scaleDepNodes.item(i).getAttributeNS(null, "feature");
             this.depListA[depId] = new ixMap.Layer.Dependency(scaleDepNodes.item(i));
@@ -1855,8 +1863,10 @@ $Log: mapscript2.js,v $
     };
 
     function __doSwitchGroupTheme(szTheme, szState) {
+        _TRACE("doSwitchGroupTheme: " + szTheme);
         var itemNode = map.SVGDocument.getElementById("legend:" + szState + ":" + szTheme);
         if (itemNode && map.Legend) {
+            _TRACE("doSwitchGroupTheme: " + szTheme);
             map.Legend.execLegendMouseClick(null, itemNode, szTheme, szState);
             map.Legend.execLegendMouseClick(null, itemNode, szTheme + ":label", szState);
         }
@@ -1885,6 +1895,7 @@ $Log: mapscript2.js,v $
                             continue;
                         }
                         if ((nState === false) || map.Layer.isScaleDependentLayerOn(szTheme)) {
+                            _TRACE("__doSwitchGroupTheme(\"" + szTheme + "\",\"" + szState + "\")");
                             setTimeout("__doSwitchGroupTheme(\"" + szTheme + "\",\"" + szState + "\")", i * 10);
                         }
                     }
@@ -1918,9 +1929,11 @@ $Log: mapscript2.js,v $
         // GR 24.11.2007; do also for sublayer, if this.fSwitchSublayer is true
         //	if (szLayer && szLayer.match(/group/) && !szLayer.match(/label/)){
         if (szLayer && !szLayer.match(/label/) && !szLayer.match(/::/) && (szLayer.match(/group/) || this.fSwitchSublayer)) {
+            _TRACE("*** switchgroup: \"" + szLayer + "\" Item=" + layerItem + " Class=" + szClassName + " State=" + nState);
             var szLegendGroup = 'legend:collapsable:' + szLayer.split(":")[0];
             var legendGroup = map.SVGDocument.getElementById(szLegendGroup);
             if (legendGroup) {
+                _TRACE("__doSwitchGroupThemes(\"" + szLayer + "\"," + nState + ")");
                 setTimeout("__doSwitchGroupThemes(\"" + szLayer + "\"," + nState + ")", 250);
             }
         }
@@ -1945,6 +1958,7 @@ $Log: mapscript2.js,v $
             this.switchLayer(evt, szLayer + ":bg", szClassName, nState);
         }
 
+        _TRACE("switchLayer " + szLayer + ' Item=' + layerItem + ' Class=' + szClassName);
         if (szLayer.match(/::/) && szLayer.split("::")[1] && layerItem.categoryA[szLayer.split("::")[1]]) {
             layerItem.categoryA[szLayer.split("::")[1]].display = szDisplay;
         } else {
@@ -1963,6 +1977,7 @@ $Log: mapscript2.js,v $
                     layerItem.nState = nState;
                     layerItem.szDisplay = szDisplay;
                 }
+                _TRACE("done by feature group");
                 if (layerItem.szLabel) {
                     this.adaptLabel(evt);
                 }
@@ -1976,6 +1991,7 @@ $Log: mapscript2.js,v $
                         layerItem.nState = nState;
                         layerItem.szDisplay = szDisplay;
                     }
+                    _TRACE("done by feature tiles groups");
                     if (layerItem.szLabel) {
                         this.adaptLabel(evt);
                     }
@@ -1990,9 +2006,11 @@ $Log: mapscript2.js,v $
                 layerItem.szDisplay = szDisplay;
             }
             setTimeout("map.Layer.adaptLabel()", 100);
+            _TRACE("done by CSS style");
             return true;
         }
 
+        _TRACE("not done");
         return false;
     };
     /**
@@ -2062,6 +2080,7 @@ $Log: mapscript2.js,v $
      * @param szProperty the new display property
      */
     ixMap.Layer.prototype.switchLayerByCSS = function (evt, szLayer, szClassName, szProperty) {
+        _TRACE("switchLayerByCSS:" + szClassName + ',' + szProperty + ' layer:' + szLayer);
 
         if (szClassName == "(null)") {
             return;
@@ -2114,6 +2133,7 @@ $Log: mapscript2.js,v $
         if (this.depListA == null) {
             return;
         }
+        _TRACE('ixMap.Layer: switch scale dependent layer -->');
 
         // calculate new display state and switch legend entry
         // ---------------------------------------------------
@@ -2136,6 +2156,7 @@ $Log: mapscript2.js,v $
                     if (this.depListA[a].szOldDisplayAttribute != szNewDisplayAttribute) {
                         //					this.removeChangedFeatures(this.depListA[a].shapeId);
                     } else {
+                        _TRACE("++++++ !!!!! ++++++");
                         continue;
                     }
                     this.depListA[a].szOldDisplayAttribute = this.depListA[a].szDisplayAttribute;
@@ -2190,8 +2211,10 @@ $Log: mapscript2.js,v $
                 }
             }
             if (map.Scale.fCSSStyleNodeChanged) {
+                _TRACE("ixMap.Layer: .! Layer CSS Style changed !");
                 styleNodes.firstChild.nextSibling.nodeValue = map.CSS.getStyleString();
             }
+            _TRACE('ixMap.Layer: .switch scale dependent layer done');
         }
         // else switch layer by group style attribute
         // ------------------------------------------
@@ -2207,6 +2230,7 @@ $Log: mapscript2.js,v $
                 }
                 continue;
             }
+            _TRACE('ixMap.Layer: .switch scale dependent layer [no css] done');
         }
     };
     /**
@@ -2422,6 +2446,7 @@ $Log: mapscript2.js,v $
         var newObjectScale = newScale;
 
         if (map.fFeatureScalingDynamic) {
+            _TRACE("map.fFeatureScalingDynamic = true");
             var nD = Math.log(1 / newScale);
             if (nD > 1) {
                 newScale *= nD;
@@ -2446,6 +2471,7 @@ $Log: mapscript2.js,v $
         var i = 0;
         var n = 0;
 
+        _TRACE('feature scaling -->');
 
         // pattern --------------------------------------------
         nodeA = map.SVGRootElement.getElementsByTagName('pattern');
@@ -2463,6 +2489,7 @@ $Log: mapscript2.js,v $
                 nodeA.item(i).setAttributeNS(null, "patternTransform", "matrix(" + patternScale + " 0 0 " + patternScale + " " + String(newX) + " " + String(newY) + ")");
             }
         }
+        _TRACE('.scaling: pattern done');
 
         // check if relative scaling (stroke, symbols, ...) is necessary 
         // -------------------------------------------------------------
@@ -2510,6 +2537,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('.scaling: filter done');
 
         // styles --------------------------------------------
 
@@ -2546,6 +2574,7 @@ $Log: mapscript2.js,v $
         var symbolsNode = map.SVGDocument.getElementById('symbolstore');
         if (symbolsNode) {
             nodeA = symbolsNode.getElementsByTagName('g');
+            _TRACE("SYMBOLSTORE : " + nodeA.length + " symbols to scale");
             for (i = 0; i < nodeA.length; i++) {
                 var szId = nodeA.item(i).getAttributeNS(null, "id");
                 if (!szId || !szId.length || !szId.match(/symbol/) || szId.match(/antizoomandpan/)) {
@@ -2563,6 +2592,7 @@ $Log: mapscript2.js,v $
         }
         var legendNode = map.SVGDocument.getElementById("widgets:antizoomandpan");
         nodeA = legendNode.getElementsByTagName('use');
+        _TRACE("LEGENDNODE : " + nodeA.length + " symbols to scale");
         for (i = 0; i < nodeA.length; i++) {
             var szRefId = nodeA.item(i).getAttributeNS(szXlink, 'href');
             if (!map.Scale.scaledSymbolsA[szRefId]) {
@@ -2575,6 +2605,7 @@ $Log: mapscript2.js,v $
             }
         }
         nodeA = map.SVGHiddenGroup.getElementsByTagName('use');
+        _TRACE("HIDDENNODE : " + nodeA.length + " symbols to scale");
         for (i = 0; i < nodeA.length; i++) {
             var szRefId = nodeA.item(i).getAttributeNS(szXlink, 'href');
             if (!map.Scale.scaledSymbolsA[szRefId]) {
@@ -2589,6 +2620,7 @@ $Log: mapscript2.js,v $
         newScale = tmpNewScale;
         nDelta = tmpDelta;
 
+        _TRACE('.scaling: symbols done');
 
         this.scaleTextOffsets(map.SVGRootElement, newScale, nDelta, SVGDoc.getElementById("mapstyles"));
 
@@ -2597,6 +2629,7 @@ $Log: mapscript2.js,v $
         // objects --------------------------------------------
         this.doObjectScaling(newObjectScale);
 
+        _TRACE('.feature scaling done');
     };
     /**
      * called by changeFeatureScaling to change the scaling of generated objects (charts,...)
@@ -2617,6 +2650,7 @@ $Log: mapscript2.js,v $
             szNewStylesValue = __scaleLineStyleString(szStylesValue, nDelta);
             cssStyles.firstChild.nextSibling.nodeValue = szNewStylesValue;
             map.Scale.fCSSStyleNodeChanged = true;
+            _TRACE('.scaling: CSS styles done');
         } else {
             // normal style attributes -------------------------------------------
             if (map.fFeatureScalingByLayer) {
@@ -2647,6 +2681,7 @@ $Log: mapscript2.js,v $
                                     if (tileInfoA[i].tileGroup.style.getPropertyValue("display") == "inline") {
 
 
+                                        _TRACE("**** doFeatureScaling for:" + tileInfoA[i].tileGroup.getAttributeNS(null, "id"));
                                         nodeTempA = tileInfoA[i].tileGroup.getElementsByTagName('g');
                                         for (var j = 0; j < nodeTempA.length; j++) {
                                             if (!nodeTempA.item(j).getAttributeNS(null, "id").match(/:label/)) {
@@ -2702,6 +2737,7 @@ $Log: mapscript2.js,v $
                     }
                 }
             }
+            _TRACE('.scaling: ' + nodeTempA.length + ' styles done');
         }
     };
 
@@ -2767,6 +2803,7 @@ $Log: mapscript2.js,v $
             var nDeltaX = nDelta;
             var nDeltaY = nDelta / map.Zoom.nOldZoomX * map.Zoom.nOldZoomY / map.Zoom.nZoomY * map.Zoom.nZoomX;
 
+            _TRACE('.scaling: objects begin');
             var objectGroup = map.Layer.objectGroup;
             var nodeA = objectGroup.childNodes;
             for (var i = 0; i < nodeA.length; i++) {
@@ -2797,6 +2834,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('.scaling: objects done');
     };
     /**
      * called on pan to do tiles which get visible and have stored feature scaling
@@ -2830,6 +2868,7 @@ $Log: mapscript2.js,v $
                 if (tileInfoA[i].tileGroup.style.getPropertyValue("display") == "inline") {
                     var nDeltaTBD = Number(tileInfoA[i].tileGroup.getAttributeNS(szMapNs, "deltaTBD"));
                     if (nDeltaTBD && (nDeltaTBD != 1)) {
+                        _TRACE("****** !!! doStoredFeatureScaling for:" + tileInfoA[i].tileGroup.getAttributeNS(null, "id"));
                         nodeTempA = tileInfoA[i].tileGroup.getElementsByTagName('g');
                         for (var j = 0; j < nodeTempA.length; j++) {
                             nodeStyleA[nodeStyleA.length] = nodeTempA.item(j);
@@ -2859,6 +2898,7 @@ $Log: mapscript2.js,v $
             }
         }
 
+        _TRACE('.stored scaling done');
     };
     /**
      * helper function to scale text offsets; must be adapted on zooming, if baselineshift is used, only the text backgrounds need to be repositioned 
@@ -2924,6 +2964,7 @@ $Log: mapscript2.js,v $
             }
         }
 
+        _TRACE('.scaling: text offsets done');
 
     };
     /**
@@ -2950,6 +2991,7 @@ $Log: mapscript2.js,v $
                 nodeA.item(i).setAttributeNS(null, "dy", nYoff);
             }
         }
+        _TRACE('.scaling: linedecoration done');
 
     };
     /**
@@ -2974,11 +3016,13 @@ $Log: mapscript2.js,v $
             map.Scale.fCSSStyleNodeChanged = true;
             map.Scale.refreshCSSStyles();
 
+            _TRACE('.label scaling: CSS styles done');
         } else {
             var nodeA = null;
             var i = 0;
             var n = 0;
 
+            _TRACE('! label scaling -->');
 
             // search for all <g> in canvas, and scale the styles
             // --------------------------------------------------
@@ -3021,6 +3065,7 @@ $Log: mapscript2.js,v $
         // search for all <text> in generated value label and scale the styles
         // -------------------------------------------------------------------
 
+        _TRACE("scale generated label");
 
         for (var l in map.Layer.generatedLabelA) {
             if (map.Layer.generatedLabelA[l]) {
@@ -3035,6 +3080,7 @@ $Log: mapscript2.js,v $
             }
         }
 
+        _TRACE('.label scaling done');
 
         this.adaptLabel(null);
     };
@@ -3051,6 +3097,7 @@ $Log: mapscript2.js,v $
         var i, ii = 0;
         var n = 0;
 
+        _TRACE('! object scaling -->');
 
         if (nDelta === 0) {
             nDelta = 1 / map.Scale.nObjectScaling;
@@ -3080,6 +3127,7 @@ $Log: mapscript2.js,v $
 
             if (((map.Scale.nObjectScaling * nDelta) > 8) ||
                 ((map.Scale.nObjectScaling * nDelta) < 1 / 10)) {
+                _TRACE('.object scaling is on limit! not done');
                 return;
             }
 
@@ -3109,6 +3157,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('.object scaling done');
     };
     /**
      * set the rotation of elements within the object layer of the map
@@ -3122,6 +3171,7 @@ $Log: mapscript2.js,v $
         var i, ii = 0;
         var n = 0;
 
+        _TRACE('! object rotate -->');
 
         // objects --------------------------------------------
         if (objGroup) {
@@ -3142,6 +3192,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('.object rotate done');
     };
     /**
      * set the rotation of the loaded pattern
@@ -3153,16 +3204,21 @@ $Log: mapscript2.js,v $
         var nodeA = null;
         var i = 0;
         var n = 0;
+        _TRACE('! pattern rotate -->');
         if (!rootGroup) {
             rootGroup = map.SVGRootElement;
         }
+        _TRACE('! pattern rotate 2 -->');
         // get pattern --------------------------------------------
         nodeA = rootGroup.getElementsByTagName('pattern');
+        _TRACE('! pattern rotate 3 -->');
         for (i = 0; i < nodeA.length; i++) {
             if (!nodeA.item(i).getAttributeNS(null, "id").match(/antizoomandpan/)) {
                 setRotate(nodeA.item(i), (360 + Number(nRot)) % 360, "patternTransform");
+                _TRACE('.pattern rotate:' + i);
             }
         }
+        _TRACE('.pattern rotate done');
     };
     /**
      * set the rotation of elements within the object layer of the map
@@ -3176,6 +3232,7 @@ $Log: mapscript2.js,v $
         var i = 0;
         var n = 0;
 
+        _TRACE('! symbol rotate -->');
 
         var markerNode = map.SVGDocument.getElementById('marker_symbols');
         if (markerNode) {
@@ -3195,6 +3252,7 @@ $Log: mapscript2.js,v $
         var symbolsNode = map.SVGDocument.getElementById('symbolstore');
         if (symbolsNode) {
             nodeA = symbolsNode.getElementsByTagName('g');
+            _TRACE("S Y M B O L S T O R E : " + nodeA.length + " symbols to rotate");
             for (i = 0; i < nodeA.length; i++) {
                 var szId = nodeA.item(i).getAttributeNS(null, "id");
                 if (!szId || !szId.length || !szId.match(/symbol/) || szId.match(/antizoomandpan/)) {
@@ -3206,6 +3264,7 @@ $Log: mapscript2.js,v $
         }
         var legendNode = map.SVGDocument.getElementById("widgets:antizoomandpan");
         nodeA = legendNode.getElementsByTagName('use');
+        _TRACE("L E G E N D N O D E : " + nodeA.length + " symbols to rotate");
         for (i = 0; i < nodeA.length; i++) {
             var szRefId = nodeA.item(i).getAttributeNS(szXlink, 'href');
             if (!map.Scale.rotatedSymbolsA[szRefId]) {
@@ -3214,6 +3273,7 @@ $Log: mapscript2.js,v $
             setRotate(nodeA.item(i), (360 + Number(-nRot)) % 360);
         }
         nodeA = map.SVGHiddenGroup.getElementsByTagName('use');
+        _TRACE("H I D D E N N O D E : " + nodeA.length + " symbols to rotate");
         for (i = 0; i < nodeA.length; i++) {
             var szRefId = nodeA.item(i).getAttributeNS(szXlink, 'href');
             if (!map.Scale.rotatedSymbolsA[szRefId]) {
@@ -3221,6 +3281,7 @@ $Log: mapscript2.js,v $
             }
             setRotate(nodeA.item(i), (360 + Number(-nRot)) % 360);
         }
+        _TRACE('.object rotate done');
     };
     /**
      * change the rotation of elements within the object layer of the map
@@ -3234,6 +3295,7 @@ $Log: mapscript2.js,v $
         var i = 0;
         var n = 0;
 
+        _TRACE('! object rotate -->');
 
         // objects --------------------------------------------
         if (objGroup) {
@@ -3256,6 +3318,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('.object rotate done');
     };
     /**
      * change the rotation of all label
@@ -3268,6 +3331,7 @@ $Log: mapscript2.js,v $
         var i = 0;
         var n = 0;
 
+        _TRACE('! label rotate -->');
 
         // search for all <text> in canvas, and scale the styles
         // --------------------------------------------------
@@ -3281,6 +3345,7 @@ $Log: mapscript2.js,v $
             }
             setRotate(nodeA.item(n), (360 + Number(nRot)) % 360);
         }
+        _TRACE('.label rotate done');
 
         this.adaptLabel();
     };
@@ -3295,6 +3360,7 @@ $Log: mapscript2.js,v $
         var i = 0;
         var n = 0;
 
+        _TRACE('! label rotate -->');
 
         // search for all <text> in canvas, and scale the styles
         // --------------------------------------------------
@@ -3309,6 +3375,7 @@ $Log: mapscript2.js,v $
             var nRot = getRotateAttributeValue(nodeA.item(n));
             setRotate(nodeA.item(n), (360 + Number(nRot) + Number(nDelta)) % 360);
         }
+        _TRACE('.label rotate done');
 
         this.adaptLabel();
     };
@@ -3423,6 +3490,7 @@ $Log: mapscript2.js,v $
                     return;
                 }
             }
+            _TRACE("addChangedFeatureNode:" + featureNode.getAttributeNS(null, "id"));
             this.changedFeatureNodesA[this.changedFeatureNodesA.length] = featureNode;
         }
     };
@@ -3450,6 +3518,7 @@ $Log: mapscript2.js,v $
         if (this.changedFeatureNodesA) {
             for (i = 0; i < this.changedFeatureNodesA.length; i++) {
                 if (map.Tiles.getMasterId(this.changedFeatureNodesA[i].getAttributeNS(null, "id")) == szId) {
+                    _TRACE("removeChangedFeatures[" + i + "](" + this.changedFeatureNodesA.length + "):" + this.changedFeatureNodesA[i].getAttributeNS(null, "id"));
                     this.changedFeatureNodesA[i].setAttributeNS(null, "style", "");
                     for (k = i; k < this.changedFeatureNodesA.length - 1; k++) {
                         this.changedFeatureNodesA[k] = this.changedFeatureNodesA[k + 1];
@@ -3621,6 +3690,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Label = function (evt) {
 
+        _TRACE("--- init ixMap.Label");
 
         /** the SVG document containing the layer */
         this.document = evt ? evt.target.ownerDocument : map.SVGDocument;
@@ -3718,6 +3788,7 @@ $Log: mapscript2.js,v $
      * stop all label processing
      */
     ixMap.Label.prototype.stopProcessing = function () {
+        _TRACE("ixMap.Label: stopProcessing =====>");
         this.killProcess = true;
     };
     /**
@@ -3725,6 +3796,7 @@ $Log: mapscript2.js,v $
      * @param rootNode the DOM SVG node to beginn to search for label
      */
     ixMap.Label.prototype.prepareCheckOverlap = function (rootNode) {
+        _TRACE("ixMap.Label: prepareCheckOverlap =====>");
         var nodeTempA = rootNode.getElementsByTagName('text');
         for (var j = 0; j < nodeTempA.length; j++) {
             if (nodeTempA.item(j).firstChild &&
@@ -3749,6 +3821,7 @@ $Log: mapscript2.js,v $
         }
         this.fCheckLabelOverlappingPending = true;
 
+        _TRACE("ixMap.Label: initCheckOverlap =>");
 
         this.checkItemA.length = 0;
         this.checkOvlA.length = 0;
@@ -3862,6 +3935,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Label.prototype.collectCheckOverlap = function () {
 
+        _TRACE("ixMap.Label: collectCheckOverlap =>");
 
         var nodeTempA = null;
         var fGot = false;
@@ -3905,6 +3979,7 @@ $Log: mapscript2.js,v $
                 if (!tilesDone) {
                     tilesDone = true;
                     // do all tiles
+                    _TRACE(".collect on tiles");
                     var tileInfoA = map.Tiles.getTileInfo();
                     if (tileInfoA) {
                         this.addCheckItem(null);
@@ -3925,6 +4000,7 @@ $Log: mapscript2.js,v $
                     }
                 }
             } else {
+                _TRACE(".collect on layer: " + layerItem.szName);
                 if (layerItem.szName) { //&& ((layerItem.szDisplayLabel != "none")) ){
                     var layerNode = map.SVGDocument.getElementById(layerItem.szName + ":label");
                     if (layerNode) {
@@ -3933,6 +4009,7 @@ $Log: mapscript2.js,v $
                             for (var s = 0; s < subLayerNodeA.length; s++) {
                                 nodeTempA = subLayerNodeA.item(s).getElementsByTagName('text');
                                 if (nodeTempA.length) {
+                                    _TRACE(".test " + nodeTempA.length + " label");
                                     // reverse index because represents rendering 
                                     for (var i = nodeTempA.length - 1; i >= 0; i--) {
                                         this.addCheckItem(nodeTempA.item(i));
@@ -3942,6 +4019,7 @@ $Log: mapscript2.js,v $
                         } else {
                             nodeTempA = layerNode.getElementsByTagName('text');
                             if (nodeTempA.length) {
+                                _TRACE(".test " + nodeTempA.length + " label");
                                 // reverse index because represents rendering 
                                 for (var i = nodeTempA.length - 1; i >= 0; i--) {
                                     this.addCheckItem(nodeTempA.item(i));
@@ -3953,6 +4031,7 @@ $Log: mapscript2.js,v $
                     if (layerNode) {
                         nodeTempA = layerNode.getElementsByTagName('text');
                         if (nodeTempA.length) {
+                            _TRACE(".test " + nodeTempA.length + " values");
                             // reverse index because represents rendering 
                             for (var i = nodeTempA.length - 1; i >= 0; i--) {
                                 this.addCheckItem(nodeTempA.item(i));
@@ -3972,6 +4051,7 @@ $Log: mapscript2.js,v $
             }
         }
 
+        _TRACE(".collected and tested: " + this.checkItemA.length + " label to check");
         this.zoomScale = map.Scale.nZoomScale;
 
         if (this.checkItemA.length) {
@@ -3990,6 +4070,7 @@ $Log: mapscript2.js,v $
 
         var mapSleep = new ixMap.Sleep("map.Label.getBoxCheckOverlap", this.nflushLabelDraw, "");
 
+        _TRACE("ixMap.Label: getBoxCheckOverlap ==== " + startIndex + " ====== >>>");
         _STATUS("ixMap.Label: getBoxCheckOverlap ==== " + startIndex + " ====== >>>");
 
         for (var i = startIndex; i >= 0; i++) {
@@ -4151,7 +4232,9 @@ $Log: mapscript2.js,v $
             this.fCheckLabelOverlappingPending = false;
             return;
         }
+        _TRACE("ixMap.Label: " + this.nodeA.length + " label to check");
         if (this.nodeA.length > 20000) {
+            _TRACE("to many label to check !!!");
             this.checkOvlA.length = 0;
             this.nodeA.length = 0;
             this.boxA.length = 0;
@@ -4174,6 +4257,7 @@ $Log: mapscript2.js,v $
 
         var mapSleep = new ixMap.Sleep("map.Label.execCheckLabelOverlappingOnly", 25, "");
 
+        _TRACE("ixMap.Label: execCheckLabelOverlappingOnly ==== " + startIndex + " ====== >>>");
 
         for (var i = startIndex; i < this.checkOvlA.length; i++) {
 
@@ -4187,6 +4271,7 @@ $Log: mapscript2.js,v $
             }
             this.execCheckLabelOverlappingOne(i);
         }
+        _TRACE('ixMap.Label: === checkLabelOverlapping ready === ' + this.checkOvlA.length + ' label checked');
 
         this.fCheckLabelOverlappingPending = false;
     };
@@ -4362,6 +4447,7 @@ $Log: mapscript2.js,v $
             rootNode = map.SVGRootElement;
         }
         this.fAdaptLabelToScalingPending = false;
+        _TRACE('ixMap.Label: adaptLabelToScaling ' + rootNode + ',' + (rootNode ? rootNode.getAttributeNS(null, "id") : ""));
 
         this.ALTS_nodeA = new Array(0);
         this.ALTS_textA = new Array(0);
@@ -4375,6 +4461,7 @@ $Log: mapscript2.js,v $
         if (tileInfoA) {
             for (var i = 0; i < tileInfoA.length; i++) {
                 if (tileInfoA[i].tileGroup.style.getPropertyValue("display") == "inline") {
+                    _TRACE("ixMap.Label: adaptLabelToScaling doTile:" + i);
                     nodeTempA = tileInfoA[i].tileGroup.getElementsByTagName('textPath');
                     for (var k = 0; k < nodeTempA.length; k++) {
                         if (!nodeTempA.item(k).parentNode.getAttributeNS(null, "id").match(/:bg/) &&
@@ -4386,6 +4473,7 @@ $Log: mapscript2.js,v $
             }
         }
         if (nodeA == null || nodeA.length === 0) {
+            _TRACE("ixMap.Label: adaptLabelToScaling doAll !!!");
             nodeTempA = map.SVGRootElement.getElementsByTagName('textPath');
             for (var i = 0; i < nodeTempA.length; i++) {
                 if (!nodeTempA.item(i).parentNode.getAttributeNS(null, "id").match(/:bg/) &&
@@ -4394,6 +4482,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE('ixMap.Label: ...adaptLabelToScaling ' + nodeA.length + ' to do');
         map.pushAction(() => {map.Label.execAdaptLabelToScaling(0);});
     };
     /**
@@ -4404,6 +4493,7 @@ $Log: mapscript2.js,v $
 
         var mapSleep = new ixMap.Sleep("map.Label.execAdaptLabelToScaling", 25, "");
 
+        _TRACE("ixMap.Label: execAdaptLabelToScaling ==== " + startIndex + " ====== >>>");
 
         var nodeA = this.ALTS_nodeA;
         var rootNode = this.ALTS_rootNode;
@@ -4470,6 +4560,7 @@ $Log: mapscript2.js,v $
                             if (nodeBg) {
                                 nodeBg.style.setProperty('font-stretch', 'narrower', "");
                             }
+                            _TRACE('ixMap.Label: font-stretch:narrower');
                         }
 
                         // GR 22.06.2006 new for only one label
@@ -4506,6 +4597,7 @@ $Log: mapscript2.js,v $
             }
         }
         __adaptLabelToSymbols(null, rootNode);
+        _TRACE('ixMap.Label: adaptLabelToScaling ready');
     };
     /**
      * checks all label on symbols and if the text is longer than the symbol width, switches the label off
@@ -4688,6 +4780,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Tiles = function () {
 
+        _TRACE("--- init tiles");
 
         var tilesNodesA = map.SVGDocument.getElementsByTagNameNS(szMapNs, "tiles");
         if (tilesNodesA.length) {
@@ -4966,6 +5059,7 @@ $Log: mapscript2.js,v $
         }
         var SVGDoc = evt ? evt.target.ownerDocument : map.SVGDocument;
 
+        _TRACE('! switch scale dependent tiles -->');
 
         var tilesSwitchedOn = false;
 
@@ -4975,6 +5069,7 @@ $Log: mapscript2.js,v $
             var yStart = map.Scale.origMinY; // -canvasMatrixA[5];
             var zoomBox = map.Zoom.getBox();
 
+            _TRACE('! tile --> xStart:' + xStart + ' yStart:' + yStart);
 
             var tilesInfoA = this.getTileInfo();
             if (tilesInfoA) {
@@ -5004,18 +5099,23 @@ $Log: mapscript2.js,v $
                             if (tileGroup.hasChildNodes()) {
                                 if ((tileGroup.getAttributeNS(szMapNs, "type") == "external")) {
                                     tileGroup.style.setProperty("display", "none", "");
+                                    _TRACE("off: " + szId + " - " + tileGroup.hasChildNodes() + " - " + tileGroup.childNodes.length);
                                     if (map.fDiscardTiles && (map.fDiscardTiles != "delayed")) {
+                                        _TRACE("Tiling: -------------------------------------------------------------- ");
+                                        _TRACE("out: " + szId);
                                         map.Themes.removeFromThemeNodesCache(tileGroup);
                                         map.Dom.clearGroup(tileGroup);
                                     }
                                 } else {
                                     tileGroup.style.setProperty("display", "none", "");
+                                    _TRACE("off: " + szId + " - " + tileGroup.hasChildNodes() + " - " + tileGroup.childNodes.length);
                                 }
                             }
                         } else {
                             if (!tileGroup.hasChildNodes() && tileGroup.getAttributeNS(szMapNs, "type") == "external") {
                                 tileGroup.style.setProperty("display", "inline", "");
                                 setTimeout("map.Tiles.loadScaleDependentTiles('" + szId + "','" + szUrl + "')", 10);
+                                _TRACE("in:  " + szId);
                             } else {
                                 if (tileGroup.style.getPropertyValue("display") != "inline") {
                                     tileGroup.style.setProperty("display", "inline", "");
@@ -5023,7 +5123,9 @@ $Log: mapscript2.js,v $
                                     if (map.fAdaptLabelToScaling) {
                                         map.Layer.adaptLabelToScaling(evt, tileGroup);
                                     }
+                                    _TRACE("on:  " + szId);
                                 } else {
+                                    _TRACE("ok:  " + szId + " - " + tileGroup.style.getPropertyValue("display"));
                                 }
                             }
                         }
@@ -5047,6 +5149,7 @@ $Log: mapscript2.js,v $
      */
     ixMap.Tiles.prototype.loadScaleDependentTiles = function (szId, szUrl) {
         _STATUS('Loading Tile:' + szUrl + ',' + szId);
+        _TRACE('.loading: ' + szUrl + ',' + szId);
         var tileGroup = map.SVGDocument.getElementById(szId);
         if (!this.xLoader) {
             this.xLoader = new SVGLoaderTiles();
@@ -5113,7 +5216,9 @@ $Log: mapscript2.js,v $
                         if (tileGroup.hasChildNodes()) {
                             tileGroup.style.setProperty("display", "none", "");
                             var szId = tilesInfoA[i].szGroup;
+                            _TRACE("off: " + szId + " - " + tileGroup.hasChildNodes() + " - " + tileGroup.childNodes.length);
                             if (map.fDiscardTiles && map.fDiscardTiles != "delayed") {
+                                _TRACE("Tiling: -------------------------------------------------------------- ");
                                 map.Themes.removeFromThemeNodesCache(tileGroup);
                                 map.Dom.clearGroup(tileGroup);
                             }
@@ -5150,6 +5255,7 @@ $Log: mapscript2.js,v $
             return;
         }
         if (map.mouseObject) {
+            _TRACE("--- discard tiles (suspended)");
             setTimeout("map.Tiles.doDiscardTiles()", 6000);
             return;
         }
@@ -5165,6 +5271,8 @@ $Log: mapscript2.js,v $
                             if (tileGroup.hasChildNodes()) {
                                 map.Themes.removeFromThemeNodesCache(tileGroup);
                                 map.Dom.clearGroup(tileGroup);
+                                _TRACE("Tiling: -------------------------------------------------------------- ");
+                                _TRACE("tile: " + szId + " discarded");
                                 setTimeout("map.Tiles.doDiscardTiles()", 2000);
                                 return;
                             }
@@ -5195,6 +5303,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE("no Layer visible");
         return false;
     };
     /**
@@ -5356,6 +5465,7 @@ $Log: mapscript2.js,v $
                     map.HTMLWindow.ixmaps.htmlgui_onSVGPointerIdle();
                     return;
                 } else {
+                    _TRACE(szId);
                 }
             } catch (e) {}
         }
@@ -5716,6 +5826,7 @@ $Log: mapscript2.js,v $
         }
         var clickNode = mapObject.objNode;
         var szId = String(mapObject.szId);
+        _TRACE("defaultMouseDown on: " + szId);
 
         // map user interception
         try {
@@ -5807,6 +5918,7 @@ $Log: mapscript2.js,v $
                 return null;
             }
         } catch (e) {}
+        _TRACE("defaultMouseUp: map.mouseObject:" + map.mouseObject);
         this.fMouseDown = false;
         if (map.mouseObject) {
             try {
@@ -5999,6 +6111,7 @@ $Log: mapscript2.js,v $
 
         map.showMap();
 
+        _TRACE("@ default zoom -->");
 
         var viewBox = map.SVGRootElement.getAttribute('viewBox').split(' ');
         var origViewBox = map.SVGOrigViewBoxString.split(' ');
@@ -6078,6 +6191,9 @@ $Log: mapscript2.js,v $
         // if zoom changed, change feature scaling
         // -----------------------------------------------
         if (Math.abs(map.Scale.oldZoomScale - map.Scale.nZoomScale) > (map.Scale.oldZoomScale / 100)) {
+            _TRACE("--- zoom changed --- !");
+            _TRACE("old: " + map.Scale.oldZoomScale);
+            _TRACE("new: " + map.Scale.nZoomScale);
             if (map.fFeatureScaling == "delayed") {
                 setTimeout("map.Layer.changeFeatureScaling(null,'" + map.Scale.nZoomScale + "')", 1000);
             } else {
@@ -6169,6 +6285,7 @@ $Log: mapscript2.js,v $
 
         map.Scale.refreshCSSStyles();
 
+        _TRACE("@ default zoom done: " + 1 / map.Scale.nZoomScale);
     };
     /**
      * called to adapt the map zoom and pan on various events
@@ -6176,12 +6293,14 @@ $Log: mapscript2.js,v $
      */
     ixMap.Event.prototype.doPrintZoom = function (evt) {
 
+        _TRACE("@ print zoom -->");
 
         map.Scale.nZoomScale /= 5;
 
         // if zoom changed, change feature scaling
         // -----------------------------------------------
         if (map.Scale.oldZoomScale != map.Scale.nZoomScale) {
+            _TRACE("--- zoom changed --- !");
             if (map.fFeatureScaling == "delayed") {
                 setTimeout("map.Layer.changeFeatureScaling(null,'" + map.Scale.nZoomScale + "')", 1000);
             } else {
@@ -6237,6 +6356,7 @@ $Log: mapscript2.js,v $
 
         map.Scale.refreshCSSStyles();
 
+        _TRACE("@ print zoom done: " + 1 / map.Scale.nZoomScale);
     };
 
     // .............................................................................
@@ -7015,6 +7135,7 @@ $Log: mapscript2.js,v $
      */
     Button.prototype.toggleCheckBox = function (evt) {
 
+        _TRACE("toggleCheckBox: " + this.szId + " is " + this.checked);
 
         var buttonNode = map.SVGDocument.getElementById(this.szId + ":checked");
         if (this.checked) {
@@ -7525,6 +7646,7 @@ $Log: mapscript2.js,v $
      * @param evt the actual event handle
      */
     RotationSlider.prototype.onMouseDown = function (evt) {
+        _TRACE("RotationSlider: onMouseDown() ");
         var newMousePosition = map.Scale.getClientMousePosition(evt, map.SVGToolsGroup);
         this.startPosition = new point(newMousePosition.x - this.pBase.x, newMousePosition.y - this.pBase.y);
         this.circlethumbNode.fu.setPosition(this.startPosition.x, this.startPosition.y);
@@ -7757,12 +7879,15 @@ $Log: mapscript2.js,v $
      */
     WidgetList.prototype.onClick = function (evt) {
         var mapObject = new MapObject(evt.target);
+        _TRACE("widget onclick " + mapObject.szId);
         if (mapObject) {
             var widgetObj = this.getWidget(mapObject.objNode);
             if (widgetObj) {
+                _TRACE("widget object found: " + widgetObj);
                 try {
                     widgetObj.onClick(evt);
                 } catch (e) {}
+                _TRACE("widget object owner: " + widgetObj.owner);
                 try {
                     widgetObj.owner.onClick(evt);
                 } catch (e) {}
@@ -8235,6 +8360,7 @@ $Log: mapscript2.js,v $
         if (!this.toolsHidden || (this.toolsHidden === false)) {
             map.antiZoomAndPanList.setDisplay(evt, 'none');
             this.toolsHidden = true;
+            _TRACE("hideTools done");
         }
     };
     /**
@@ -8245,6 +8371,7 @@ $Log: mapscript2.js,v $
         if (this.toolsHidden === true) {
             map.antiZoomAndPanList.setDisplay(evt, 'inline');
             this.toolsHidden = false;
+            _TRACE("showTools done");
         }
     };
     /**
@@ -8293,6 +8420,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE("hideLayer done");
     };
     /**
      * show the before hidden layer
@@ -8358,6 +8486,7 @@ $Log: mapscript2.js,v $
                 }
             }
         }
+        _TRACE("showLayer done");
     };
     /**
      * redraw the tool
@@ -9281,6 +9410,7 @@ $Log: mapscript2.js,v $
                     this.highlightGroup = testNode;
                     this.highlightGroup.setAttributeNS(null, "style", szHighlightStyle + ";display:inline;pointer-events:none");
                 } else {
+                    _TRACE("highlightGroup created");
                     this.highlightGroup = map.Dom.newGroup(layerNode.parentNode, layerInfo.szName + ":highlightgroup");
                     this.highlightGroup = layerNode.parentNode.insertBefore(this.highlightGroup, testNode);
                     this.highlightGroup.setAttributeNS(null, "class", layerNode.getAttributeNS(null, "class"));
@@ -9563,6 +9693,7 @@ $Log: mapscript2.js,v $
                     }
                     if (!chartGroup.hasChildNodes()) {
                         var chartId = infoShape.getAttributeNS(null, "id") || "";
+                        _TRACE("now try this  '" + chartId.split(":")[1] + "'");
                         szShapeId = chartId.split(":")[1];
                         if (szShapeId) {
                             ptNull = map.Themes.getChart(szShapeId, chartGroup, "VALUES|ZOOM|AXIS", objTheme);
@@ -9659,6 +9790,7 @@ $Log: mapscript2.js,v $
                 }
                 var szShapeLabel = map.Label.getLabel(szTheme + "::" + szChart);
                 var szInfoTitle = szShapeLabel ? szShapeLabel : szSelection + szChart;
+                _TRACE("now try this  '" + szTheme + "::" + szChart + "'");
                 szShapeId = szTheme + "::" + szChart;
 
                 if (chartTheme.szFlag.match(/PLOT/)) {
@@ -10418,6 +10550,7 @@ $Log: mapscript2.js,v $
             return null;
         }
 
+        _TRACE("--- new Legend() *** ");
 
         /** flag: initialization in progress */
         this.fInitializing = true;
@@ -10517,6 +10650,7 @@ $Log: mapscript2.js,v $
             markerRect.parentNode.removeChild(markerRect);
         }
 
+        _TRACE("--- initLegend");
 
         // GR 13.04.2010
         if (this.fInitializing) {
@@ -10743,6 +10877,7 @@ $Log: mapscript2.js,v $
      * @param evt the event
      */
     ixMap.Legend.prototype.reformat = function (evt) {
+        _TRACE("ixMap.Legend.reformat()");
         if (this.scrollObj) {
             this.scrollObj.reformat(evt);
         }
@@ -10989,6 +11124,7 @@ $Log: mapscript2.js,v $
                 if (!szThemeId.match(/label/) && map.fCheckSublayerCollapse) {
                     __checkCollapsable(clickNode, 'expand');
                 }
+                _TRACE("??????????????????????????????");
                 map.Event.doDefaultZoom(evt);
                 break;
 
@@ -11051,11 +11187,13 @@ $Log: mapscript2.js,v $
     ixMap.Legend.prototype.execLegendMouseClickOnItem = function (evt, clickNode, szId) {
 
         var szOnActivate = map.Dom.getAttributeByNodeOrParents(clickNode, szMapNs, "onactivate");
+        _TRACE("szOnActivate=" + szOnActivate);
 
         if (szOnActivate && szOnActivate.length) {
             var szIdA = szId.split(':');
             var szAction = szIdA[1];
             var szItem = szIdA[szIdA.length - 1];
+            _TRACE(szAction);
             switch (szAction) {
                 case 'off':
                     clickNode.style.setProperty('display', 'none', "");
@@ -11164,6 +11302,7 @@ $Log: mapscript2.js,v $
      * @param szState checkbox state to set ('checked' or 'unchecked')
      */
     ixMap.Legend.prototype.setLegendCheckBox = function (evt, szId, szState) {
+        _TRACE("setLegendCheckBox(evt," + szId + "," + szState + ")");
         if (szId.match(/legend/)) {
             var szIdA = szId.split(':');
             szId = "legend:off";

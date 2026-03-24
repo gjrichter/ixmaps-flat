@@ -707,7 +707,8 @@ window.ixmaps = window.ixmaps || {};
 			!(ixmaps.legendType == "theme") ) {
 			setTimeout("ixmaps.makeLayerLegend(" + window.innerHeight * 0.75 + ")", 100);
 		}
-		__old__htmlgui_onZoomAndPan(nZoom);
+		if(__old__htmlgui_onZoomAndPan)
+			__old__htmlgui_onZoomAndPan(nZoom);
 	};
 
 	/**

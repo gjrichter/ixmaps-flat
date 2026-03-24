@@ -1044,6 +1044,62 @@
     };
 
     /**
+     * Per-event listener lists for map view changes (zoom/pan). Each entry: { handler, szMap }.
+     * @private
+     */
+    ixmaps.__mapViewListeners = null;
+
+    /**
+     * Dispatches view-change events to listeners registered via ixmaps.mapApi.prototype.on().
+     * Called from the SVG map engine when zoom/pan handling runs (same moment as htmlgui_onZoomAndPan).
+     *
+     * @param {Object} detail
+     * @param {number} detail.nZoom - current zoom scale (same as legacy hook argument)
+     * @param {boolean} detail.zoomChanged
+     * @param {boolean} detail.panChanged - center moved beyond threshold
+     * @param {boolean} [detail.frozenDynamic]
+     * @param {string|null} [detail.szMap] - embed map name (ixmaps.szName); listeners with a set szMap only receive matching events
+     * @private
+     */
+    ixmaps.__dispatchMapViewEvents = function (detail) {
+        if (!ixmaps.__mapViewListeners || !detail) {
+            return;
+        }
+        var L = ixmaps.__mapViewListeners;
+
+        function matches(rec, d) {
+            if (rec.szMap && d.szMap && rec.szMap !== d.szMap) {
+                return false;
+            }
+            return true;
+        }
+
+        function run(eventType) {
+            var list = L[eventType];
+            if (!list || !list.length) {
+                return;
+            }
+            for (var i = 0; i < list.length; i++) {
+                var rec = list[i];
+                if (!matches(rec, detail)) {
+                    continue;
+                }
+                try {
+                    rec.handler(detail);
+                } catch (e) { /* ignore user handler errors */ }
+            }
+        }
+
+        run("viewchange");
+        if (detail.zoomChanged) {
+            run("zoomend");
+        }
+        if (detail.panChanged && !detail.zoomChanged) {
+            run("moveend");
+        }
+    };
+
+    /**
      * the ixmaps.mapApi class.  
      * provides methods to handle maps
      * @class It realizes an object to hold a map handle
@@ -1364,6 +1420,72 @@
         getThemeDefinitionObj: function (szTheme) {
             return ixmaps.getThemeDefinitionObj(szTheme);
         },
+
+        /**
+         * Subscribe to map view events (zoom/pan). Space-separated event names (e.g. "zoomend moveend").
+         * - viewchange (alias: zoompan): once per engine notification, same timing as htmlgui_onZoomAndPan
+         * - zoomend: when zoom scale changed
+         * - moveend: when map center moved without a zoom change
+         * @param {string} events
+         * @param {function(Object)} handler - receives detail (nZoom, zoomChanged, panChanged, frozenDynamic, szMap)
+         * @returns {ixmaps.mapApi} this
+         */
+        on: function (events, handler) {
+            if (typeof events !== "string" || typeof handler !== "function") {
+                return this;
+            }
+            if (!ixmaps.__mapViewListeners) {
+                ixmaps.__mapViewListeners = {
+                    viewchange: [],
+                    zoomend: [],
+                    moveend: []
+                };
+            }
+            var parts = events.trim().split(/\s+/);
+            var szMap = this.szMap || null;
+            for (var i = 0; i < parts.length; i++) {
+                var ev = parts[i].toLowerCase();
+                if (ev === "zoompan") {
+                    ev = "viewchange";
+                }
+                if (!ixmaps.__mapViewListeners[ev]) {
+                    ixmaps.__mapViewListeners[ev] = [];
+                }
+                ixmaps.__mapViewListeners[ev].push({ handler: handler, szMap: szMap });
+            }
+            return this;
+        },
+
+        /**
+         * Remove handlers previously registered with .on() for the given event name(s).
+         * @param {string} events
+         * @param {function(Object)} handler
+         * @returns {ixmaps.mapApi} this
+         */
+        off: function (events, handler) {
+            if (typeof events !== "string" || typeof handler !== "function" || !ixmaps.__mapViewListeners) {
+                return this;
+            }
+            var parts = events.trim().split(/\s+/);
+            var szMap = this.szMap || null;
+            for (var p = 0; p < parts.length; p++) {
+                var ev = parts[p].toLowerCase();
+                if (ev === "zoompan") {
+                    ev = "viewchange";
+                }
+                var list = ixmaps.__mapViewListeners[ev];
+                if (!list) {
+                    continue;
+                }
+                for (var i = list.length - 1; i >= 0; i--) {
+                    if (list[i].handler === handler && list[i].szMap === szMap) {
+                        list.splice(i, 1);
+                    }
+                }
+            }
+            return this;
+        },
+
         message: function (szMessage, nTimeout) {
             ixmaps.setMessage(szMessage, nTimeout);
             return this;
