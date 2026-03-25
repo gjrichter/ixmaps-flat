@@ -140,7 +140,7 @@ window.ixmaps = window.ixmaps || {};
  		var szOpacity = args.opacity || args.theme.nOpacity || 1;
 		var szFillOpacity = args.fillopacity || args.theme.fillOpacity || 0.6;
 
-		if (nHeight == 0){
+		if (nHeight <= 0){
 			return false;
 		}
         
