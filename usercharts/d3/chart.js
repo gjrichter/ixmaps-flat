@@ -106,6 +106,11 @@ window.ixmaps = window.ixmaps || {};
         // 1. get the height from args
 		
 		var nValue = args.value || args.values[(args.theme.nActualFrame||args.class||0)];
+
+		if ((nValue < 0) && args.flag.match(/NONEGATIVE/)){
+			return false;
+		}
+
 		var nMax = Math.max(args.theme.nMax,Math.abs(args.theme.nMin));
 		if ( args.theme.nMinValue && (nValue < args.theme.nMinValue) ){
 			return false;
@@ -140,7 +145,7 @@ window.ixmaps = window.ixmaps || {};
  		var szOpacity = args.opacity || args.theme.nOpacity || 1;
 		var szFillOpacity = args.fillopacity || args.theme.fillOpacity || 0.6;
 
-		if (nHeight <= 0){
+		if (nHeight == 0){
 			return false;
 		}
         
