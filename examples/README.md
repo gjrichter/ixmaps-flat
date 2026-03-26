@@ -57,7 +57,7 @@ Questa cartella contiene esempi HTML pronti all'uso per iniziare con iXMaps.
 ### Metodo 1: Aprire direttamente nel browser
 
 ```bash
-# Dalla cartella ixmaps_flat/examples
+# Dalla cartella ixmaps-flat/examples
 open 01-basic-map.html
 # oppure
 firefox 01-basic-map.html

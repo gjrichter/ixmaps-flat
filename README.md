@@ -15,10 +15,10 @@
 
 ## CDN
 
-CDN_BASE=https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/
+CDN_BASE=https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@master/
 
 Script:
-<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@master/ixmaps.js"></script>
 
 ## Quick Start
 
@@ -30,7 +30,7 @@ Script:
 <head>
     <meta charset="UTF-8">
     <title>Simple ixMaps Example</title>
-    <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@master/ixmaps.js"></script>
     <style>
         body { margin: 0; padding: 0; }
         #map { width: 100%; height: 100vh; }
@@ -112,7 +112,7 @@ myMap.layer(layer2);
 Include ixMaps in your HTML from the CDN:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps_flat@master/ixmaps.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@master/ixmaps.js"></script>
 ```
 
 ### Map Initialization
