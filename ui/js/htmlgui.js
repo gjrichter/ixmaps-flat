@@ -1331,11 +1331,14 @@ $Log: htmlgui.js,v $
 						if ((typeof (i) == "string") && (i.match(/autoSwitchInfo/i))) {
 							this.setAutoSwitchInfo((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
 						} else
-							if ((typeof (i) == "string") && (i.match(/panHidden/i))) {
+					if ((typeof (i) == "string") && (i.match(/panHidden/i))) {
+							this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
+						} else
+							if ((typeof (i) == "string") && (i.match(/hideOnPan/i))) {
 								this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
 							} else
-								if ((typeof (i) == "string") && (i.match(/hideOnPan/i))) {
-									this.panHidden = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
+								if ((typeof (i) == "string") && (i.match(/zoomAnimation/i))) {
+									this.fZoomAnimation = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];
 								} else
 									if ((typeof (i) == "string") && (i.match(/freezeOnPan/i))) {
 										this.panFreezed = (typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i];

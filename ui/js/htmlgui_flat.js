@@ -837,7 +837,19 @@
                 }
             }
             
+            try {
+                ixmaps.__dispatchMapItemEvents({ type: "ready", szMap: szMap || null });
+            } catch (e) {}
             callback(mapApi);
+        };
+
+        // Wrap htmlgui_onMapResize to dispatch the 'resize' event to map.on() listeners.
+        var __old_onMapResize = ixmaps.htmlgui_onMapResize;
+        ixmaps.htmlgui_onMapResize = function () {
+            if (__old_onMapResize) { __old_onMapResize.apply(this, arguments); }
+            try {
+                ixmaps.__dispatchMapItemEvents({ type: "resize", szMap: ixmaps.szName || null });
+            } catch (e) {}
         };
 
         ixmaps.date = null;
@@ -1096,6 +1108,28 @@
         }
         if (detail.panChanged && !detail.zoomChanged) {
             run("moveend");
+        }
+    };
+
+    /**
+     * Dispatch a map item event (mouseover / click) to handlers registered via map.on().
+     * Called from mapscript2.js at each htmlgui_onItemOver / htmlgui_onItemClick site,
+     * BEFORE the existing tooltip hook, so both run independently.
+     * @param {Object} detail
+     * @param {string} detail.type  - "mouseover" or "click"
+     * @param {string} detail.szId  - full SVG compound id, e.g. "themeId::itemKey"
+     * @param {string} detail.id    - item key only (part after ::)
+     * @param {string} detail.theme - theme/layer name (part before ::)
+     * @param {string|null} [detail.szMap]
+     * @private
+     */
+    ixmaps.__dispatchMapItemEvents = function (detail) {
+        if (!ixmaps.__mapViewListeners || !detail) { return; }
+        if (!detail.szId || detail.szId.match(/mapbackground/i)) { return; }
+        var list = ixmaps.__mapViewListeners[detail.type];
+        if (!list || !list.length) { return; }
+        for (var i = 0; i < list.length; i++) {
+            try { list[i].handler(detail); } catch (e) { /* ignore user handler errors */ }
         }
     };
 
@@ -1422,12 +1456,37 @@
         },
 
         /**
-         * Subscribe to map view events (zoom/pan). Space-separated event names (e.g. "zoomend moveend").
+         * Subscribe to map events. Space-separated event names (e.g. "zoomend moveend").
+         *
+         * View events:
          * - viewchange (alias: zoompan): once per engine notification, same timing as htmlgui_onZoomAndPan
          * - zoomend: when zoom scale changed
          * - moveend: when map center moved without a zoom change
+         *   handler receives: { nZoom, zoomChanged, panChanged, frozenDynamic, szMap }
+         *
+         * Item events:
+         * - mouseover (alias: itemover):  when the pointer enters a map feature
+         * - mouseout  (alias: itemout):   when the pointer leaves a map feature
+         * - click     (alias: itemclick): when a map feature is clicked
+         *   handler receives: { type, szId, id, theme, szMap }
+         *     szId  – full compound id "themeId::itemKey"
+         *     id    – item key only (part after ::)
+         *     theme – theme/layer name (part before ::)
+         *
+         * Lifecycle events:
+         * - ready   (alias: mapready):    map SVG engine finished loading
+         * - resize  :                     map container was resized
+         *   handler receives: { type, szMap }
+         *
+         * Layer events:
+         * - layeradd    (alias: newtheme):    a new layer/theme was created
+         * - layerdraw   (alias: drawtheme):   a layer/theme finished drawing
+         * - layerremove (alias: removetheme): a layer/theme was removed
+         *   handler receives: { type, id, szMap }
+         *     id – theme/layer id
+         *
          * @param {string} events
-         * @param {function(Object)} handler - receives detail (nZoom, zoomChanged, panChanged, frozenDynamic, szMap)
+         * @param {function(Object)} handler
          * @returns {ixmaps.mapApi} this
          */
         on: function (events, handler) {
@@ -1436,18 +1495,24 @@
             }
             if (!ixmaps.__mapViewListeners) {
                 ixmaps.__mapViewListeners = {
-                    viewchange: [],
-                    zoomend: [],
-                    moveend: []
+                    viewchange: [], zoomend: [], moveend: [],
+                    mouseover: [], click: [], mouseout: [],
+                    ready: [], resize: [],
+                    layerdraw: [], layeradd: [], layerremove: []
                 };
             }
             var parts = events.trim().split(/\s+/);
             var szMap = this.szMap || null;
             for (var i = 0; i < parts.length; i++) {
                 var ev = parts[i].toLowerCase();
-                if (ev === "zoompan") {
-                    ev = "viewchange";
-                }
+                if (ev === "zoompan")      { ev = "viewchange";  }
+                if (ev === "itemover")     { ev = "mouseover";   }  // alias
+                if (ev === "itemclick")    { ev = "click";       }  // alias
+                if (ev === "itemout")      { ev = "mouseout";    }  // alias
+                if (ev === "mapready")     { ev = "ready";       }  // alias
+                if (ev === "drawtheme")    { ev = "layerdraw";   }  // alias
+                if (ev === "newtheme")     { ev = "layeradd";    }  // alias
+                if (ev === "removetheme")  { ev = "layerremove"; }  // alias
                 if (!ixmaps.__mapViewListeners[ev]) {
                     ixmaps.__mapViewListeners[ev] = [];
                 }
@@ -1458,6 +1523,7 @@
 
         /**
          * Remove handlers previously registered with .on() for the given event name(s).
+         * Supports the same event names and aliases as .on().
          * @param {string} events
          * @param {function(Object)} handler
          * @returns {ixmaps.mapApi} this
@@ -1470,9 +1536,14 @@
             var szMap = this.szMap || null;
             for (var p = 0; p < parts.length; p++) {
                 var ev = parts[p].toLowerCase();
-                if (ev === "zoompan") {
-                    ev = "viewchange";
-                }
+                if (ev === "zoompan")      { ev = "viewchange";  }
+                if (ev === "itemover")     { ev = "mouseover";   }
+                if (ev === "itemclick")    { ev = "click";       }
+                if (ev === "itemout")      { ev = "mouseout";    }
+                if (ev === "mapready")     { ev = "ready";       }
+                if (ev === "drawtheme")    { ev = "layerdraw";   }
+                if (ev === "newtheme")     { ev = "layeradd";    }
+                if (ev === "removetheme")  { ev = "layerremove"; }
                 var list = ixmaps.__mapViewListeners[ev];
                 if (!list) {
                     continue;

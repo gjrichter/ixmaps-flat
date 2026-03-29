@@ -871,6 +871,15 @@ $Log: maptheme.js,v $
 		// notify HTML user about the new theme
 		if (!mapTheme.szFlag.match(/selection/i)) {
 			try {
+				if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+					map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+						type: "layeradd",
+						id:   mapTheme.szId,
+						szMap: map.HTMLWindow.ixmaps.szName || null
+					});
+				}
+			} catch (e) { }
+			try {
 				map.HTMLWindow.ixmaps.htmlgui_onNewTheme(mapTheme.szId);
 			} catch (e) { }
 		}
@@ -3308,6 +3317,15 @@ $Log: maptheme.js,v $
 		} catch (e) { }
 
 		// notify HTML user about the new theme
+		try {
+			if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+				map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+					type: "layerdraw",
+					id:   mapTheme.szId,
+					szMap: map.HTMLWindow.ixmaps.szName || null
+				});
+			}
+		} catch (e) { }
 		try {
 			map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(mapTheme.szId);
 		} catch (e) { }
@@ -25401,6 +25419,15 @@ $Log: maptheme.js,v $
 			} catch (e) { }
 		}
 		// notify HTML user about the new theme
+		try {
+			if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+				map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+					type: "layerremove",
+					id:   this.szId,
+					szMap: map.HTMLWindow.ixmaps.szName || null
+				});
+			}
+		} catch (e) { }
 		try {
 			map.HTMLWindow.ixmaps.htmlgui_onRemoveTheme(this.szId);
 		} catch (e) { }

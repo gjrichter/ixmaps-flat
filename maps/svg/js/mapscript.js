@@ -2378,12 +2378,34 @@ $Log: mapscript.js,v $
             this.maxBoundY = maxRadius;
 
             if ((this.maxX - this.minX) !== 0 && (this.maxY - this.minY) !== 0) {
-                this.mapUnitsPPX = (this.maxBoundX - this.minBoundX) / (this.maxX - this.minX);
-                this.mapUnitsPPY = (this.maxBoundY - this.minBoundY) / (this.maxY - this.minY);
+                // One scale for X and Y: separate divisors stretch the azimuthal plane when the map
+                // frame is not square (ellipse instead of a true Lambert disk).
+                var sx = this.maxX - this.minX;
+                var sy = this.maxY - this.minY;
+                var uniformPP = (this.maxBoundX - this.minBoundX) / Math.min(sx, sy);
+                this.mapUnitsPPX = uniformPP;
+                this.mapUnitsPPY = uniformPP;
             }
         }
 
         // Pre-calculated Lambert Azimuthal constants stored in this._lambertConstants
+    };
+
+    /** Visible frame for Lambert letterbox (prefer bBox; matches clip / getMapPositionOfLatLon). */
+    ixMap.Scale.prototype._lambertViewportSize = function () {
+        var w = (this.bBox && this.bBox.width > 0) ? this.bBox.width : (this.maxX - this.minX);
+        var h = (this.bBox && this.bBox.height > 0) ? this.bBox.height : (this.maxY - this.minY);
+        return { width: w, height: h };
+    };
+
+    /** Offset to center the inscribed Lambert disk when uniform mapUnitsPP uses min(frame w,h). */
+    ixMap.Scale.prototype._lambertLetterboxOffsets = function () {
+        if (this.szMapProjection !== "LambertAzimuthalEqualArea") {
+            return { x: 0, y: 0 };
+        }
+        var vp = this._lambertViewportSize();
+        var m = Math.min(vp.width, vp.height);
+        return { x: (vp.width - m) / 2, y: (vp.height - m) / 2 };
     };
 
     /**
@@ -3145,8 +3167,17 @@ $Log: mapscript.js,v $
         var nLon1 = 0;
         var nLat1 = 0;
 
+        if (this.szMapProjection === "LambertAzimuthalEqualArea" && typeof this._lambertLetterboxOffsets === "function") {
+            var lbC = this._lambertLetterboxOffsets();
+            x -= lbC.x;
+            y -= lbC.y;
+        }
+
         x = x + this.mapOffset.x;
-        y = (this.maxY - this.minY) - (y + this.mapOffset.y);
+        var mapFrameH = (this.szMapProjection === "LambertAzimuthalEqualArea" && this.bBox && this.bBox.height > 0)
+            ? this.bBox.height
+            : (this.maxY - this.minY);
+        y = mapFrameH - (y + this.mapOffset.y);
 
         switch (this.szMapUnits) {
             case "feet":
@@ -3216,8 +3247,10 @@ $Log: mapscript.js,v $
 
         var ptOff = _UTMtoLL(szDatum, x, y, szUtmZone);
         ptOff = map.Scale.getMapCoordinateOfLatLon(ptOff.y, ptOff.x);
-        var nX = (ptOff.x - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
-        var nY = map.Scale.bBox.height - (ptOff.y - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+        var lbU = typeof map.Scale._lambertLetterboxOffsets === "function" ? map.Scale._lambertLetterboxOffsets() : { x: 0, y: 0 };
+        var nX = (ptOff.x - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x + lbU.x;
+        var mapFrameHU = (map.Scale.bBox && map.Scale.bBox.height > 0) ? map.Scale.bBox.height : (map.Scale.maxY - map.Scale.minY);
+        var nY = mapFrameHU - (ptOff.y - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y + lbU.y;
         return {
             x: nX,
             y: nY
@@ -3243,8 +3276,10 @@ $Log: mapscript.js,v $
         if (!ptOff) {
             return null;
         }
-        var nX = (ptOff.x - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
-        var nY = map.Scale.bBox.height - (ptOff.y - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+        var lbL = typeof map.Scale._lambertLetterboxOffsets === "function" ? map.Scale._lambertLetterboxOffsets() : { x: 0, y: 0 };
+        var nX = (ptOff.x - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x + lbL.x;
+        var mapFrameHL = (map.Scale.bBox && map.Scale.bBox.height > 0) ? map.Scale.bBox.height : (map.Scale.maxY - map.Scale.minY);
+        var nY = mapFrameHL - (ptOff.y - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y + lbL.y;
         return {
             x: nX,
             y: nY

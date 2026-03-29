@@ -349,10 +349,9 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		LMap.on('zoomanim', function (e) {
 			_LOG("-- leaflet_zoomanim --");
 			
-			// Only animate zoom for Mercator projection
-			// For non-Mercator projections (orthographic, albers, lambert, etc.),
-			// skip animation and let zoomend handler perform synchronization
-			if (!isMercatorProjection()) {
+			// Only animate zoom for Mercator projection, and only when zoom animation
+			// is not explicitly disabled via .options({ zoomAnimation: false })
+			if (!isMercatorProjection() || ixmaps.fZoomAnimation === false) {
 				return;
 			}
 			

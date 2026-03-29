@@ -758,6 +758,13 @@ $Log: mapscript2.js,v $
         if (!rectArea.width || !rectArea.height) {
             return;
         }
+        // Guard against invalid (negative or near-zero) dimensions.
+        // These arise when projected corners land outside the Lambert hemisphere, giving
+        // extreme or sign-flipped coordinates that produce huge / negative zoom factors.
+        if (rectArea.width <= 0 || rectArea.height <= 0) {
+            this.doCenterMapToArea(rectArea);
+            return;
+        }
 
         this.fAreaSet = true;
 
@@ -767,6 +774,12 @@ $Log: mapscript2.js,v $
         var nNewZoomX = map.Scale.bBox.width / rectArea.width;
         var nNewZoomY = map.Scale.bBox.height / rectArea.height;
         var nNewZoom = Math.min(nNewZoomX, nNewZoomY);
+
+        // Guard against non-finite or absurdly large zoom (projection corners outside hemisphere)
+        if (!isFinite(nNewZoom) || nNewZoom <= 0) {
+            this.doCenterMapToArea(rectArea);
+            return;
+        }
 
         nNewZoom = Math.round(nNewZoom * 1000000) / 1000000;
 
@@ -785,7 +798,8 @@ $Log: mapscript2.js,v $
         }
 
         // GR 15.08.2013
-        if (map.fPreserveMapRatio) {
+        // Lambert azimuthal always needs isotropic zoom so the disk stays round
+        if (map.fPreserveMapRatio || (map.Scale.szMapProjection || "") === "LambertAzimuthalEqualArea") {
             nNewZoomX = nNewZoomY = nNewZoom;
         }
 
@@ -938,11 +952,35 @@ $Log: mapscript2.js,v $
      */
     ixMap.Zoom.prototype.doZoomMapToEnvelope = function (minBoundX, maxBoundX, minBoundY, maxBoundY) {
 
+        // For Lambert, clamp projected corners to the valid disk radius so that
+        // out-of-hemisphere corners (zoom levels showing most of the globe) don't
+        // produce negative or near-zero rect dimensions → explosion.
+        if ((map.Scale.szMapProjection || "") === "LambertAzimuthalEqualArea") {
+            var lb_minBX = map.Scale.minBoundX, lb_maxBX = map.Scale.maxBoundX;
+            var lb_minBY = map.Scale.minBoundY, lb_maxBY = map.Scale.maxBoundY;
+            minBoundX = Math.max(lb_minBX, Math.min(lb_maxBX, minBoundX));
+            maxBoundX = Math.max(lb_minBX, Math.min(lb_maxBX, maxBoundX));
+            minBoundY = Math.max(lb_minBY, Math.min(lb_maxBY, minBoundY));
+            maxBoundY = Math.max(lb_minBY, Math.min(lb_maxBY, maxBoundY));
+            // After clamping, NE corner might equal SW corner → skip zoom, just center
+            if (minBoundX >= maxBoundX || minBoundY >= maxBoundY) {
+                return;
+            }
+        }
+
         if (this.doCheckEnvelope(minBoundX, maxBoundX, minBoundY, maxBoundY)) {
             var nLeft = (minBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
             var nRight = (maxBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
-            var nTop = map.Scale.maxY - map.Scale.minY - (maxBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
-            var nBottom = map.Scale.maxY - map.Scale.minY - (minBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            var mapFrameHz = (map.Scale.bBox && map.Scale.bBox.height > 0) ? map.Scale.bBox.height : (map.Scale.maxY - map.Scale.minY);
+            var nTop = mapFrameHz - (maxBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            var nBottom = mapFrameHz - (minBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            if (map.Scale.szMapProjection === "LambertAzimuthalEqualArea" && typeof map.Scale._lambertLetterboxOffsets === "function") {
+                var lbZ = map.Scale._lambertLetterboxOffsets();
+                nLeft += lbZ.x;
+                nRight += lbZ.x;
+                nTop += lbZ.y;
+                nBottom += lbZ.y;
+            }
 
             this.doArea = new box(nLeft, nTop, nRight - nLeft, nBottom - nTop);
             map.Zoom.execute();
@@ -963,8 +1001,16 @@ $Log: mapscript2.js,v $
         if (this.doCheckEnvelope(minBoundX, maxBoundX, minBoundY, maxBoundY)) {
             var nLeft = (minBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
             var nRight = (maxBoundX - map.Scale.minBoundX) / map.Scale.mapUnitsPPX - map.Scale.mapOffset.x;
-            var nTop = map.Scale.maxY - map.Scale.minY - (maxBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
-            var nBottom = map.Scale.maxY - map.Scale.minY - (minBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            var mapFrameHc = (map.Scale.bBox && map.Scale.bBox.height > 0) ? map.Scale.bBox.height : (map.Scale.maxY - map.Scale.minY);
+            var nTop = mapFrameHc - (maxBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            var nBottom = mapFrameHc - (minBoundY - map.Scale.minBoundY) / map.Scale.mapUnitsPPY - map.Scale.mapOffset.y;
+            if (map.Scale.szMapProjection === "LambertAzimuthalEqualArea" && typeof map.Scale._lambertLetterboxOffsets === "function") {
+                var lbE = map.Scale._lambertLetterboxOffsets();
+                nLeft += lbE.x;
+                nRight += lbE.x;
+                nTop += lbE.y;
+                nBottom += lbE.y;
+            }
 
             map.Zoom.doCenterMapToArea(new box(nLeft, nTop, nRight - nLeft, nBottom - nTop));
         }
@@ -5499,6 +5545,18 @@ $Log: mapscript2.js,v $
                     mapObject = new MapObject(mapObject.objNode.ownerDocument.getElementById(szId));
                 }
                 map.szMapToolType = "";
+                try {
+                    if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+                        var _pc1 = mapObject.szId.split("::");
+                        map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+                            type: "click",
+                            szId:  mapObject.szId,
+                            id:    _pc1[1] || mapObject.szId,
+                            theme: _pc1[0] || "",
+                            szMap: map.HTMLWindow.ixmaps.szName || null
+                        });
+                    }
+                } catch (e) {}
                 if (map.HTMLWindow.ixmaps.htmlgui_onItemClick(evt, mapObject.szId)) {
                     __circleHighlight(evt, mapObject);
                     map.SVGPopupGroup.fu.clear();
@@ -5516,6 +5574,18 @@ $Log: mapscript2.js,v $
             (map.szMapToolType === "info" || map.szMapToolType === "clickinfo" || map.szMapToolType === "")
         ) {
 
+            try {
+                if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+                    var _p1 = mapObject.szId.split("::");
+                    map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+                        type: "mouseover",
+                        szId:  mapObject.szId,
+                        id:    _p1[1] || mapObject.szId,
+                        theme: _p1[0] || "",
+                        szMap: map.HTMLWindow.ixmaps.szName || null
+                    });
+                }
+            } catch (e) {}
             try {
                 if (map.HTMLWindow.ixmaps.htmlgui_onItemOver(evt, mapObject.szId, onoverShape)) {
                     map.SVGPopupGroup.fu.clear();
@@ -5538,6 +5608,18 @@ $Log: mapscript2.js,v $
         } else {
             __simpleHighlight(evt, onoverShape);
 
+            try {
+                if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+                    var _p2 = mapObject.szId.split("::");
+                    map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+                        type: "mouseover",
+                        szId:  mapObject.szId,
+                        id:    _p2[1] || mapObject.szId,
+                        theme: _p2[0] || "",
+                        szMap: map.HTMLWindow.ixmaps.szName || null
+                    });
+                }
+            } catch (e) {}
             try {
                 if (map.HTMLWindow.ixmaps.htmlgui_onItemOver(evt, mapObject.szId)) {
                     return null;
@@ -5693,6 +5775,18 @@ $Log: mapscript2.js,v $
         var objNode = this.resolveInstance(evt.target);
 
         var mapObject = new MapObject(objNode);
+        try {
+            if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents && mapObject && mapObject.szId) {
+                var _pm = mapObject.szId.split("::");
+                map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+                    type:  "mouseout",
+                    szId:  mapObject.szId,
+                    id:    _pm[1] || mapObject.szId,
+                    theme: _pm[0] || "",
+                    szMap: map.HTMLWindow.ixmaps.szName || null
+                });
+            }
+        } catch (e) {}
         if (mapObject && mapObject.szId && mapObject.szId.match(/widget/)) {
             widgetList.onMouseOut(evt);
         }
@@ -5758,6 +5852,18 @@ $Log: mapscript2.js,v $
             }
         } catch (e) {}
         // HTML interface interception
+        try {
+            if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
+                var _pc2 = szId.split("::");
+                map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
+                    type: "click",
+                    szId:  szId,
+                    id:    _pc2[1] || szId,
+                    theme: _pc2[0] || "",
+                    szMap: map.HTMLWindow.ixmaps.szName || null
+                });
+            }
+        } catch (e) {}
         try {
             if (map.HTMLWindow.ixmaps.htmlgui_onItemClick(evt, szId)) {
                 //__circleHighlight(evt,mapObject);
