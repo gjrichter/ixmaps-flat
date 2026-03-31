@@ -910,10 +910,22 @@ $Log: htmlgui.js,v $
 				'</div>' +
 				'</div>'
 			);
+			// Fill the tile map host (#gmap) so %-based centering is relative to the map, not a collapsed box
+			$("#loading-div").css({
+				"position": "absolute",
+				"top": "0",
+				"left": "0",
+				"width": "100%",
+				"height": "100%",
+				"box-sizing": "border-box"
+			});
 			$("#loading-text-div").css({
 				"position": "absolute",
-				"top": "47%",
-				"width": "100%",
+				"top": "50%",
+				"left": "50%",
+				"transform": "translate(-50%, -50%)",
+				"width": "auto",
+				"max-width": "96%",
 				"opacity": "1",
 				"z-index": "99",
 				"text-align": "center"
@@ -939,22 +951,16 @@ $Log: htmlgui.js,v $
 		}
 
 		try {
-			var top = (window.innerHeight * 0.4);
-			var left = (window.innerWidth * 0.47);
-			var width = (window.innerWidth);
-			var height = (window.innerHeight);
-			var gmapDiv = this.gmapDiv;
-			if (gmapDiv && $(gmapDiv).css("visibility") == "visible") {
-				top = $(gmapDiv).offset().top;
-				left = $(gmapDiv).offset().left;
-				width = $(gmapDiv).innerWidth();
-				height = $(gmapDiv).innerHeight();
-			}
+			// Center inside #loading-div (fills #gmap). Do not use document offset() — #loading-text-div
+			// is position:absolute inside #gmap, so offset-based px values broke off-center embeds.
 			$(".loading-text-div").css({
 				"visibility": "visible",
-				"top": String((top + height / 2 - 20) + "px"),
-				"left": String(left + "px"),
-				"width": String(width + "px")
+				"top": "50%",
+				"left": "50%",
+				"transform": "translate(-50%, -50%)",
+				"width": "auto",
+				"max-width": "96%",
+				"text-align": "center"
 			});
 			$("#loading-image").css("visibility", "visible");
 			$("#loading-text-div").show();
