@@ -3067,16 +3067,16 @@ $Log: maptheme.js,v $
 			if (this.themesA[i].fWaitingforData) {
 				return;
 			}
-			if (this.themesA[i].fShow && this.themesA[i].fDone) {
-				this.themesA[i].toggle(true);
-				this.themesA[i].fShow = false;
-				break;
-			}
-			if (this.themesA[i].fHide && this.themesA[i].fDone) {
-				this.themesA[i].toggle(false);
-				this.themesA[i].fHide = false;
-				break;
-			}
+		if (this.themesA[i].fShow && this.themesA[i].fDone) {
+			this.themesA[i].fShow = false;
+			this.themesA[i].toggle(true);
+			break;
+		}
+		if (this.themesA[i].fHide && this.themesA[i].fDone) {
+			this.themesA[i].fHide = false;
+			this.themesA[i].toggle(false);
+			break;
+		}
 			if (this.themesA[i].fToggle && this.themesA[i].fDone) {
 				this.themesA[i].toggle();
 				this.themesA[i].fToggle = false;
