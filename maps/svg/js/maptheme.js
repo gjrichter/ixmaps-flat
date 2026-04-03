@@ -828,9 +828,9 @@ $Log: maptheme.js,v $
 		/** defines the max number of shadowed charts per theme **/
 		this.nMaxShadowCharts = 1000;
 		/** defines the number of shapes color changes after which the display will be updated **/
-		this.nflushPaintShape = 5000;
+		this.nflushPaintShape = 1000000;
 		/** defines the number of charts after which the display will be updated **/
-		this.nflushChartDraw = 1000;
+		this.nflushChartDraw = 1000000;
 		/** defines the max height of color scheme legends (in pixel) **/
 		this.nColorSchemeMaxHeight = 120;
 		/** allways show values of CHOROPLETH themes **/
