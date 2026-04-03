@@ -514,6 +514,27 @@
             $("#modeToggle").hide();
         }
         
+        // Show/hide zoom buttons and optionally reposition them
+        // Option: zoomButtons (also accepted: zoombuttons)
+        // Accepted values: "false" | "true" | "bottom|left" | "bottom|right" | "top|left" | "top|right" | "center|left" | "center|right"
+        const _zoomOpt = opt.zoomButtons !== undefined ? opt.zoomButtons : opt.zoombuttons;
+        ixmaps.fZoomButtons = !(_zoomOpt === false || _zoomOpt === "false");
+        if (!ixmaps.fZoomButtons) {
+            $("#onmapbuttondivzoom").hide();
+        } else if (_zoomOpt && _zoomOpt !== true && _zoomOpt !== "true") {
+            const _zpos = _zoomOpt.toLowerCase();
+            const _zel = document.getElementById("onmapbuttondivzoom");
+            if (_zel) {
+                _zel.style.top = _zel.style.bottom = _zel.style.left = _zel.style.right = _zel.style.transform = "";
+                if (_zpos.match(/top/))    { _zel.style.top    = "12px"; }
+                if (_zpos.match(/bottom/)) { _zel.style.bottom = "12px"; }
+                if (_zpos.match(/center/)) { _zel.style.top = "50%"; _zel.style.transform = "translateY(-50%)"; }
+                if (_zpos.match(/left/))   { _zel.style.left   = "10px"; }
+                if (_zpos.match(/right/))  { _zel.style.right  = "10px"; }
+            }
+            $("#onmapbuttondivzoom").show();
+        }
+
         // Hide search button if search is explicitly false or "false"
         if (opt.search === false || opt.search === "false" || opt.search === "False") {
             $("#switchsearchbutton").hide();
@@ -656,7 +677,9 @@
                 $("#switchmodebutton").css("background", "#ffffff url(../resources/images/mano.png) no-repeat 98% 55%");
                 $("#switchmodebutton").css("background-size", "13px");
                 $("#switchmodebuttonicon").css("opacity", "1");
-                $("#onmapbuttondivzoom").show();
+                if (ixmaps.fZoomButtons !== false) {
+                    $("#onmapbuttondivzoom").show();
+                }
                 break;
         }
     };
