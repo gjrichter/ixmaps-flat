@@ -9466,6 +9466,10 @@ $Log: mapscript2.js,v $
 
     function displayInfo(evt, infoShape, szMode) {
 
+        if (map.fSuppressInfoWindow) {
+            return null;
+        }
+
         var position = null;
         if (evt && !evt.touches) {
             position = map.Scale.getClientMousePosition(evt, map.SVGPopupGroup);
@@ -9509,6 +9513,10 @@ $Log: mapscript2.js,v $
      * @param zMode if 'add', the former info displays are not removed
      */
     var doDisplayInfo = function (xPos, yPos, szMode) {
+
+        if (map.fSuppressInfoWindow) {
+            return null;
+        }
 
         var i;
         var ii;

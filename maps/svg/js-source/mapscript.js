@@ -217,6 +217,8 @@ $Log: mapscript.js,v $
         this.fStatus = false;
         this.fSetToolCursor = false;
         this.fActivateInfoOnClick = false;
+        /** if true, skip SVG InfoContainer popups (hover/click info windows) */
+        this.fSuppressInfoWindow = true;
         this.szTextGridStyle = "background:#dddddd";
         this.fCheckSublayerCollapse = false;
         this.fCreatTextLink = true;
@@ -291,6 +293,7 @@ $Log: mapscript.js,v $
      *  <tr><td>panborder</td><td>define the width of a border around the map with which the map can be panned</td><td>false / true</td></tr>
      *  <tr><td>tooltipdelay</td><td>define delay (ms) for the tooltip display on mouse over</td><td>100 .. 1000</td></tr>
      *  <tr><td>popupdelay</td><td>define delay (ms) for the info display on mouse over</td><td>100 .. 1000</td></tr>
+     *  <tr><td>suppressinfowindow</td><td>if true, do not create SVG info popups on hover/click (default true)</td><td>false to show popups</td></tr>
      *  <tr><td>popupgridstyle</td><td>define style of info display table</td><td>background|alternate|full|firstright|firstsmall|firstitalic|firstgray</td></tr>
      *  <tr><td>buttonsize</td><td>define the size (maximum of width/height) for all buttons (default 10 pixel)</td><td>[pixel]</td></tr>
      *  <tr><td>symbolsize</td><td>define the size (maximum of width/height) for all symbols (default 20 pixel)</td><td>[pixel]</td></tr>
@@ -444,6 +447,9 @@ $Log: mapscript.js,v $
                     break;
                 case "popupdelay":
                     this.nInfoTimeout = Number(szAttA[1]);
+                    break;
+                case "suppressinfowindow":
+                    this.fSuppressInfoWindow = (szAttA[1] == "true" || szAttA[1] == "1");
                     break;
                 case "popupgridstyle":
                     this.szTextGridStyle = szAttA[1];
