@@ -4765,13 +4765,18 @@ $Log: maptheme.js,v $
 				if (__isdef(styleObj.markclasses)) {
 					mapTheme.markedClassesA = this.toArray(styleObj.markclasses);
 					mapTheme.markedClasses = [];
+					// markClass() leaves fUnmarkEnable false so later unmarkClass() would no-op; allow full reset (e.g. markclasses:[])
+					mapTheme.fUnmarkEnable = true;
 					mapTheme.unmarkClass();
+					if (!mapTheme.markedClassesA.length) {
+						mapTheme.markedClass = null;
+					}
 					mapTheme.markedClassesA.forEach(function (item, index) {
 						if (item >= 0) {
 							mapTheme.markedClasses[item] = true;
+							mapTheme.markClass(item);
 						}
 					});
-					mapTheme.markClass();
 				}
 				if (__isdef(styleObj.field100min)) {
 					mapTheme.nField100Min = styleObj.field100min;
