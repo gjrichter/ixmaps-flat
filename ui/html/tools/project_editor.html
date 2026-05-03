@@ -52,6 +52,56 @@
 		alert("error: missing parent window for themes !");
 	}  
 
+	function getAceNs() {
+		if (typeof window.ace !== "undefined") {
+			return window.ace;
+		}
+		try {
+			if (typeof parent !== "undefined" && parent !== window && typeof parent.ace !== "undefined") {
+				return parent.ace;
+			}
+		} catch (e) {}
+		return undefined;
+	}
+
+	var ACE_CDN_BASE = "https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.2";
+	function configureAceCdnPaths(ace) {
+		if (!ace || !ace.config || typeof ace.config.set !== "function") {
+			return;
+		}
+		ace.config.set("basePath", ACE_CDN_BASE);
+		ace.config.set("workerPath", ACE_CDN_BASE);
+		ace.config.set("modePath", ACE_CDN_BASE);
+		ace.config.set("themePath", ACE_CDN_BASE);
+	}
+
+	function ensureAceStylesFromParentDoc() {
+		if (typeof parent === "undefined" || parent === window) {
+			return;
+		}
+		try {
+			var prev = document.head.querySelectorAll("style[data-ixmaps-ace-from-parent]");
+			for (var p = 0; p < prev.length; p++) {
+				prev[p].parentNode.removeChild(prev[p]);
+			}
+			var styles = parent.document.head.querySelectorAll("style[id]");
+			for (var i = 0; i < styles.length; i++) {
+				var src = styles[i];
+				var sid = src.id || "";
+				if (sid.indexOf("ace") === -1) {
+					continue;
+				}
+				var clone = document.createElement("style");
+				clone.id = sid;
+				clone.setAttribute("data-ixmaps-ace-from-parent", "1");
+				clone.textContent = src.textContent;
+				document.head.appendChild(clone);
+			}
+		} catch (e) {
+			console.warn("ensureAceStylesFromParentDoc:", e);
+		}
+	}
+
    	/**************************************************************** 
 	 *
 	 * apply new project definition after editing
@@ -81,16 +131,38 @@
 	 *
 	 ****************************************************************/
 	
+	var __loadEditorAceAttempts = 0;
+	var __LOAD_EDITOR_ACE_MAX = 40;
+
 	ixmaps.loadEditor = function(){
 
 		console.log("loadEditor");
 
-		if ( typeof(ace) === 'undefined' ){
-			setTimeout("ixmaps.loadEditor();",500);
+		var ace = getAceNs();
+		if (!ace) {
+			__loadEditorAceAttempts++;
+			if (__loadEditorAceAttempts >= __LOAD_EDITOR_ACE_MAX) {
+				console.error("loadEditor: ACE not available after retries.");
+				var pre = document.getElementById("editor");
+				if (pre) {
+					pre.textContent = "Error: ACE editor could not load.";
+				}
+				return;
+			}
+			setTimeout(ixmaps.loadEditor, 500);
 			return;
-		};
+		}
+		__loadEditorAceAttempts = 0;
+		configureAceCdnPaths(ace);
 		$("#editor-div").css("height","600px");
-        ixmaps.editor = ace.edit("editor-div");
+		var editorHost = document.getElementById("editor-div");
+		if (!editorHost) {
+			console.error("loadEditor: #editor-div missing");
+			return;
+		}
+		editorHost.innerHTML = "";
+        ixmaps.editor = ace.edit(editorHost);
+		ensureAceStylesFromParentDoc();
 
 		// enable autocompletion and snippets
 		ixmaps.editor.setOptions({
@@ -120,6 +192,13 @@
 
 		ixmaps.editor.getSession().setMode("ace/mode/json");
 		ixmaps.editor.setTheme("ace/theme/dawn");
+
+		setTimeout(function() {
+			ensureAceStylesFromParentDoc();
+			if (ixmaps.editor && ixmaps.editor.resize) {
+				ixmaps.editor.resize();
+			}
+		}, 0);
 
 		if ( ixmaps.getProjectString() ){
             

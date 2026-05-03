@@ -465,14 +465,6 @@
         <div id="map-popup" class="map-overlay z-index-2000 hidden">
         </div>
 
-        <!-- fullscreen button -->
-        <nav id="map-popout-button" class="map-overlay z-index-2000 hidden fullscreen-button-nav">
-            <div class="fullscreen-button-container">
-                <button type="button" onclick="ixmaps.popOutEmbed()" class="button-reset"><i class="icon icon-context icon-enlarge2" title="Fullscreen" tabindex="-1" class="fullscreen-icon"></i></button>
-            </div>
-
-        </nav>
-        
         <div id="map-dialog">
         </div>
     
@@ -481,8 +473,6 @@
     <!-- footer -->
     <footer id="map-footer" class="map-footer overlay-element" style="margin-left:2px;">
         <a href="http://ixmaps.com" target="_blank">powered by iXmaps </a> |
-        <button type="button" onclick="ixmaps.popupShare()" class="footer-button">share this map</button> |
-        <button type="button" onclick="ixmaps.popOutEmbed()" class="footer-button">view fullscreen</button>
     </footer>
 
     <!--========================================================================= 
@@ -578,21 +568,9 @@
             <li><button type="button" onclick="ixmaps.popupThemeFacets()" class="context-menu-button">
                     <i class="icon icon-context icon-filter" title="Layer" tabindex="-1" class="context-icon-margin"></i>
                     &nbsp;filter theme</button></li>
-            <li><button type="button" onclick="ixmaps.popupShare()" class="context-menu-button">
-                    <i class="icon icon-context icon-share2" title="Layer" tabindex="-1" class="context-icon-margin"></i>
-                    &nbsp;share map</button></li>
-
-            <li class="contextmenu-separator"></li>
-
-            <li><button type="button" onclick="ixmaps.popOutView()" class="context-menu-button">
-                    <i class="icon icon-context icon-share" title="Layer" tabindex="-1" class="context-icon-margin"></i>
-                    &nbsp;open in viewer</button></li>
-            <li><button type="button" onclick="ixmaps.popOutEdit()" class="context-menu-button">
-                    <i class="icon icon-context icon-share" title="Layer" tabindex="-1" class="context-icon-margin"></i>
-                    &nbsp;open in editor</button></li>
-            <li><button type="button" onclick="ixmaps.popOutProject()" class="context-menu-button">
-                    <i class="icon icon-context icon-share" title="Layer" tabindex="-1" class="context-icon-margin"></i>
-                    &nbsp;explore project</button></li>
+            <li><button type="button" onclick="ixmaps.popupAIChat()" class="context-menu-button">
+                    <i class="icon icon-context icon-bubble" title="AI Chat" tabindex="-1" class="context-icon-margin"></i>
+                    &nbsp;AI chat</button></li>
 
             <li class="contextmenu-separator"></li>
 

@@ -54,6 +54,62 @@
      
 	console.log("initialize theme editor");
 
+	// ACE is loaded via parent ixmaps.loadResources() → eval runs in the parent window, so `ace`
+	// lives on parent. This iframe must use parent.ace (same for dialog iframes).
+	function getAceNs() {
+		if (typeof window.ace !== "undefined") {
+			return window.ace;
+		}
+		try {
+			if (typeof parent !== "undefined" && parent !== window && typeof parent.ace !== "undefined") {
+				return parent.ace;
+			}
+		} catch (e) {}
+		return undefined;
+	}
+
+	// Must match ace / mode / theme URLs in loadThemeAndInit (worker-json.js resolves from here, not page URL).
+	var ACE_CDN_BASE = "https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.2";
+	function configureAceCdnPaths(ace) {
+		if (!ace || !ace.config || typeof ace.config.set !== "function") {
+			return;
+		}
+		ace.config.set("basePath", ACE_CDN_BASE);
+		ace.config.set("workerPath", ACE_CDN_BASE);
+		ace.config.set("modePath", ACE_CDN_BASE);
+		ace.config.set("themePath", ACE_CDN_BASE);
+	}
+
+	// ACE is evaluated in the parent window, so the base ace_editor.css is injected into the
+	// parent document only. Theme CSS uses the iframe's ownerDocument. Copy ACE <style> tags
+	// from the parent so the text layer is visible inside this iframe.
+	function ensureAceStylesFromParentDoc() {
+		if (typeof parent === "undefined" || parent === window) {
+			return;
+		}
+		try {
+			var prev = document.head.querySelectorAll("style[data-ixmaps-ace-from-parent]");
+			for (var p = 0; p < prev.length; p++) {
+				prev[p].parentNode.removeChild(prev[p]);
+			}
+			var styles = parent.document.head.querySelectorAll("style[id]");
+			for (var i = 0; i < styles.length; i++) {
+				var src = styles[i];
+				var sid = src.id || "";
+				if (sid.indexOf("ace") === -1) {
+					continue;
+				}
+				var clone = document.createElement("style");
+				clone.id = sid;
+				clone.setAttribute("data-ixmaps-ace-from-parent", "1");
+				clone.textContent = src.textContent;
+				document.head.appendChild(clone);
+			}
+		} catch (e) {
+			console.warn("ensureAceStylesFromParentDoc:", e);
+		}
+	}
+
    	/**************************************************************** 
 	 *
 	 * apply new theme definition after editing
@@ -66,7 +122,11 @@
 		console.log("applyEditorTheme: ixmaps.editor.themeId =", ixmaps.editor ? ixmaps.editor.themeId : "no editor");
 
 		if ( !ixmaps.editor ){
-			ixmaps.parentApi.error("no theme defined!");
+			if (ixmaps.parentApi && typeof ixmaps.parentApi.error === 'function') {
+				ixmaps.parentApi.error("no theme defined!");
+			} else {
+				console.error("applyEditorTheme: no theme defined!");
+			}
 			return;
 		}
 		var szThemeDef = ixmaps.editor.getValue();
@@ -77,6 +137,11 @@
 		var themeDefObj = theme.obj;
         
         console.log(ixmaps);
+
+		if (!themeDefObj) {
+			console.error("applyEditorTheme: theme JSON did not parse — check the editor for invalid JSON (see Config.parse error above).");
+			return;
+		}
 
 		// Use the theme ID that was stored when the editor was opened
 		// This is the theme being edited and must not change
@@ -198,21 +263,69 @@
 	 *
 	 ****************************************************************/
 	
+	var __loadEditorAceAttempts = 0;
+	var __LOAD_EDITOR_ACE_MAX = 40;
+
 	ixmaps.loadEditor = function(){
 
 		console.log("loadEditor");
 
-		if ( typeof(ace) === 'undefined' ){
-			setTimeout("ixmaps.loadEditor();",500);
+		var ace = getAceNs();
+		if (!ace) {
+			__loadEditorAceAttempts++;
+			if (__loadEditorAceAttempts >= __LOAD_EDITOR_ACE_MAX) {
+				console.error("loadEditor: ACE not available after retries (CDN blocked or load failed).");
+				var pre = document.getElementById("editor");
+				if (pre) {
+					pre.textContent = "Error: ACE editor could not load. Check network / CDN access.";
+				}
+				return;
+			}
+			setTimeout(ixmaps.loadEditor, 500);
 			return;
-		};
+		}
+		__loadEditorAceAttempts = 0;
+		configureAceCdnPaths(ace);
 		
 		// Preserve themeId before creating ACE editor (which overwrites ixmaps.editor)
 		var themeIdToEdit = ixmaps.editor && ixmaps.editor.themeId ? ixmaps.editor.themeId : null;
 		console.log("loadEditor: Preserving themeId =", themeIdToEdit);
+
+		// Chat injects this HTML into #themeEditorContent; dialog/context menu loads full page in iframe (parent is body).
+		var __ixmapsEditorInChatPanel = (function () {
+			var w = document.getElementById("editor-div");
+			return !!(w && w.parentElement && w.parentElement.id === "themeEditorContent");
+		})();
 		
-		$("#editor-div").css("height","600px");
-        ixmaps.editor = ace.edit("editor-div");
+		if (__ixmapsEditorInChatPanel) {
+			(function presetEditorDivHeight() {
+				var wrap = document.getElementById("editor-div");
+				var p = wrap ? wrap.parentElement : null;
+				var h = 480;
+				if (p && p.clientHeight > 120) {
+					var fh = 0;
+					var ft = document.getElementById("editor-footer");
+					if (ft) {
+						fh = ft.offsetHeight || 28;
+					}
+					h = Math.max(260, p.clientHeight - fh - 6);
+				}
+				$("#editor-div").css("height", h + "px");
+			})();
+		} else {
+			$("#editor-div").css("height", "600px");
+		}
+		// Pass the DOM node: parent-loaded ACE resolves string ids in the parent document;
+		// #editor-div lives in this iframe only.
+		var editorHost = document.getElementById("editor-div");
+		if (!editorHost) {
+			console.error("loadEditor: #editor-div missing");
+			return;
+		}
+		// ACE expects an empty container; the legacy <pre id="editor"> breaks the text layer.
+		editorHost.innerHTML = "";
+        ixmaps.editor = ace.edit(editorHost);
+		ensureAceStylesFromParentDoc();
         
         // Restore themeId after creating ACE editor
         if (themeIdToEdit) {
@@ -248,6 +361,13 @@
 		ixmaps.editor.getSession().setMode("ace/mode/json");
 		ixmaps.editor.setTheme("ace/theme/dawn");
 
+		setTimeout(function() {
+			ensureAceStylesFromParentDoc();
+			if (ixmaps.editor && ixmaps.editor.resize) {
+				ixmaps.editor.resize();
+			}
+		}, 0);
+
 		console.log("ready to load the theme");
 		console.log("loadEditor: Current editor.themeId =", ixmaps.editor.themeId);
 
@@ -263,10 +383,45 @@
 		}
 
 		//$("#editor-apply-button").button();
-		const hEditorApply = 0; //$("#editor-apply").height();
-		const hEditorFooter = $("#editor-footer").height();
-
-		$("#editor-div").height(($("#editor-div").parent().height()-hEditorApply-hEditorFooter-10)+"px");
+		if (__ixmapsEditorInChatPanel) {
+			var sizeEditorDivToParent = function() {
+				var ed = document.getElementById("editor-div");
+				if (!ed || !ixmaps.editor) {
+					return;
+				}
+				var p = ed.parentElement;
+				var hFooter = 0;
+				var ft = document.getElementById("editor-footer");
+				if (ft) {
+					hFooter = ft.offsetHeight || 0;
+				}
+				var avail = 0;
+				if (p && p.clientHeight > 0) {
+					avail = p.clientHeight - hFooter - 4;
+				} else {
+					avail = ($(ed).parent().height() || 400) - hFooter - 10;
+				}
+				avail = Math.max(220, avail);
+				ed.style.height = avail + "px";
+				if (ixmaps.editor.resize) {
+					ixmaps.editor.resize();
+				}
+			};
+			sizeEditorDivToParent();
+			setTimeout(sizeEditorDivToParent, 0);
+			setTimeout(sizeEditorDivToParent, 80);
+			setTimeout(sizeEditorDivToParent, 250);
+			window.__ixmapsThemeEditorResize = sizeEditorDivToParent;
+		} else {
+			try {
+				delete window.__ixmapsThemeEditorResize;
+			} catch (e) {
+				window.__ixmapsThemeEditorResize = undefined;
+			}
+			var hEditorApply = 0;
+			var hEditorFooter = $("#editor-footer").height();
+			$("#editor-div").height(($("#editor-div").parent().height() - hEditorApply - hEditorFooter - 10) + "px");
+		}
 		$("#editor-div").show();
 
 	};

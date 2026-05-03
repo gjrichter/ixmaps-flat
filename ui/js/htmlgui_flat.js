@@ -53,7 +53,7 @@
  * </html>
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 1.1 
+ * @version 1.0.1 
  * @copyright CC BY SA
  * @license MIT
  */
@@ -66,8 +66,8 @@
 (function (window, document, undefined) {
 
     var ixmaps = window.ixmaps || {}
-    ixmaps.version = "1.1";
-    ixmaps.JSON_Schema = "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json";
+    ixmaps.version = ixmaps.version || "1.0.1";
+    ixmaps.JSON_Schema = ixmaps.JSON_Schem || "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json";
 
     /**
      * Exposes the ixmaps object to the global window scope.
@@ -347,9 +347,23 @@
             }) => loadResource(url, type, target));
             const files = await Promise.all(fetchPromises);
 
+            // Indirect eval runs scripts in global scope so libraries (e.g. ACE) set window.ace.
+            // Direct eval would bind top-level `var` to loadResources() and break theme_editor's loadEditor().
+            const geval = eval;
             for (const file of files) {
                 if (typeof file === 'string') {
-                    eval(file); // Execute only JavaScript code.
+                    geval(file);
+                }
+            }
+
+            // Embed iframes often share parent.ixmaps; loadResources then evals in the parent's realm,
+            // so globals (e.g. window.dataSinks) land on the parent. Optional hook runs in the embed
+            // frame's realm to copy/sync into the iframe window before callbacks.
+            if (typeof ixmaps.__afterLoadResourcesEval === 'function') {
+                try {
+                    ixmaps.__afterLoadResourcesEval();
+                } catch (e) {
+                    console.warn('ixmaps.__afterLoadResourcesEval', e);
                 }
             }
             

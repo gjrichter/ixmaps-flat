@@ -1959,12 +1959,15 @@ $Log: htmlgui.js,v $
 				result.push(data);
 				return result;
 			} else {
-				// if is something like "theme:layername::itemname"
-				// remove first ":" qualifier from id
-				szItem = szItem.split(":");
-				szItem.shift();
-				szItem = szItem.join(":");
 				var dataA = ixmaps.embeddedSVG.window.map.Api.getMapThemeDataRow(theme, szItem);
+				if (dataA == null){
+					// if is something like "theme:layername::itemname"
+					// remove first ":" qualifier from id
+					szItem = szItem.split(":");
+					szItem.shift();
+					szItem = szItem.join(":");
+					dataA = ixmaps.embeddedSVG.window.map.Api.getMapThemeDataRow(theme, szItem);
+				}
 				var result = [];
 				var data = {};
 				var nItems = dataA.length / 2;

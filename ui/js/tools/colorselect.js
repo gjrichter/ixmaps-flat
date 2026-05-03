@@ -1,4 +1,4 @@
-(function( ixmaps, $, undefined ) {
+(function( ixmaps, undefined ) {
 
 	/* ---------------------------------------------------------------- */
 	/* L o c a l   D a t a														*/
@@ -174,7 +174,8 @@
 
 	ixmaps.setColors= function(colorSelect,flag,maxLen){
 		szSelectedColor = __getColorSchemeText(colorSelect,flag,maxLen);
-		$("#xcolor-label").html(szSelectedColor);
+		var el = document.getElementById("xcolor-label");
+		if (el) { el.innerHTML = szSelectedColor; }
 	};
 
 	ixmaps.getColors= function(colorSelect){
@@ -259,7 +260,7 @@
 	}
 
 
-}( window.ixmaps = window.ixmaps || {}, jQuery ));
+}( window.ixmaps = window.ixmaps || {} ));
 
 // .............................................................................
 // EOF

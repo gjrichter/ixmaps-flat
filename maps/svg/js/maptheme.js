@@ -651,6 +651,38 @@ $Log: maptheme.js,v $
 		return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	};
 
+	/**
+	 * SQL LIKE-style match: % = any run of chars, _ = one char.
+	 * If the pattern has no % or _, it is treated as %pattern% (substring / legacy behavior).
+	 */
+	var __safeSqlLikeMatch = function (value, sqlPattern, caseSensitive) {
+		try {
+			if (sqlPattern == null || typeof sqlPattern === 'undefined') {
+				return false;
+			}
+			sqlPattern = String(sqlPattern);
+			var flags = caseSensitive ? '' : 'i';
+			if (sqlPattern.indexOf('%') === -1 && sqlPattern.indexOf('_') === -1) {
+				sqlPattern = '%' + sqlPattern + '%';
+			}
+			var out = '';
+			for (var i = 0; i < sqlPattern.length; i++) {
+				var c = sqlPattern.charAt(i);
+				if (c === '%') {
+					out += '[\\s\\S]*?';
+				} else if (c === '_') {
+					out += '[\\s\\S]';
+				} else {
+					out += __escapeRegex(c);
+				}
+			}
+			var regex = new RegExp('^(?:' + out + ')$', flags);
+			return regex.test(String(value));
+		} catch (e) {
+			return false;
+		}
+	};
+
 	var __safeRegexMatch = function(value, pattern, caseSensitive) {
 		try {
 			var flags = caseSensitive ? 'g' : 'gi';
@@ -873,6 +905,7 @@ $Log: maptheme.js,v $
 				if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
 					map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
 						type: "layeradd",
+						szId: mapTheme.szId,
 						id:   mapTheme.szId,
 						szMap: map.HTMLWindow.ixmaps.szName || null
 					});
@@ -3274,6 +3307,7 @@ $Log: maptheme.js,v $
 			if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
 				map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
 					type: "layerdraw",
+					szId: mapTheme.szId,
 					id:   mapTheme.szId,
 					szMap: map.HTMLWindow.ixmaps.szName || null
 				});
@@ -7552,6 +7586,8 @@ $Log: maptheme.js,v $
 				this.fShadow = this.fOrigShadow = true;
 			}
 		}
+		// ZEROISNOTVALUE: always drop zero-value rows in load/aggregate (fNullIsValue may stay true for chart rules above)
+		this.fZeroExcludesInAggregation = !!this.szFlag.match(/ZEROISNOTVALUE/);
 		// GR 13.12.2020 CATEGORICAL must not have negative values
 		if (this.szFlag.match(/CATEGORICAL/) && !this.szFlag.match(/AGGREGATE/)) {
 			this.fNegativeValuePossible = false;
@@ -9050,7 +9086,7 @@ $Log: maptheme.js,v $
 												if (this.__szFilterValue == "*") {
 													result = this.__szValue.length;
 												} else {
-													result = __safeRegexMatch(this.__szValue, this.__szFilterValue, false);
+													result = __safeSqlLikeMatch(this.__szValue, this.__szFilterValue, false);
 												}
 											} else
 												if (this.__szFilterOp == "NOT") {
@@ -9852,6 +9888,7 @@ $Log: maptheme.js,v $
 		// --------------------------------------------
 
 		for (j = nContinue || 0; j < this.objTheme.dbRecords.length; j++) {
+			nCountA = undefined;
 
 			// execution canceled ? -----------------
 			if (this.fCancel) {
@@ -10044,6 +10081,8 @@ $Log: maptheme.js,v $
 			// Main logic
 			let suppress = false;
 			let nValuesA = new Array(this.szFieldsA.length).fill(null);
+			// per-field: zero is not a value (ZEROISNOTVALUE) — used for aggregate mean/sum; row is kept
+			let nZeroNotValueA = (this.fZeroExcludesInAggregation && this.__fAggregate) ? new Array(this.szFieldsA.length).fill(false) : null;
 
 			if (this.szFieldsA[0] === "$item$") {
 				nValuesA[0] = 1;
@@ -10073,9 +10112,16 @@ $Log: maptheme.js,v $
 							nValue = 0;
 						}
 					}
-					if (nValue === 0 && !this.fNullIsValue) {
-						suppress = true;
-						continue;
+					if (nValue === 0) {
+						if (this.fZeroExcludesInAggregation && this.__fAggregate) {
+							nValuesA[k] = 0;
+							nZeroNotValueA[k] = true;
+							continue;
+						}
+						if (!this.fNullIsValue) {
+							suppress = true;
+							continue;
+						}
 					}
 					if (nValue < 0 && !this.fNegativeValuePossible) {
 						suppress = true;
@@ -10108,7 +10154,15 @@ $Log: maptheme.js,v $
 					}
 				}
 			}
-
+			// ZEROISNOTVALUE: do not add this row's field100 to per-field weight when that field is a "no value" zero
+			// (keeps FRACTION / per-capite correct: only rows that contribute a value also contribute population for that field)
+			if (nZeroNotValueA && nValue100A && nValue100A.length) {
+				for (let zi = 0; zi < this.szFieldsA.length; zi++) {
+					if (nZeroNotValueA[zi]) {
+						nValue100A[zi] = 0;
+					}
+				}
+			}
 
 			let nValueSize = this.szSizeField && this.szSizeField !== "$item$" ? __scanValue(this.objTheme.dbRecords[j][this.objTheme.nSizeFieldIndex]) : 1;
 			if (!isValidValue(nValueSize, false, this.fNegativeValuePossible, this.fNullIsValue)) {
@@ -10346,6 +10400,9 @@ $Log: maptheme.js,v $
 						for (let k = 0; k < this.szFieldsA.length; k++) {
 							nSize = Math.max(nSize, nValuesA[k] || 0);
 						}
+						if (this.fZeroExcludesInAggregation && this.szFlag.match(/MEAN/) && nZeroNotValueA && !this.__fExact) {
+							nCountA = this.szFieldsA.map((_, k) => (nZeroNotValueA[k] ? 0 : 1));
+						}
 					}
 
 					// Create and initialize the item object
@@ -10400,7 +10457,15 @@ $Log: maptheme.js,v $
 						const len = this.szFieldsA.length;
 						for (let k = 0; k < len; k++) {
 							const value = nValuesA[k] || 0;
-							item.nValuesA[k] = this.__fMax ? Math.max(item.nValuesA[k], value) : item.nValuesA[k] + value;
+							const znv = nZeroNotValueA && nZeroNotValueA[k];
+							if (this.__fMax) {
+								item.nValuesA[k] = Math.max(item.nValuesA[k] || 0, value);
+							} else {
+								item.nValuesA[k] = (item.nValuesA[k] || 0) + value;
+							}
+							if (this.fZeroExcludesInAggregation && this.szFlag.match(/MEAN/) && item.nCountA && !this.__fExact && !znv) {
+								item.nCountA[k] = (item.nCountA[k] || 0) + 1;
+							}
 							item.nValue100A[k] = this.__fMax ? Math.max(item.nValue100A[k], nValue100A[k]) : item.nValue100A[k] + nValue100A[k];
 							nSize = Math.max(nSize, value);
 						}
@@ -10492,7 +10557,8 @@ $Log: maptheme.js,v $
 				if (this.szFlag.match(/FRACTION/)) {
 					for (a in this.itemA) {
 						for (k = 0; k < this.itemA[a].nValuesA.length; k++) {
-							this.itemA[a].nValuesA[k] = this.itemA[a].nValuesA[k] / (this.itemA[a].nValue100A[k]) * (this.nFractionScale || 1);
+							var d100 = this.itemA[a].nValue100A[k];
+							this.itemA[a].nValuesA[k] = (d100 > 0) ? (this.itemA[a].nValuesA[k] / d100 * (this.nFractionScale || 1)) : 0;
 						}
 					}
 				} else
@@ -10545,7 +10611,12 @@ $Log: maptheme.js,v $
 					for (a in this.itemA) {
 						if (this.itemA[a].nCountA) {
 							for (k = 0; k < this.itemA[a].nValuesA.length; k++) {
-								this.itemA[a].nValuesA[k] /= (this.itemA[a].nCountA[k] || 1);
+								var nDiv = this.itemA[a].nCountA[k];
+								if (nDiv > 0) {
+									this.itemA[a].nValuesA[k] /= nDiv;
+								} else {
+									this.itemA[a].nValuesA[k] = 0;
+								}
 							}
 						} else {
 							for (k = 0; k < this.itemA[a].nValuesA.length; k++) {
@@ -25191,6 +25262,7 @@ $Log: maptheme.js,v $
 			if (map.HTMLWindow.ixmaps.__dispatchMapItemEvents) {
 				map.HTMLWindow.ixmaps.__dispatchMapItemEvents({
 					type: "layerremove",
+					szId: this.szId,
 					id:   this.szId,
 					szMap: map.HTMLWindow.ixmaps.szName || null
 				});

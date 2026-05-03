@@ -1140,26 +1140,30 @@ $Log: mapscript2.js,v $
                 map.Themes.themeNodesPosA = [];
                 map.Themes.themeNodesA = [];
 
-                // Mark ALL themes for redraw with the flag to clear on projection change
-                // For adaptive projections, all themes need to be redrawn after projection parameter update
+                // Mark ALL themes for redraw with the flag to clear on projection change.
+                // Only do this when projection parameters actually changed; otherwise repeated
+                // sync calls during init would queue a full re-realize for every call and produce
+                // multiple visible draws (e.g. on the Lambert page).
                 var featureThemeCount = 0;
-                for (var i = 0; i < map.Themes.themesA.length; i++) {
-                    var theme = map.Themes.themesA[i];
-                    if (theme.szFlag) {
-                        theme.fRealize = true; // Use fRealize to trigger full redraw for all themes
-                        theme.fActualize = true;
-                        theme.fClearOnProjectionChange = true;
-                        featureThemeCount++;
+                if (result.changed) {
+                    for (var i = 0; i < map.Themes.themesA.length; i++) {
+                        var theme = map.Themes.themesA[i];
+                        if (theme.szFlag) {
+                            theme.fRealize = true; // realize() does a full rebuild
+                            theme.fActualize = false; // avoid redundant redraw after realizeDone
+                            theme.fClearOnProjectionChange = true;
+                            featureThemeCount++;
 
-                        // Clear position cache for this theme
-                        if (theme.themeNodesPosA) {
-                            theme.themeNodesPosA = [];
-                        }
-                        
-                        // Clear node cache (shape references) for this theme
-                        // This ensures getNodePosition() will re-fetch shapes after FEATURE redraw
-                        if (theme.themeNodesA) {
-                            theme.themeNodesA = [];
+                            // Clear position cache for this theme
+                            if (theme.themeNodesPosA) {
+                                theme.themeNodesPosA = [];
+                            }
+
+                            // Clear node cache (shape references) for this theme
+                            // Ensures getNodePosition() will re-fetch shapes after FEATURE redraw
+                            if (theme.themeNodesA) {
+                                theme.themeNodesA = [];
+                            }
                         }
                     }
                 }
@@ -1239,8 +1243,9 @@ $Log: mapscript2.js,v $
                     for (var i = 0; i < map.Themes.themesA.length; i++) {
                         var theme = map.Themes.themesA[i];
                         if (theme.szFlag){ // && theme.szFlag.match(/FEATURE/)) {
+                            // realize() is a full rebuild; do not also set fActualize (causes duplicate draw)
                             theme.fRealize = true;
-                            theme.fActualize = true;
+                            theme.fActualize = false;
                             theme.fClearOnProjectionChange = true;
                             featureThemeCount++;
                         }

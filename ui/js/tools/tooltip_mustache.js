@@ -70,6 +70,31 @@ window.ixmaps = window.ixmaps || {};
 	var __fTooltipPin = false;
 	var __fTooltipPinned = false;
 
+	/**
+	 * SVG map runs inside an iframe; evt.clientX/Y are relative to that frame's viewport.
+	 * HTML tooltips use position:fixed in the parent document — convert to parent viewport px.
+	 */
+	function parentViewportXY(evt, x, y) {
+		if (typeof x !== "number" || typeof y !== "number") {
+			return { x: x, y: y };
+		}
+		var v = evt && evt.view;
+		if ((!v || v === window) && evt && evt.target && evt.target.ownerDocument) {
+			v = evt.target.ownerDocument.defaultView;
+		}
+		if (!v || v === window) {
+			return { x: x, y: y };
+		}
+		try {
+			var fe = v.frameElement;
+			if (fe && typeof fe.getBoundingClientRect === "function") {
+				var br = fe.getBoundingClientRect();
+				return { x: x + br.left, y: y + br.top };
+			}
+		} catch (e) { }
+		return { x: x, y: y };
+	}
+
 	ixmaps.htmlgui_onTooltipDisplay = function (evt, szText, szId) {
 
 		// avoid empty tooltips
@@ -119,12 +144,23 @@ window.ixmaps = window.ixmaps || {};
 
 		if (evt.type == 'touchstart' || evt.type == 'touchmove' || evt.type == 'touchend' || evt.type == 'touchcancel') {
 			var touch = evt.touches[0] || evt.changedTouches[0];
-			xPos = touch.pageX;
-			yPos = touch.pageY;
+			if (touch) {
+				if (typeof touch.clientX === "number") {
+					xPos = touch.clientX;
+					yPos = touch.clientY;
+				} else {
+					xPos = touch.pageX;
+					yPos = touch.pageY;
+				}
+			}
 		} else if (evt.type == 'mousedown' || evt.type == 'mouseup' || evt.type == 'mousemove' || evt.type == 'mouseover' || evt.type == 'mouseout' || evt.type == 'mouseenter' || evt.type == 'mouseleave') {
 			xPos = evt.clientX;
 			yPos = evt.clientY;
 		}
+
+		var pv = parentViewportXY(evt, xPos, yPos);
+		xPos = pv.x;
+		yPos = pv.y;
 
 		var fontsize = Math.min(14, Math.max(11, (22 / 1200 * window.innerWidth)));
 
@@ -170,17 +206,12 @@ window.ixmaps = window.ixmaps || {};
 			// Always use requestAnimationFrame to ensure layout is complete
 			// This fixes the issue where first tooltip has wrong position
 			requestAnimationFrame(function() {
-				// Force layout recalculation by reading properties that trigger layout
 				var rect = tooltipDiv.getBoundingClientRect();
-				var width = rect.width || tooltipDiv.offsetWidth || tooltipDiv.clientWidth || window.innerWidth / 3;
-				var height = rect.height || tooltipDiv.offsetHeight || tooltipDiv.clientHeight || window.innerHeight / 3;
-				
-				// Recalculate position based on actual dimensions
-				var finalXPos = xPos > window.innerWidth / 2 ? (xPos - width - 30) : xPos + 30;
-				var finalYPos = yPos > window.innerHeight / 2 ? (yPos - height) : (yPos + 20);
-				finalYPos = Math.min(Math.max(10, finalYPos), window.innerHeight - height - 25);
-				
-				// Apply the corrected position
+				var tw = rect.width || tooltipDiv.offsetWidth || tooltipDiv.clientWidth || window.innerWidth / 3;
+				var th = rect.height || tooltipDiv.offsetHeight || tooltipDiv.clientHeight || window.innerHeight / 3;
+				var finalXPos = xPos > window.innerWidth / 2 ? (xPos - tw - 30) : (xPos + 30);
+				var finalYPos = yPos > window.innerHeight / 2 ? (yPos - th) : (yPos + 20);
+				finalYPos = Math.min(Math.max(10, finalYPos), window.innerHeight - th - 25);
 				tooltipDiv.style.left = finalXPos + "px";
 				tooltipDiv.style.top = finalYPos + "px";
 			});
@@ -256,7 +287,6 @@ window.ixmaps = window.ixmaps || {};
 
 		// check and if not the right theme (possible if onOver on map shape)
 		if (!themeObj || !(themeObj.szId == szId.split(":")[0]) || themeObj.szOrigFlag == "FEATURE" ) {
-			console.log("look for CHOROPLETH");
 			// look in all CHOROPLETH themes for the a corrisponding one
 			//
 			var themes = ixmaps.getThemes();
@@ -333,9 +363,8 @@ window.ixmaps = window.ixmaps || {};
 		
 		//var szHtml = themeObj.szTooltip || "no template! ";
 		var szHtml = themeObj.szTooltip || "<span style='white-space:nowrap;font-size:1.5em'>{{theme.title}}</span><br>{{theme.item.title}}{{theme.item.chart}}";
-		
 		var data = ixmaps.map() ? ixmaps.map().getData(szId) : null;
-		
+
 		var item = themeObj.itemA[szItem];
 		var nValuesA = item.nValuesA;
 		var nValue = item.nValue;
@@ -358,7 +387,7 @@ window.ixmaps = window.ixmaps || {};
 		// make data object to feed mustache rendering
 		
 		var dataObj = {};
-		
+
 		dataObj.theme = dataObj.theme || {};
 		dataObj.theme.title = themeObj.szTitle;
 		dataObj.theme.snippet = themeObj.szSnippet;

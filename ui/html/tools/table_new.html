@@ -112,10 +112,17 @@
         ixmaps.tmp = ixmaps.tmp || {};
 
         ixmaps.__showTable = function(){
-            // Set flag to prevent $(document).ready() from initializing again
+
+             // Set flag to prevent $(document).ready() from initializing again
             window.__tableInitializedManually = true;
             
-            const data = dataSinks.add(ixmaps.tmp.tableObj,"mytable");
+            // Use window.dataSinks — bare "dataSinks" is not a global lexical binding after
+            // dataprocess.js runs via eval/loadResources (only window.dataSinks is set).
+            if (!window.dataSinks || typeof window.dataSinks.add !== 'function') {
+                console.error('table viewer: window.dataSinks missing — load dataprocess.js first');
+                return;
+            }
+            const data = window.dataSinks.add(ixmaps.tmp.tableObj,"mytable");
             data.fShowAnalytics = true;
             
             // Set map property if theme is associated
@@ -217,7 +224,7 @@
             if (window.__tableInitializedManually || window.__skipTableAutoInit) {
                 window.__tableInitializedManually = false; // Reset flag
                 window.__skipTableAutoInit = false; // Reset flag
-                return;
+                //return;
             }
             
             // Check if a prepared table object already exists (e.g., from AI query)
@@ -237,6 +244,7 @@
                         type: 'js'
                     }
                 ];
+
                 // this loads the resources and calls ixmaps.loadEditor as callback
                 ixmaps.loadResources(_fileUrls, null, ixmaps.__showTable);
                 return; // Exit early, don't process default theme
@@ -267,7 +275,6 @@
 
             let numRows = tableObj.table.records;
             $('#ft-data-name').html(String(numRows) + " records <span style='font-size:smaller'>(please give me some time ...)</span>");
-            
             const _fileUrls = [
             {
                     url: 'ui/js/tools/dataprocess.js',
@@ -278,6 +285,7 @@
                     type: 'js'
                 }
             ];
+
             // this loads the resources and calls ixmaps.loadEditor as callback
             ixmaps.loadResources(_fileUrls, null, ixmaps.__showTable);
             var resize = function(resizeData){

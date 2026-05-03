@@ -294,10 +294,6 @@
 					<i class="icon shareIcon blackHover share_bitly icon-wrench" title="Open extended tools dialog" tabindex="0"></i>
 				</a>
 
-				<a href="javascript:ixmaps.popupShare();" aria-label="Share a short link">
-					<i class="icon shareIcon blackHover share_bitly icon-redo2" title="Share a short link" tabindex="0"></i>
-				</a>
-
 				<a href="javascript:ixmaps.popupThemeInfo();" aria-label="Show info of actual theme">
 					<i class="icon shareIcon blackHover share_bitly icon-info" title="Show info of actual theme" tabindex="0"></i>
 				</a>
@@ -406,10 +402,6 @@
 
 					<a href="javascript:ixmaps.popupExtendedTools();" aria-label="Open extended tools">
 						<i class="icon shareIcon blackHover share_bitly icon-wrench" title="Open extended tools" tabindex="0"></i>
-					</a>
-
-					<a href="javascript:ixmaps.popupShare();" aria-label="Share map">
-						<i class="icon shareIcon blackHover share_bitly icon-redo2" title="Share map" tabindex="0"></i>
 					</a>
 
 					<a href="javascript:ixmaps.popupExport();" style="margin-left:0.5em;vertical-align:6px;" aria-label="Export SVG">
@@ -698,10 +690,6 @@
 			api.openDialog(null, 'editor', ixmaps.szResourceBase+"ui/html/tools/popuptools_jquery.html", 'tools', '10,103', 380, 500);
 		};
 
-		ixmaps.popupShare = function() {
-			api.shareMap('dialog', '10,103');
-		};
-		
 		ixmaps.popupExport = function() {
 			api.exportMap('dialog', '10,103');
 		};
