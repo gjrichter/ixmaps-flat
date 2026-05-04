@@ -1,0 +1,13 @@
+<div id="ai-chat" style="width:100%;height:100%;min-height:520px;padding:0;margin:0;box-sizing:border-box;">
+	<iframe id="ixmaps-ai-chat-frame" style="border:0;width:100%;height:100%;min-height:520px;display:block;background:#fff;" title="iXMaps AI Chat"></iframe>
+</div>
+<script>
+(function () {
+	var base = (typeof ixmaps !== "undefined" && ixmaps.szResourceBase) ? ixmaps.szResourceBase : "";
+	var url = base + "app/Chat_split/index.html?embed=host";
+	var f = document.getElementById("ixmaps-ai-chat-frame");
+	if (f) {
+		f.src = url;
+	}
+})();
+</script>
