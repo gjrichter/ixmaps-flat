@@ -1726,10 +1726,20 @@ $Log: htmlgui.js,v $
 		try {
 			ixmaps.embeddedSVG.window.map.Api.showTheme(szThemeId);
 		} catch (e) { }
+		try {
+			if (typeof ixmaps.htmlgui_onDrawTheme === "function") {
+				ixmaps.htmlgui_onDrawTheme(szThemeId);
+			}
+		} catch (e) { }
 	};
 	ixmaps.hideTheme = function (szThemeId) {
 		try {
 			ixmaps.embeddedSVG.window.map.Api.hideTheme(szThemeId);
+		} catch (e) { }
+		try {
+			if (typeof ixmaps.htmlgui_onDrawTheme === "function") {
+				ixmaps.htmlgui_onDrawTheme(szThemeId);
+			}
 		} catch (e) { }
 	};
 	ixmaps.toggleTheme = function (szThemeId) {
@@ -1936,7 +1946,12 @@ $Log: htmlgui.js,v $
 	 */
 	ixmaps.getData = function (szItem) {
 		try {
-			var theme = szItem.split(":")[0];
+			// Prefer theme prefix before "::" (e.g. "spiagge::42"); split(":")[0]
+			// wrongly truncates IDs that legitimately contain a single ":".
+			var __themeSep = String(szItem).indexOf("::");
+			var theme = (__themeSep >= 0)
+				? String(szItem).slice(0, __themeSep)
+				: String(szItem).split(":")[0];
 			if (theme && (szItem.match("chartgroup") || szItem.match("chartontop") || szItem.match("text"))) {
 				// if is something like "theme:layername::itemname:chartgroup"
 				// remove first and the last ":" qualifier from id
@@ -1946,6 +1961,9 @@ $Log: htmlgui.js,v $
 				szItem = szItem.join(":");
 
 				var dataA = ixmaps.embeddedSVG.window.map.Api.getMapThemeDataRow(theme, szItem);
+				if (!dataA || dataA.length === 0) {
+					return null;
+				}
 				var result = [];
 				var data = {};
 				var nItems = dataA.length / 2;
@@ -1967,6 +1985,9 @@ $Log: htmlgui.js,v $
 					szItem.shift();
 					szItem = szItem.join(":");
 					dataA = ixmaps.embeddedSVG.window.map.Api.getMapThemeDataRow(theme, szItem);
+				}
+				if (!dataA || dataA.length === 0) {
+					return null;
 				}
 				var result = [];
 				var data = {};

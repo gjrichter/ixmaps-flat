@@ -1708,7 +1708,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
             if (themeObj.szFlag && themeObj.szFlag.match(/NOLEGEND/)) {
                 continue;
             }
-            
+            if (themeObj.fVisible === false || themeObj.fVisible === "false") {
+                continue;
+            }
             var themeName = themeObj.szLegendName || themeObj.szName || themeObj.szTitle || theme.szId;
             
             // Determine theme type from flags
@@ -2249,7 +2251,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     if (themeObj.szFlag && themeObj.szFlag.match(/NOLEGEND/)) {
                         continue;
                     }
-                    
+                    if (themeObj.fVisible === false || themeObj.fVisible === "false") {
+                        continue;
+                    }
                     var themeName = themeObj.szLegendName || themeObj.szName || themeObj.szTitle || theme.szId;
                     
                     // Determine theme type from flags
@@ -2405,7 +2409,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 if (themeObj.szFlag && themeObj.szFlag.match(/NOLEGEND/)) {
                     continue;
                 }
-                
+                if (themeObj.fVisible === false || themeObj.fVisible === "false") {
+                    continue;
+                }
                 // Skip themes with FEATURE flag but not CHOROPLETH flag
                 if (themeObj.szFlag && themeObj.szFlag.match(/FEATURE/) && !themeObj.szFlag.match(/CHOROPLETH/)) {
                     continue;

@@ -55,6 +55,10 @@ window.ixmaps = window.ixmaps || {};
 		})
 	);
 
+	/** Parquet/Arrow int64 may be BigInt; isNaN(bigint) throws. */
+	function tooltipMustacheNumericCell(v) {
+		return typeof v === "bigint" || !isNaN(v);
+	}
 
 	/**
 	 * intercept tooltip display of ythe SVG map
@@ -409,7 +413,7 @@ window.ixmaps = window.ixmaps || {};
 		if (data){
 			dObj = data[0];
 			for (var i in dObj){
-				if (!isNaN(dObj[i])){
+				if (tooltipMustacheNumericCell(dObj[i])){
 					dataObj[i] = (ixmaps.formatValue(dObj[i],themeObj.nValueDecimals||2,"BLANK"));
 					dataObj.raw[i] =  (dObj[i]);
 				}else{
@@ -806,7 +810,7 @@ window.ixmaps = window.ixmaps || {};
 							}
 						}
 						var value = dataObject[i];
-						var szValue = (isNaN(value) || value < 10000) ? String(value) : String(value);
+						var szValue = String(value);
 
 						if (szValue.match(/http:/) || szValue.match(/https:/)) {
 							if (szValue.match(/.jpg/) || szValue.match(/.jpeg/) || szValue.match(/.png/)) {
@@ -892,7 +896,7 @@ window.ixmaps = window.ixmaps || {};
 						}
 
 						var value = dataObject[i];
-						var szValue = (isNaN(value) || value < 10000) ? String(value) : String(value);
+						var szValue = String(value);
 						if (szValue.match(/http:/) || szValue.match(/https:/)) {
 							if (szValue.match(/.jpg/) || szValue.match(/.jpeg/) || szValue.match(/.png/)) {
 								szValue = "<img  src='" + szValue + "' style='max-width:100%'>";
