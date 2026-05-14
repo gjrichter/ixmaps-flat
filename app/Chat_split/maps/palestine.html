@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+  
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="ixmaps embed example">
+	<meta name="author" content="guenter richter">
+	<link rel="shortcut icon" href="https://gjrichter.github.io/ixmaps/ui/resources/images/ixmaps_logo.png">
+ 
+	<title>Created by Composer</title>
+</head>
+ 
+<body style="margin:0;padding:0;">
+ 
+	<!-- here goes the map -->
+	<div id="map-div"></div>
+ 
+	<!-- include the ixmaps API -->
+	<script src="https://gjrichter.github.io/ixmaps-flat/ui/js/htmlgui_flat.js"></script>
+ 
+	<script type="text/javascript" charset="utf-8">
+ 
+		// create and embed the map
+		// ! reference to "map-div", the hosting html div
+
+		ixmaps.Map("map-div", {
+			mapService: "leaflet_vt",
+			mapType: "VT_TOPO_TOPOGRAPHIQUE",
+			map: "../../maps/svg/maps/generic/mercator.svg",
+			name: "map_1",
+			mode: "pan",
+			legend: "true",
+			tools: "true",
+			search: "Europe",
+			about: "test"
+		},
+		map => map
+		.options({
+			featurescaling: "true",
+			objectscaling: "dynamic",
+			normalSizeScale: "402997",
+			flushChartDraw: "1000000",
+			flushPaintShape: "1000000",
+			basemapopacity: "0.5",
+			worksilent: "false",
+			loadsilent: "false",
+			hideOnPan:  "false",
+			freezeOnPan:"false",
+		})
+		.attribution("")
+		.legend("<div style='background-color: #ffffff; padding: 10px; border-radius: 5px;'><h3>Map of the West Bank and East Jerusalem</h3><small>source: Peace Now</small><br><br><hr><br>{{layers}}</div>")
+		.view({
+			center: {
+				lat: "31.949763387829716",
+				lng: "35.21785350890929"
+				},
+			zoom: "9.509023580532874"
+			})
+		.layer(ixmaps.layer("Geneva_Iniziative", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Geneva_Iniziative.geojson",
+				type: "geojson",
+				name: "data_1767384275102",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#dddd00"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#00dddd"],
+				linewidth: "3",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Geneva_Iniziative",
+				snippet: "",
+				description: "",
+				name: "Geneva Iniziative",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Areas_A_B_1995", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Areas_A_B_1995.geojson",
+				type: "geojson",
+				name: "data_1767384346070",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "TYPE4_3"
+				})
+			.type("FEATURE|CHOROPLETH|CATEGORICAL")
+			.style({
+				values: [
+					"a",
+					"b"
+				],
+				colorscheme: [
+					"#BE8E53",
+					"#DEBE73"
+				],
+				fillopacity: "0.7",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"none"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Areas_A_B_1995",
+				snippet: "",
+				description: "",
+				name: "Areas A B 1995",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Palestinian_Localities", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Palestinian_Localities.geojson",
+				type: "geojson",
+				name: "data_1767384488947",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				id: "OBJECTID",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#AE8900"],
+				fillopacity: "0.7",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"none"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Palestinian_Localities",
+				snippet: "",
+				description: "",
+				name: "Palestinian Localities",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Palestinian_Localities", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Palestinian_Localities.geojson",
+				type: "geojson",
+				name: "data_1767384488947",
+				cache: "true"
+				})
+			.binding({
+				geo: "OBJECTID",
+				value: "Z003_POPUL",
+				label: "NAME"
+				})
+			.type("CHART|BUBBLE")
+			.style({
+				colorscheme: [
+					"#880000"],
+				fillopacity: "0.5",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#884400"],
+				linewidth: "1.5",
+				labelfield: "NAME",
+				labelupper: "1:250000",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Palestinian Localities",
+				snippet: "",
+				description: "",
+				name: "Population of Palestinian Localities",
+				tooltip: "<h2>{{theme.title}}</h2>{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Settlement_Jurisdiction_160124", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Settlement_Jurisdiction_160124.geojson",
+				type: "geojson",
+				name: "data_1767384518332",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0000dd"],
+				fillopacity: "0.3",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"none"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Settlement_Jurisdiction_160124",
+				snippet: "",
+				description: "",
+				name: "Settlement Jurisdiction 160124",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Settlements_and_Outposts_14112024", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Settlements_and_Outposts_14112024.geojson",
+				type: "geojson",
+				name: "data_1767384544791",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0000dd"],
+				fillopacity: "0.5",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Settlements_and_Outposts_14112024",
+				snippet: "",
+				description: "",
+				name: "Settlements and Outposts 14112024",
+				tooltip: "{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("WB_Settlements_Evicted_in_2005", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/WB_Settlements_Evicted_in_2005.geojson",
+				type: "geojson",
+				name: "data_1767384580703",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "WB_Settlements_Evicted_in_2005",
+				snippet: "",
+				description: "",
+				name: "WB Settlements Evicted in 2005",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Jerusalem_Annexation", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Jerusalem_Annexation.geojson",
+				type: "geojson",
+				name: "data_1767384604625",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"red"],
+				fillopacity: "0.3",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Jerusalem_Annexation",
+				snippet: "",
+				description: "",
+				name: "Jerusalem Annexation",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("West_Jerusalem", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/West_Jerusalem.geojson",
+				type: "geojson",
+				name: "data_1767384631203",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#dd0000"],
+				fillopacity: "0.7",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "West_Jerusalem",
+				snippet: "",
+				description: "",
+				name: "West Jerusalem",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Settlement_in_East_Jerusalem", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Settlement_in_East_Jerusalem.geojson",
+				type: "geojson",
+				name: "data_1767384659631",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0000dd"],
+				fillopacity: "0.5",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Settlement_in_East_Jerusalem",
+				snippet: "",
+				description: "",
+				name: "Settlement in East Jerusalem",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Gaza_Settlements", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Gaza_Settlements.geojson",
+				type: "geojson",
+				name: "data_1767384682968",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Gaza_Settlements",
+				snippet: "",
+				description: "",
+				name: "Gaza Settlements",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Jerusalem_Micro_Settlements", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Jerusalem_Micro_Settlements.geojson",
+				type: "geojson",
+				name: "data_1767384708644",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Jerusalem_Micro_Settlements",
+				snippet: "",
+				description: "",
+				name: "Jerusalem Micro Settlements",
+				tooltip: "<h2>{{theme.title}}</h2>{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Green_Line", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Green_Line.geojson",
+				type: "geojson",
+				name: "data_1767384734174",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE|SILENT")
+			.style({
+				colorscheme: [
+					"green"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"green"],
+				linewidth: "3",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Green_Line",
+				snippet: "",
+				description: "",
+				name: "Green Line",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("Barrier_Built_and_Planned", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine/Barrier_Built_and_Planned.geojson",
+				type: "geojson",
+				name: "data_1767384758733",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "Status_sip"
+				})
+			.type("FEATURE|CHOROPLETH|CATEGORICAL")
+			.style({
+				values: [
+					"completed",
+					"planned"
+				],
+				colorscheme: [
+					"black",
+					"gray"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"black"],
+				linewidth: "1.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "Barrier_Built_and_Planned",
+				snippet: "",
+				description: "",
+				name: "Barrier Built and Planned",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+	);
+	</script>
+</body>
+</html>

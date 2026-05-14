@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iXMaps Simple Map - World Population</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #map_div {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map_div" style="width: 100%; height: 100%;"></div>
+
+    <!-- Load the ixmaps API -->
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/htmlgui_flat.js"></script>
+
+    <script type="text/javascript">
+        // 1. Initialize the map
+        ixmaps.Map("map_div", {
+            mapService: "leaflet_vt",
+            mapType: "white", // A clean, light basemap
+            mapProjection: "equalearth",
+            width: "100%",
+            height: "100%",
+            legend: "true",
+            mode: "pan"
+        }).then(map => {
+
+            // 2. Define the geographic base theme (Background Shapes)
+            // Loads TopoJSON and creates a FEATURE layer
+            // Type "FEATURE" tells iXMaps this is geometry to be used by other themes
+            var geoTheme = {
+                layer: "WorldCountries",
+                field: "ISO3_CODE", // The ID in TopoJSON to match against
+                style: {
+                    type: "FEATURE|NOLEGEND",
+                    colorscheme: ["lightgray"],
+                    fillopacity: "0.5",
+                    linecolor: "white",
+                    linewidth: "0.5",
+
+                    // TopoJSON Data Source
+                    dbtable: "geo_shapes",
+                    dbtableUrl: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+                    dbtableType: "topojson",
+
+                    // Explicitly state to use geometry from this source
+                    lookupfield: "geometry",
+                    itemfield: "ISO3_CODE"
+                }
+            };
+
+            // 3. Define the population chart theme (Bubbles)
+            // Loads CSV and refers to the SAME layer "WorldCountries"
+            var chartTheme = {
+                layer: "WorldCountries", // Must match the properties.layer of the geoTheme
+                field: "2016", // CSV Value Column
+                style: {
+                    type: "CHART|BUBBLE|VALUES|SIZE|TITLE|COMPACTLEGEND",
+                    colorscheme: [
+                        "red"
+                    ],
+                    fillopacity: "0.7",
+                    shadow: "false",
+                    showdata: "true",
+                    units: "",
+
+                    // CSV Data Source
+                    dbtable: "population_data",
+                    dbtableUrl: "https://s3.tebi.io/data/samples/world_country_population_1960_2016.csv",
+                    dbtableType: "csv",
+
+                    // Link CSV 'country_code' to TopoJSON 'ISO_A3' (from geoTheme)
+                    lookupfield: "country_code",
+                    normalsizevalue: "100000000"
+                }
+            };
+
+            // 4. Apply the themes
+            // First the background...
+            map.layer(geoTheme);
+            // ...then the charts on top
+            map.layer(chartTheme);
+
+            // Set initial view (World)
+            map.setView([20, 0], 1);
+        });
+    </script>
+</body>
+
+</html>

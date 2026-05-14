@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iXMaps Basemap Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        #map_div {
+            width: 500px;
+            height: 500px;
+            margin: 0 auto;
+            border: 2px solid #333;
+            background: white;
+        }
+        #status {
+            text-align: center;
+            margin: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Loading map...</div>
+    <div id="map_div"></div>
+
+    <!-- Load the ixmaps API -->
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+
+    <script type="text/javascript" charset="utf-8">
+        // Available basemaps
+        const vectorTileTypes = [
+            { id: 'VT_OPENSTREETMAP', name: 'OpenStreetMap' },
+            { id: 'VT_TONER', name: 'Toner' },
+            { id: 'VT_TONER_LITE', name: 'Toner Lite' },
+            { id: 'VT_DATAVIZ', name: 'DataViz' },
+            { id: 'VT_DATAVIZ_LIGHT', name: 'DataViz Light' },
+            { id: 'VT_DATAVIZ_DARK', name: 'DataViz Dark' },
+            { id: 'VT_BACKDROP', name: 'Backdrop' },
+            { id: 'VT_BACKDROP_LIGHT', name: 'Backdrop Light' },
+            { id: 'VT_BASIC', name: 'Basic' },
+            { id: 'VT_BASIC_LIGHT', name: 'Basic Light' },
+            { id: 'VT_BRIGHT', name: 'Bright' },
+            { id: 'VT_BRIGHT_LIGHT', name: 'Bright Light' },
+            { id: 'VT_VOYAGER', name: 'Voyager' },
+            { id: 'VT_VOYAGER_LIGHT', name: 'Voyager Light' },
+            { id: 'VT_TOPO', name: 'Topo' },
+            { id: 'VT_TOPO_SHINY', name: 'Topo Shiny' },
+            { id: 'VT_TOPO_TOPOGRAPHIQUE', name: 'Topo Topographique' }
+        ];
+        
+        const imageTileTypes = [
+            { id: 'OpenStreetMap - Osmarenderer', name: 'OpenStreetMap' },
+            { id: 'OpenStreetMap - wikipedia', name: 'OpenStreetMap Wikipedia' },
+            { id: 'OpenStreetMap - gray', name: 'OpenStreetMap Gray' },
+            { id: 'OpenStreetMap - roads', name: 'OpenStreetMap Roads' },
+            { id: 'OpenStreetMap - admin', name: 'OpenStreetMap Admin' },
+            { id: 'OpenStreetMap - admin - dark', name: 'OpenStreetMap Admin Dark' },
+            { id: 'OpenStreetMap - FR', name: 'OpenStreetMap FR' },
+            { id: 'OpenStreetMap - Transport', name: 'OpenStreetMap Transport' },
+            { id: 'Stamen - toner', name: 'Stamen Toner' },
+            { id: 'Stamen - toner-lite', name: 'Stamen Toner Lite' },
+            { id: 'Stamen - toner-hybrid', name: 'Stamen Toner Hybrid' },
+            { id: 'Stamen - watercolor', name: 'Stamen Watercolor' },
+            { id: 'Stamen - terrain', name: 'Stamen Terrain' },
+            { id: 'ArcGIS - Topo', name: 'ArcGIS Topo' },
+            { id: 'ArcGIS - Light Gray Base', name: 'ArcGIS Light Gray' },
+            { id: 'ArcGIS - Ocean Basemap', name: 'ArcGIS Ocean' },
+            { id: 'ArcGIS - Hillshade', name: 'ArcGIS Hillshade' },
+            { id: 'CartoDB - Positron', name: 'CartoDB Positron' },
+            { id: 'CartoDB - Dark matter', name: 'CartoDB Dark Matter' },
+            { id: 'MapTiler - Positron', name: 'MapTiler Positron' },
+            { id: 'MapTiler - Dark Matter', name: 'MapTiler Dark Matter' },
+            { id: 'NOKIA', name: 'Nokia/HERE' },
+            { id: 'NOKIA OVI - transit', name: 'Nokia Transit' },
+            { id: 'NOKIA - satellite', name: 'Nokia Satellite' },
+            { id: 'NOKIA - terrain', name: 'Nokia Terrain' },
+            { id: 'WAZE', name: 'Waze' },
+            { id: 'MapBox - OSM', name: 'MapBox OSM' },
+            { id: 'MapQuest - OSM (EU)', name: 'MapQuest OSM' },
+            { id: 'OpenTopoMap', name: 'OpenTopoMap' },
+            { id: 'OpenPtMap', name: 'OpenPtMap' },
+            { id: 'Openpistemap landschaded', name: 'OpenPisteMap' },
+            { id: 'RaceDotMap', name: 'Race Dot Map' },
+            { id: 'Black', name: 'Black' },
+            { id: 'White', name: 'White' },
+            { id: 'Gray', name: 'Gray' },
+            { id: 'transparent', name: 'Transparent' }
+        ];
+        
+        const allBasemaps = [...vectorTileTypes, ...imageTileTypes];
+        
+        // Get basemap from URL parameter
+        function getBasemapFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const basemapParam = urlParams.get('basemap');
+            
+            if (!basemapParam) {
+                return allBasemaps[0]; // Default to first basemap
+            }
+            
+            // Try to parse as number (index)
+            const index = parseInt(basemapParam);
+            if (!isNaN(index) && index >= 0 && index < allBasemaps.length) {
+                return allBasemaps[index];
+            }
+            
+            // Try to find by name (case-insensitive, partial match)
+            const searchName = basemapParam.toLowerCase();
+            const found = allBasemaps.find(b => 
+                b.name.toLowerCase() === searchName ||
+                b.name.toLowerCase().includes(searchName) ||
+                b.id.toLowerCase() === searchName ||
+                b.id.toLowerCase().includes(searchName)
+            );
+            
+            if (found) {
+                return found;
+            }
+            
+            // If not found, return first basemap
+            console.warn(`Basemap "${basemapParam}" not found, using default`);
+            return allBasemaps[0];
+        }
+        
+        // Get the basemap to use
+        const selectedBasemap = getBasemapFromURL();
+        document.getElementById('status').textContent = `Loading: ${selectedBasemap.name} (${selectedBasemap.id})`;
+        
+        // Initialize the map
+        ixmaps.Map("map_div", {
+            mapService: "leaflet_vt",
+            mapType: selectedBasemap.id,
+            map: "https://gjrichter.github.io/ixmaps-flat/maps/svg/maps/generic/mercator.svg",
+            legend: "false",
+            mode: "pan",
+            width: "500px",
+            height: "500px",
+            tools: "false"
+        }).then(map => {
+            map.view([41.9028, 12.4964], 10); // Center on Rome, Italy
+            document.getElementById('status').textContent = `Loaded: ${selectedBasemap.name}`;
+            
+            // Signal that map is ready for screenshot
+            window.mapReady = true;
+            window.currentBasemap = selectedBasemap;
+            
+            // Dispatch custom event for automation
+            window.dispatchEvent(new CustomEvent('mapReady', { 
+                detail: { basemap: selectedBasemap } 
+            }));
+        });
+        
+        // Expose basemaps globally
+        window.allBasemaps = allBasemaps;
+    </script>
+</body>
+</html>
+

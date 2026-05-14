@@ -1,0 +1,321 @@
+<!--
+  File: index_embed_terremoti_ultima_settimana.html
+  Project: iXMaps demo gallery
+  Author: Guenter Richter (original), (add maintainer if different)
+
+  Description:
+    Embedded article presenting recent seismic activity ("Terremoti ultima settimana").
+    Combines an iXMaps map with contextual text, data source references, and media
+    assets sourced from INGV.
+
+  Structure:
+    - Styled container for the map (#map_div) and supporting narrative
+    - Scripts embedding the earthquake theme and configuring map behavior
+    - Optional widgets/images reinforcing the story
+
+  Dependencies:
+    - iXMaps HTML GUI scripts referenced within the page
+    - Remote data feeds provided by INGV for earthquake events
+
+  Usage:
+    Publish directly or load via the demo viewer to review the most recent seismic
+    events in Italy. Serves as a template for map-centric storytelling.
+
+  Created: (insert date)
+  Last updated: (insert date)
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ixmaps example: Mappa interattiva dei terremoti della ultima settimana - fonte: INGV">
+    <meta name="author" content="guenter richter">
+    <link rel="shortcut icon" href="https://gjrichter.github.io/ixmaps/ui/resources/images/ixmaps_logo.png">
+    <title>iXMaps Example: Terremoti ultima settimana</title>
+    <style>
+        body {
+            text-align: center;
+            background: #F7F6EF;
+            margin: 0;
+            padding: 0;
+        }
+        #map_container {
+            margin: auto;
+        }
+        #map_div {
+            max-width: 1024px;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ============================================================
+    Map container
+    ============================================================ -->
+    <div id="map_container">
+        <div id="map_div"></div>
+    </div>
+
+    <!-- ============================================================= 
+    Load the ixmaps API
+    ============================================================= -->
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+
+    <!-- ============================================================= 
+    Configuration and map definition
+    ============================================================= -->
+    <script type="text/javascript" charset="utf-8">
+
+        // ============================================================
+        // Configuration Constants
+        // ============================================================
+        
+        const CONFIG = {
+            DAYS_BACK: 7,
+            DISS_DATA_URL: "https://raw.githubusercontent.com/gjrichter/data/master/TopoJSON/INGV/DISS_3.3.0.json",
+            INGV_BASE_URL: "https://webservices.ingv.it/fdsnws/event/1/query",
+            INITIAL_VIEW: [41.577354839557856, 15.468750000000002],
+            INITIAL_ZOOM: 6,
+            MAP_SVG: "../../maps/svg/maps/generic/mercator.svg",
+            
+            INGV_QUERY_PARAMS: {
+                minmag: 1,
+                maxmag: 10,
+                mindepth: -10,
+                maxdepth: 1000,
+                minlat: -90,
+                maxlat: 90,
+                minlon: -180,
+                maxlon: 180,
+                minversion: 100,
+                orderby: "time-asc",
+                format: "text",
+                limit: 10000
+            }
+        };
+
+        /**
+         * Query function to fetch earthquake data from INGV
+         * This function is converted to string and used in the theme definition
+         */
+        function queryEarthquakeData(data, options) {
+
+            const CONFIG = {
+                DAYS_BACK: 7,
+                DISS_DATA_URL: "https://raw.githubusercontent.com/gjrichter/data/master/TopoJSON/INGV/DISS_3.3.0.json",
+                INGV_BASE_URL: "https://webservices.ingv.it/fdsnws/event/1/query",
+                INITIAL_VIEW: [41.577354839557856, 15.468750000000002],
+                INITIAL_ZOOM: 6,
+                MAP_SVG: "../../maps/svg/maps/generic/mercator.svg",
+                
+                INGV_QUERY_PARAMS: {
+                    minmag: 1,
+                    maxmag: 10,
+                    mindepth: -10,
+                    maxdepth: 1000,
+                    minlat: -90,
+                    maxlat: 90,
+                    minlon: -180,
+                    maxlon: 180,
+                    minversion: 100,
+                    orderby: "time-asc",
+                    format: "text",
+                    limit: 10000
+                }
+            };
+
+            function getStartDate(daysAgo) {
+                const date = new Date();
+                date.setDate(date.getDate() - daysAgo);
+                
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                
+                return `${year}-${month}-${day}`;
+            }
+
+            function buildINGVQueryURL(startDate) {
+                const params = CONFIG.INGV_QUERY_PARAMS;
+                const queryParams = Object.entries(params)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join('&');
+                
+                return `${CONFIG.INGV_BASE_URL}?starttime=${startDate}T00%3A00%3A00&${queryParams}`;
+            }
+
+
+            const startDate = getStartDate(CONFIG.DAYS_BACK);
+            const queryURL = buildINGVQueryURL(startDate);
+
+            Data.feed({
+                source: queryURL,
+                type: "csv"
+            }).load(function(newData) {
+                newData.addTimeColumns({
+                    source: "Time"
+                });
+                options.type = "jsonDB";
+                ixmaps.setExternalData(newData, options);
+            });
+        }
+
+        // ============================================================
+        // DISS Layer Definitions
+        // ============================================================
+
+        /**
+         * DISS (Database of Individual Seismogenic Sources) layer configuration
+         * DISS_3.3.0.json contains 6 objects, we display 5 layers
+         */
+        const DISS_LAYERS = [
+            {
+                id: "DISS_3.3.0_1",
+                name: "DSS330",
+                object: "DSS330",
+                style: {
+                    colorscheme: ["#9FA0FF"],
+                    linecolor: "#9FA0FF"
+                }
+            },
+            {
+                id: "DISS_3.3.0_2",
+                name: "ISS330",
+                object: "ISS330",
+                style: {
+                    colorscheme: ["none"],
+                    linecolor: "#FD7A00"
+                }
+            },
+            {
+                id: "DISS_3.3.0_3",
+                name: "CSSPLN330",
+                object: "CSSPLN330",
+                style: {
+                    colorscheme: ["#FD7A00"],
+                    opacity: "0.3",
+                    linecolor: "none"
+                }
+            },
+            {
+                id: "DISS_3.3.0_3",
+                name: "CSSTOP330",
+                object: "CSSTOP330",
+                style: {
+                    colorscheme: ["#FD7A00"],
+                    linewidth: "0.3"
+                }
+            },
+            {
+                id: "DISS_3.3.0_3",
+                name: "SUBDCNT330",
+                object: "SUBDCNT330",
+                style: {
+                    colorscheme: ["#888888"],
+                    linewidth: "0.1"
+                }
+            }
+        ];
+
+        /**
+         * Create a DISS layer using the layer configuration
+         * @param {Object} layerConfig - Layer configuration object
+         * @returns {Object} ixmaps layer instance
+         */
+        function createDISSLayer(layerConfig) {
+            return ixmaps.Layer(layerConfig.id)
+                .data({
+                    name: layerConfig.name,
+                    object: layerConfig.object,
+                    url: CONFIG.DISS_DATA_URL,
+                    type: "topojson"
+                })
+                .style(layerConfig.style)
+                .meta({
+                    title: layerConfig.name
+                })
+                .define();
+        }
+
+        // ============================================================
+        // Map Embedding
+        // ============================================================
+
+        ixmaps.Map("map_div", {
+            mapService: "leaflet_vt",
+            mapType: "ArcGIS - Topo",
+            map: CONFIG.MAP_SVG,
+            legend: "true",
+            mode: "pan",
+            search: "Italy",
+            width: "100%",
+            tools: "true"
+        }).then(map => map
+            
+            .view(CONFIG.INITIAL_VIEW, CONFIG.INITIAL_ZOOM)
+            .options({
+                featurescaling: "dynamic",
+                objectscaling: "dynamic",
+                normalSizeScale: "10000000",
+                freezeOnPan: "false",
+                hideOnPan: "false"
+            })
+
+            // Add DISS layers (Database of Individual Seismogenic Sources)
+            // DISS_3.3.0.json contains 6 objects, we display 5
+            .layer(createDISSLayer(DISS_LAYERS[0]))
+            .layer(createDISSLayer(DISS_LAYERS[1]))
+            .layer(createDISSLayer(DISS_LAYERS[2]))
+            .layer(createDISSLayer(DISS_LAYERS[3]))
+            .layer(createDISSLayer(DISS_LAYERS[4]))
+
+            // Add earthquake data layer (last week earthquakes)
+            .layer(
+                ixmaps.Layer("World Mercator")
+                    .data({
+                        type: "ext",
+                        query: queryEarthquakeData.toString(),
+                        cache: "false"
+                    })
+                    .binding({
+                        value: "Depth/Km",
+                        position: "Latitude|Longitude",
+                        size: "Magnitude",
+                        title: "EventLocationName"
+                    })
+                    .style({
+                        type: "CHART|BUBBLE|QUANTILE|LINEAR|VALUES|COUNT",
+                        colorscheme: [
+                            "7",
+                            "RGB(245,41,38)",
+                            "RGB(74,74,255)",
+                            "dynamic"
+                        ],
+                        fillopacity: "0.7",
+                        shadow: "true",
+                        legendunits: "km",
+                        normalsizevalue: "5",
+                        scale: "1",
+                        timefield: "Time",
+                        valuefield: "Magnitude",
+                        valuescale: "1.2",
+                        valuedecimals: "1",
+                        showdata: "true"
+                    })
+                    .meta({
+                        title: "Terremoti della ultima settimana",
+                        snippet: "Il colore rappresenta la profondità mentra la grandezza la magnitudine",
+                        description: "Fonte: INGV Centro Nazionale Terremoti licenza cc-by-4.0",
+                        tooltip: "<h2 style='margin:0 0 0.2em 0'>{{EventLocationName}}</h2>{{theme.item.chart}}{{theme.item.data}}"
+                    })
+                    .define()
+            )
+        );
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,187 @@
+<!--
+  File: minimal_map_EU_fullscreen_lambert.html
+  Project: iXMaps demo gallery
+  Author: (add maintainer name if desired)
+
+  Description:
+    Fullscreen European map using the Lambert Azimuthal Equal Area projection.
+    Illustrates how the automated Lambert parameter calculation feeds into the
+    same Eurostat tertiary education choropleth used in other projection samples.
+
+  Structure:
+    - Fullscreen map container (#map_div)
+    - iXMaps embed configuring Lambert SVG, NUTS reference layers, and Eurostat theme
+
+  Dependencies:
+    - ../../../ui/js/ixmaps.js
+    - GISCO NUTS GeoJSON services
+    - Eurostat CSV for tertiary education statistics
+
+  Usage:
+    Compare with Albers and Winkel variants to evaluate projection differences for
+    Europe-centric thematic maps.
+
+  Created: (insert date)
+  Last updated: (insert date)
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>iXMaps example - Multivariate Choropleth Map - Albert Equal Area</title>
+</head>
+<body style="margin:0;padding:0;width:100%;height:100%">
+    <div id="map_div" style="width:100%;height:100%;"></div>
+    
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+    
+    <script>
+
+		var world_grid = ixmaps.layer("world_grid", layer => layer
+                .data({
+                    url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/world_graticules/ne_110m_graticules_5.topojson",
+                    type: "topojson"
+                    })
+                .type("FEATURE")
+                .style({
+                    colorscheme: [
+                        "#ccddff"],
+                    linecolor: [
+                        "#ccddff"],		
+                    linewidth: "1"
+                    })
+                .meta({
+                    name: "world_grid"
+                })
+            );
+            
+		var world_countries = ixmaps.layer("world_countries", (layer) => layer
+				.data({
+					url: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+					type: "topojson"
+				})
+				// define id as ISO3_CODE, to be used later for the chart layer
+				.binding({ id: "ISO3_CODE" })
+				.style({
+					colorscheme: ["#eeeeee"],
+					fillopacity: "0.7",
+					linecolor: ["black"],
+					linewidth: ["0.1"],
+				})
+                .meta({
+                    name: "world_countries"
+                })
+            );
+
+		var nuts_0 = ixmaps
+			.layer("nuts_0")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_0.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID"
+			})
+			.type("FEATURES|SILENT")
+			.style({
+				colorscheme: ["none"],
+				linecolor: ["#0088dd"],
+				linewidth: "1"
+			})
+			.meta({
+				name: "nuts_0"
+			})
+			.define();
+
+		var nuts_1 = ixmaps
+			.layer("nuts_1")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_1.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID"
+			})
+			.style({
+				colorscheme: ["rgba(255,255,255,0.2)"],
+				linecolor: ["#0088dd"],
+				linewidth: "0.6"
+			})
+			.meta({
+				name: "nuts_1"
+			})
+			.define();
+
+		var nuts_2 = ixmaps
+			.layer("nuts_2")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_2.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID",
+				name: "nuts_2"
+			})
+			.style({
+				colorscheme: ["rgba(255,255,255,0.2)"],
+				linecolor: ["#0088dd"],
+				linewidth: "0.2"
+			})
+			.meta({
+				title: "nuts_2",
+				name: "nuts_2"
+			})
+			.define();
+
+		var nuts_3 = ixmaps
+			.layer("nuts_3")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_3.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID"
+			})
+			.style({
+				colorscheme: ["rgba(255,255,255,0.2)"],
+				linecolor: ["#0088dd"],
+				linewidth: "0.2"
+			})
+			.meta({
+				name: "nuts_3"
+	        })
+			.define();
+
+		var attribution = '<span style="font-family:MV boli;margin-bottom:-2em">data: EUROSTAT <a href=https://ec.europa.eu/eurostat/databrowser/view/tgs00100/default/table?lang=en/" target="_blank">Total fertility rate by NUTS 2 region</a>, powered by <a href="http://ixmaps.com" target="_blank">iXMaps</a</span>';
+
+		// ----------------------------------------
+		// create the map
+		// ----------------------------------------
+
+		ixmaps.Map("map_div", {
+					mapService: "leaflet",
+					mapType: "white",
+					mapProjection: "lambert",
+					mode: "pan",
+					tools: "true",
+					legend: "true",
+					legendState: "closed"
+				}).then(map => map
+				.view([51.43209416269992, 19.80295632748655], 3.8)
+				.options({
+					objectscaling: "dynamic", // grafici crescono leggermente con lo zoom
+					normalSizeScale: "5000000", // grandezza 'normale' al livello 1:5.000.000
+					dynamicScalePow: "1.8", // dynamica, 1 crescita lineare, valori > 1 meno crescita
+					panhidden: "false" // grafici visibile durante lo spostamento della mappa
+				})
+				.attribution(attribution)
+				.layer(world_grid)
+				.layer(world_countries)
+				.layer(nuts_0)
+				.layer(nuts_1)
+				.layer(nuts_2)
+				.layer(nuts_3)
+			);
+    </script>
+</body>
+</html>

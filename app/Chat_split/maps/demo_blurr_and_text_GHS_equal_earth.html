@@ -1,0 +1,257 @@
+<!--
+  File: demo_blurr_and_text_GHS.html
+  Project: iXMaps demo gallery
+  Maintainer: (add maintainer name if desired)
+
+  Description:
+    Visualizes ambient PM2.5 concentration (2014) from the GHS Urban Centre
+    Database with two complementary layers:
+      - A glowing blur aggregate to emphasise spatial clusters
+      - Scaled text bubbles showing population-weighted values and units
+
+  Structure:
+    - Fullscreen map container (#map_div)
+    - Custom query function fetching data from data.world
+    - Two thematic layers (glow cloud + text values) bound to identical data
+    - iXMaps embed call instantiating the base map and attaching layers
+
+  Dependencies:
+    - ../../../ui/js/ixmaps.js
+    - data.world API (requires bearer token present below)
+
+  Usage:
+    Open directly or via the dual pane viewer to examine PM2.5 hot spots across
+    global urban centres with both ambient glow and numeric annotations.
+
+  Created: 2025-11-11
+  Last updated: 2025-11-11
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>iXMaps example - Multilayer Map - blurr color and text</title>
+</head>
+
+<body style="margin:0;padding:0;width:100%;height:100%">
+    <div id="map_div" style="width:100%;height:100%;"></div>
+
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+
+    <script>
+
+        /**
+         * Build and execute the remote data.world query required by the layer definitions.
+         *
+         * @param {Object} themeObj - Theme metadata provided by iXMaps that includes field bindings.
+         * @param {Object} options - Query options including the layer name needed by ixmaps.setData.
+         */
+        query = function (themeObj, options) {
+            /**
+             * Assemble the list of fields that must be returned by the API call.
+             */
+            var szRequestedFields = "";
+            var nFields = themeObj.szFieldsA.length;
+            var szField = themeObj.szFieldsA[0];
+
+            for (var i = 0; i < nFields; i++) {
+                szRequestedFields += (i > 0 ? "," : "") + themeObj.szFieldsA[i];
+            }
+            szRequestedFields +=
+                (themeObj.szField100 && themeObj.szField100.length
+                    ? "," + themeObj.szField100
+                    : "") +
+                (themeObj.szTitleField && themeObj.szTitleField.length
+                    ? "," + themeObj.szTitleField
+                    : "") +
+                (themeObj.szSizeField && themeObj.szSizeField.length
+                    ? "," + themeObj.szSizeField
+                    : "") +
+                (themeObj.szAlphaField && themeObj.szAlphaField.length
+                    ? "," + themeObj.szAlphaField
+                    : "");
+
+            /** Always include geometry and naming fields needed for positioning. **/
+
+            if (!szRequestedFields.match(/GCPNT_LAT/i)) {
+                szRequestedFields += ",GCPNT_LAT";
+            }
+            if (!szRequestedFields.match(/GCPNT_LON/i)) {
+                szRequestedFields += ",GCPNT_LON";
+            }
+            if (!szRequestedFields.match(/UC_NM_MN/i)) {
+                szRequestedFields += ",UC_NM_MN";
+            }
+
+            /** Prepare the AJAX request configuration for the data.world API. **/
+
+            var settings = {
+                async: true,
+                crossDomain: true,
+                url:
+                    "https://api.data.world/v0/sql/grichter/ghsstatucdb2015mtglober2019av11?includeTableSchema=false&query=SELECT%20" +
+                    szRequestedFields +
+                    "%20FROM%20GHS_STAT_UCDB2015MT_GLOBE_R2019A_V1_1",
+                method: "GET",
+                headers: {
+                    authorization:
+                        "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJwcm9kLXVzZXItY2xpZW50OmdyaWNodGVyIiwiaXNzIjoiYWdlbnQ6Z3JpY2h0ZXI6OjFkMTJiY2VjLTQ0NzItNDg2Mi05YmZmLTE2YTBlMDY4Y2M1ZSIsImlhdCI6MTQ5OTA5MzQ0Niwicm9sZSI6WyJ1c2VyX2FwaV9yZWFkIiwidXNlcl9hcGlfd3JpdGUiXSwiZ2VuZXJhbC1wdXJwb3NlIjp0cnVlLCJzYW1sIjp7fX0.udmbmg8WGyDRwEevNUrsWVcF_ESbTuTWq6wTPse2c0oFBRGUVqU5WLPk0iSs0BV2eT-j225Y5rTio_xfIo9TaA",
+                    accept: "application/json"
+                },
+                data: "{}"
+            };
+
+            /** Execute the request and load the response into iXMaps once ready. **/
+
+            $.ajax(settings).done(function (response) {
+                if (response) {
+                    /** Wrap the response with Data.js helper for iXMaps ingestion. **/
+                    Data.object({
+                        source: response,
+                        type: "json"
+                    }).import(function (mydata) {
+                        /** Finally feed the dataset into the requested theme. **/
+                        ixmaps.setData(mydata, {
+                            type: "dbtable",
+                            name: options.name
+                        });
+                    });
+                } else {
+                    alert("error loading data from data.world");
+                }
+            });
+        }
+
+		var world_grid = ixmaps.layer("world_grid", layer => layer
+                .data({
+                    url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/world_graticules/ne_110m_graticules_5.topojson",
+                    type: "topojson"
+                    })
+                .type("FEATURE")
+                .style({
+                    colorscheme: [
+                        "#dddddd"],
+                    linecolor: [
+                        "#dddddd"],		
+                    linewidth: "1"
+                    })
+                .meta({
+                    title: "world grid"
+                    })
+            );
+
+
+        /** Define background layer with world countries. **/
+        world = ixmaps.Layer("generic", (layer) =>
+            layer
+                .data({
+                    url: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+                    type: "topojson"
+                })
+                // define id as ISO3_CODE, to be used later for the chart layer
+                .binding({ id: "ISO3_CODE" })
+                .style({
+                    colorscheme: ["#dddddd"],
+                    fillopacity: "0.7",
+                    linecolor: ["white"],
+                    linewidth: "1   ",
+                })
+        )
+
+
+        /** Define layer visualising PM2.5 concentration as a blurred glow cloud. **/
+        cloud = ixmaps.Layer("generic", (layer) =>
+            layer
+                .data({
+                    name: "GHS_data_2",
+                    query: query.toString(),
+                    type: "ext"
+                })
+                .binding({
+                    value: "E_CPM2_T14",
+                    position: "GCPNT_LAT|GCPNT_LON"
+                })
+                .type("GLOW|CHART|BUBBLE|AGGREGATE|MEAN")
+                .style({
+                    colorscheme: ["15", "#F2F226", "#100050", "3colors", "#CC4878"],
+                    opacity: "0.5",
+                    fillopacity: "0.0001",
+                    textcolor: "black",
+                    scale: "0.5",
+                    linecolor: ["none"],
+                    gridwidthpx: "5",
+                    title: "Concertation of PM2.5 in 2014",
+                    description: "data: GHS Urban Centre Database 2015",
+                    name: "cloud"
+                })
+        )
+        /** Define layer adding textual values scaled by urban population. **/
+        textvalues = ixmaps.Layer("generic", (layer) =>
+            layer
+                .data({
+                    name: "GHS_data",
+                    query: query.toString(),
+                    type: "ext"
+                })
+                .binding({
+                    value: "E_CPM2_T14",
+                    position: "GCPNT_LAT|GCPNT_LON",
+                    title: "UC_NM_MN",
+                    size: "P15"
+                })
+                .type("CHART|BUBBLE|QUANTILE|VALUES|NOLEGEND")
+                .style({
+                    colorscheme: ["5", "#F2F226", "#000000", "3colors", "#D2E216"],
+                    fillopacity: "0.001",
+                    textcolor: "black",
+                    rangecentervalue: "0",
+                    units: "μg",
+                    units100: "",
+                    refreshtimeout: "0",
+                    normalsizevalue: "10000000",
+                    scale: "1",
+                    valuescale: "1",
+                    valuedecimals: "1",
+                    maxcharts: "100",
+                    title: "Concertation of PM2.5 in 2014",
+                    description: "data: GHS Urban Centre Database 2015",
+                    name: "textvalues"
+                })
+        )
+
+        /** Instantiate the map, configure view/options, and add both thematic layers. **/
+        ixmaps.Map('map_div', {
+            mapType: "white",
+            width: "90%",
+            height: "800px",
+            legend: 1,
+            name: "map1"
+        }).then(map => map
+            .view({
+                center: {
+                    lat: "12.211180191503997",
+                    lng: "58.99414062500001"
+                },
+                zoom: "1.7"
+            })
+            .options({
+                scrollsafesilent: "true",
+                objectscaling: "dynamic",
+                normalsizescale: "55364168",
+                flushChartDraw: "1000000",
+                panhidden: "false"
+            })
+            .layer(world_grid)
+            .layer(world)
+            .layer(cloud)
+            .layer(textvalues)
+        );
+
+
+
+
+    </script>
+</body>
+
+</html>

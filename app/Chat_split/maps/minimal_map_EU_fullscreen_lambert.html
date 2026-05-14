@@ -1,0 +1,265 @@
+<!--
+  File: minimal_map_EU_fullscreen_lambert.html
+  Project: iXMaps demo gallery
+  Author: (add maintainer name if desired)
+
+  Description:
+    Fullscreen European map using the Lambert Azimuthal Equal Area projection.
+    Illustrates how the automated Lambert parameter calculation feeds into the
+    same Eurostat tertiary education choropleth used in other projection samples.
+
+  Structure:
+    - Fullscreen map container (#map_div)
+    - iXMaps embed configuring Lambert SVG, NUTS reference layers, and Eurostat theme
+
+  Dependencies:
+    - ../../../ui/js/ixmaps.js
+    - GISCO NUTS GeoJSON services
+    - Eurostat CSV for tertiary education statistics
+
+  Usage:
+    Compare with Albers and Winkel variants to evaluate projection differences for
+    Europe-centric thematic maps.
+
+  Created: (insert date)
+  Last updated: (insert date)
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>iXMaps example - Multivariate Choropleth Map - Albert Equal Area</title>
+</head>
+<body style="margin:0;padding:0;width:100%;height:100%">
+    <div id="map_div" style="width:100%;height:100%;"></div>
+    
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+    
+    <script>
+
+		var world_grid = ixmaps.layer("world_grid", layer => layer
+                .data({
+                    url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/world_graticules/ne_110m_graticules_5.topojson",
+                    type: "topojson"
+                    })
+                .type("FEATURE")
+                .style({
+                    colorscheme: [
+                        "#ccddff"],
+                    linecolor: [
+                        "#ccddff"],		
+                    linewidth: "1"
+                    })
+                .meta({
+                    title: "world grid"
+                    })
+            );
+            
+		var world_countries = ixmaps.layer("world_countries", (layer) => layer
+				.data({
+					url: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+					type: "topojson"
+				})
+				// define id as ISO3_CODE, to be used later for the chart layer
+				.binding({ id: "ISO3_CODE" })
+				.style({
+					colorscheme: ["#eeeeee"],
+					fillopacity: "0.7",
+					linecolor: ["black"],
+					linewidth: ["0.1"],
+				})
+            );
+
+		var nuts_0 = ixmaps
+			.layer("nuts_0")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_0.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID"
+			})
+			.type("FEATURES|SILENT")
+			.style({
+				colorscheme: ["none"],
+				linecolor: ["#dddddd"],
+				linewidth: "1"
+			})
+			.define();
+
+		var nuts_2 = ixmaps
+			.layer("nuts_2")
+			.data({
+				url: "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_10M_2021_4326_LEVL_2.geojson",
+				type: "geojson"
+			})
+			.binding({
+				id: "NUTS_ID"
+			})
+			.style({
+				colorscheme: ["rgba(255,255,255,0.2)"],
+				linecolor: ["none"],
+				linewidth: "0.01"
+			})
+			.define();
+
+		var choropleth = ixmaps
+			.theme("nuts_2")
+			.data({
+				name: "themeDataObj",
+				url: "https://s3.eu-west-1.amazonaws.com/data.ixmaps.com/EuroStat/tertiary_education_age_25_34_NUTS2_2000_2022.csv",
+				type: "csv",
+				cache: "true"
+			})
+			.binding({
+				geo: "GEO_CODE",
+				value: "2000|2001|2002|2003|2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|2020|2021",
+				title: "GEO_NAME"
+			})
+			.style({
+				type: "CHOROPLETH|ZEROISNOTVALUE|LEGEND|CLIP|PAUSE|LAST|COMPACTLEGEND",
+				colorscheme: [
+					"#dd0000",
+					"#FF8888",
+					"#5ABBB9",
+					"#4A8CA8",
+					"#435B9F",
+					"#2C2F7A"
+				],
+				opacity: "0.9",
+				ranges: [0, 20, 26, 32, 38, 47, 100],
+				label: [" ", " ", " ", " ", " ", " ", " "],
+				xaxis: ["2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2008", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021"],
+				showdata: "true",
+				units: "%",
+				textcolor: "white",
+				titlefield: "GEO_NAME",
+				nodatacolor: "RGB(221,221,221)",
+				valueupper: "1:10000000",
+				valuescale: "1",
+				valuedecimals: "1",
+				clipframes: "22",
+				clipframerate: "24"
+			})
+			.meta({
+				title: "<span style='font-family:MV boli;font-size:1.5em;font-weight:700;line-height:1em'>Tertiary education 2021 age 25-35</span>",
+                tooltip: "<h3 style='font-family:MV boli;font-size:1.5em;font-weight:700;line-height:1em;margin-bottom:0.5em'>{{theme.item.title}}</h3>{{theme.item.chart}}"
+			})
+			.define();
+
+		// last percentage as text (aggregated)
+
+		var texts = ixmaps
+			.theme("nuts_2")
+			.data({
+				name: "themeDataObj",
+				url: "https://s3.eu-west-1.amazonaws.com/data.ixmaps.com/EuroStat/tertiary_education_age_25_34_NUTS2_2000_2022.csv",
+				type: "csv",
+				cache: "true"
+			})
+			.filter("WHERE 2021 > 0")
+			.type("CHART|LABEL|VALUES|TEXTONLY|FIXSIZE|NOLEGEND")
+			.binding({
+				geo: "GEO_CODE",
+				value: "2021"
+			})
+			.style({
+				colorscheme: [
+					"RGBA(255,255,255,0.5)"
+				],
+				scale: "1.5",
+				textcolor: "#000000",
+				titlefield: "GEO_NAME",
+				units: "%",
+				chartupper: "1:5000000",
+				valuedecimals: "1",
+				offsety: "-1"
+			})
+			.meta({
+				title: "<span style='font-family:MV boli;font-size:1.5em;font-weight:700'>Tertiary education 2021 age 25-35</span>"
+			})
+			.define()
+
+		// from 2010 to 2021 as curves (zoom dependent)
+
+		var curves = ixmaps
+			.theme("nuts_2")
+			.data({
+				name: "themeDataObj",
+				url: "https://s3.eu-west-1.amazonaws.com/data.ixmaps.com/EuroStat/tertiary_education_age_25_34_NUTS2_2000_2022.csv",
+				type: "csv",
+				cache: "true"
+			})
+			.filter("WHERE 2020 > 0")
+			.type("CHART|SYMBOL|PLOT|LINES|AREA|VALUES|LASTPOP|MAX|GRID|BOX|NOLEGEND")
+			.binding({
+				geo: "GEO_CODE",
+				value: ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021"],
+				title: "GEO_NAME"
+			})
+			.style({
+				colorscheme: [
+					"#dd0000",
+					"#FF8888",
+					"#5ABBB9",
+					"#4A8CA8",
+					"#435B9F",
+					"#2C2F7A"
+				],
+				ranges: [0, 20, 26, 32, 38, 47, 100],
+				symbols: ["none"],
+				xaxis: ["2010", "'", "'", "'", "'", "2015", "'", "'", "'", "'", "2020", "'"],
+				fillopacity: "0.8",
+				units: "%",
+				boxcolor: "none",
+				scale: "0.15",
+				align: "23right|bottom",
+				linewidth: "5",
+				boxcolor: "none",
+				bordercolor: "none",
+				gridwidth: "25px",
+				chartupper: "1:5000000",
+				boxupper: "1:2000000"
+			})
+			.meta({
+				title: "<span style='font-family:MV boli;font-size:1.5em;font-weight:700'>Tertiary education 2010-2021 age 25-35"
+			})
+			.define();
+
+
+
+
+		var attribution = '<span style="font-family:MV boli;margin-bottom:-2em">data: EUROSTAT <a href=https://ec.europa.eu/eurostat/databrowser/view/tgs00100/default/table?lang=en/" target="_blank">Total fertility rate by NUTS 2 region</a>, powered by <a href="http://ixmaps.com" target="_blank">iXMaps</a</span>';
+
+		// ----------------------------------------
+		// create the map
+		// ----------------------------------------
+
+		ixmaps.Map("map_div", {
+					mapService: "leaflet",
+					mapType: "white",
+					mapProjection: "lambert",
+					mode: "pan",
+					tools: "true",
+					legend: "true",
+					legendState: "closed"
+				}).then(map => map
+				.view([51.43209416269992, 19.80295632748655], 3.8)
+				.options({
+					objectscaling: "dynamic", // grafici crescono leggermente con lo zoom
+					normalSizeScale: "5000000", // grandezza 'normale' al livello 1:5.000.000
+					dynamicScalePow: "1.8", // dynamica, 1 crescita lineare, valori > 1 meno crescita
+					panhidden: "false" // grafici visibile durante lo spostamento della mappa
+				})
+				.attribution(attribution)
+				.layer(world_grid)
+				.layer(world_countries)
+				.layer(nuts_2)
+				.layer(nuts_0)
+				.layer(choropleth)
+				.layer(texts)
+				.layer(curves)
+			);
+    </script>
+</body>
+</html>

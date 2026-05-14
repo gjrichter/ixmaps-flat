@@ -1,0 +1,90 @@
+<!--
+  File: minimal_map_World_blueprint.html
+  Project: iXMaps demo gallery
+  Author: (add maintainer name if desired)
+
+  Description:
+    Minimal template combining a vector-tile basemap with a lightweight world
+    outline layer styled in a "blueprint" aesthetic.
+
+  Structure:
+    - Map container (#map_div) sized to 550px height
+    - iXMaps embed using the leaflet_vt service with VT_BASIC_LIGHT basemap
+    - Additional TopoJSON outline layer providing reference boundaries
+
+  Dependencies:
+    - ../../../ui/js/ixmaps.js
+    - CNTR_RG_10M_2020 TopoJSON for outlines
+
+  Usage:
+    Use as a quick visual prototype for blueprint-style thematic maps.
+
+  Created: (insert date)
+  Last updated: (insert date)
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>iXMaps example</title>
+</head>
+
+<body style="margin:0;padding:0">
+    <div id="map_div" style="width:100%;height:550px"></div>
+
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+
+    <script>
+        // Minimal map setup
+        ixmaps.Map('map_div', {
+            mapService: "leaflet_vt",
+            maptype: "VT_BASIC_LIGHT",
+            align: ""
+        }).then(map => { map
+            .view({
+                center: {
+                    lat: "41.83772819520844",
+                    lng: "12.61766102462664"
+                    },
+                zoom: "6.087442084085341"
+			})
+            .options({
+                basemapopacity: "0.5",
+                hideOnPan: "false",
+                freezeOnPan: "false"
+            })
+
+            // World countries layer
+            // this layer can be used as geografic reference for the chart layer
+
+            .layer(
+                ixmaps.Layer("World_countries")
+                    .data({
+                        url: "https://geometries.s3.tebi.io/administrative_boundaries/italy/comuni/2025/ondata_confini_amministrativi_api_v2_it_20250101_comuni.geo.parquet",
+                        type: "parquet"
+                    })
+                    .type("FEATURES|NOLEGEND")
+                    .style({
+                        colorscheme: [
+                            "#eeeeee"],
+                        fillopacity: "0.1",
+                        showdata: "true",
+                        linecolor: [
+                            "#0088dd"],
+                        linewidth: "0.5"
+                    })
+                    .meta({
+                        title: "Countries of the world]",
+                        snippet: "",
+                        description: "",
+                        name: "World_countries",
+                        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+                    })
+                    .json()
+            )
+        });
+    </script>
+</body>
+
+</html>

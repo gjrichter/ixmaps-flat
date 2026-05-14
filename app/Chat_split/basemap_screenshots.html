@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iXMaps Basemap Screenshots</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        #map_div {
+            width: 500px;
+            height: 500px;
+            margin: 20px auto;
+            border: 2px solid #333;
+            background: white;
+        }
+        #status {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #controls {
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Loading map...</div>
+    <div id="map_div"></div>
+    <div id="controls">
+        <button id="startBtn" onclick="startScreenshots()">Start Screenshots</button>
+        <button id="nextBtn" onclick="nextBasemap()" disabled>Next Basemap</button>
+    </div>
+
+    <!-- Load the ixmaps API -->
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+
+    <script type="text/javascript" charset="utf-8">
+        // Available basemaps
+        const vectorTileTypes = [
+            { id: 'VT_OPENSTREETMAP', name: 'OpenStreetMap' },
+            { id: 'VT_TONER', name: 'Toner' },
+            { id: 'VT_TONER_LITE', name: 'Toner Lite' },
+            { id: 'VT_DATAVIZ', name: 'DataViz' },
+            { id: 'VT_DATAVIZ_LIGHT', name: 'DataViz Light' },
+            { id: 'VT_DATAVIZ_DARK', name: 'DataViz Dark' },
+            { id: 'VT_BACKDROP', name: 'Backdrop' },
+            { id: 'VT_BACKDROP_LIGHT', name: 'Backdrop Light' },
+            { id: 'VT_BASIC', name: 'Basic' },
+            { id: 'VT_BASIC_LIGHT', name: 'Basic Light' },
+            { id: 'VT_BRIGHT', name: 'Bright' },
+            { id: 'VT_BRIGHT_LIGHT', name: 'Bright Light' },
+            { id: 'VT_VOYAGER', name: 'Voyager' },
+            { id: 'VT_VOYAGER_LIGHT', name: 'Voyager Light' },
+            { id: 'VT_TOPO', name: 'Topo' },
+            { id: 'VT_TOPO_SHINY', name: 'Topo Shiny' },
+            { id: 'VT_TOPO_TOPOGRAPHIQUE', name: 'Topo Topographique' }
+        ];
+        
+        const imageTileTypes = [
+            { id: 'OpenStreetMap - Osmarenderer', name: 'OpenStreetMap' },
+            { id: 'OpenStreetMap - wikipedia', name: 'OpenStreetMap Wikipedia' },
+            { id: 'OpenStreetMap - gray', name: 'OpenStreetMap Gray' },
+            { id: 'OpenStreetMap - roads', name: 'OpenStreetMap Roads' },
+            { id: 'OpenStreetMap - admin', name: 'OpenStreetMap Admin' },
+            { id: 'OpenStreetMap - admin - dark', name: 'OpenStreetMap Admin Dark' },
+            { id: 'OpenStreetMap - FR', name: 'OpenStreetMap FR' },
+            { id: 'OpenStreetMap - Transport', name: 'OpenStreetMap Transport' },
+            { id: 'Stamen - toner', name: 'Stamen Toner' },
+            { id: 'Stamen - toner-lite', name: 'Stamen Toner Lite' },
+            { id: 'Stamen - toner-hybrid', name: 'Stamen Toner Hybrid' },
+            { id: 'Stamen - watercolor', name: 'Stamen Watercolor' },
+            { id: 'Stamen - terrain', name: 'Stamen Terrain' },
+            { id: 'ArcGIS - Topo', name: 'ArcGIS Topo' },
+            { id: 'ArcGIS - Light Gray Base', name: 'ArcGIS Light Gray' },
+            { id: 'ArcGIS - Ocean Basemap', name: 'ArcGIS Ocean' },
+            { id: 'ArcGIS - Hillshade', name: 'ArcGIS Hillshade' },
+            { id: 'CartoDB - Positron', name: 'CartoDB Positron' },
+            { id: 'CartoDB - Dark matter', name: 'CartoDB Dark Matter' },
+            { id: 'MapTiler - Positron', name: 'MapTiler Positron' },
+            { id: 'MapTiler - Dark Matter', name: 'MapTiler Dark Matter' },
+            { id: 'NOKIA', name: 'Nokia/HERE' },
+            { id: 'NOKIA OVI - transit', name: 'Nokia Transit' },
+            { id: 'NOKIA - satellite', name: 'Nokia Satellite' },
+            { id: 'NOKIA - terrain', name: 'Nokia Terrain' },
+            { id: 'WAZE', name: 'Waze' },
+            { id: 'MapBox - OSM', name: 'MapBox OSM' },
+            { id: 'MapQuest - OSM (EU)', name: 'MapQuest OSM' },
+            { id: 'OpenTopoMap', name: 'OpenTopoMap' },
+            { id: 'OpenPtMap', name: 'OpenPtMap' },
+            { id: 'Openpistemap landschaded', name: 'OpenPisteMap' },
+            { id: 'RaceDotMap', name: 'Race Dot Map' },
+            { id: 'Black', name: 'Black' },
+            { id: 'White', name: 'White' },
+            { id: 'Gray', name: 'Gray' },
+            { id: 'transparent', name: 'Transparent' }
+        ];
+        
+        const allBasemaps = [...vectorTileTypes, ...imageTileTypes];
+        
+        let mapInstance = null;
+        let currentBasemapIndex = 0;
+        let isTakingScreenshots = false;
+        
+        // Initialize the map
+        ixmaps.Map("map_div", {
+            mapService: "leaflet_vt",
+            mapType: allBasemaps[0].id,
+            map: "https://gjrichter.github.io/ixmaps-flat/maps/svg/maps/generic/mercator.svg",
+            legend: "false",
+            mode: "pan",
+            width: "500px",
+            height: "500px",
+            tools: "false"
+        }).then(map => {
+            mapInstance = map;
+            window.mapInstance = map; // Expose globally
+            map.view([41.9028, 12.4964], 10); // Center on Rome, Italy
+            document.getElementById('status').textContent = `Map loaded. Ready to take screenshots. Total basemaps: ${allBasemaps.length}`;
+            document.getElementById('startBtn').disabled = false;
+            window.mapReady = true; // Signal that map is ready
+        });
+        
+        // Function to change basemap
+        function changeBasemap(basemapId) {
+            if (!mapInstance) {
+                console.error('Map not initialized');
+                return Promise.reject('Map not initialized');
+            }
+            
+            return new Promise((resolve, reject) => {
+                try {
+                    // Try multiple methods to change basemap
+                    if (mapInstance.setMapTypeId) {
+                        mapInstance.setMapTypeId(basemapId);
+                    } else if (mapInstance.setMapType) {
+                        mapInstance.setMapType(basemapId);
+                    } else if (window.ixmaps && window.ixmaps.setMapTypeId) {
+                        window.ixmaps.setMapTypeId(basemapId);
+                    } else if (window.ixmaps && window.ixmaps.htmlMap_setMapTypeId) {
+                        window.ixmaps.htmlMap_setMapTypeId(basemapId);
+                    } else if (window.ixmaps && window.ixmaps.embeddedSVG && 
+                               window.ixmaps.embeddedSVG.window && 
+                               window.ixmaps.embeddedSVG.window.map && 
+                               window.ixmaps.embeddedSVG.window.map.Api &&
+                               window.ixmaps.embeddedSVG.window.map.Api.setMapTypeId) {
+                        window.ixmaps.embeddedSVG.window.map.Api.setMapTypeId(basemapId);
+                    } else {
+                        reject('Cannot change basemap: setMapTypeId method not available');
+                        return;
+                    }
+                    
+                    // Wait for basemap to load
+                    setTimeout(() => {
+                        resolve();
+                    }, 2000); // Wait 2 seconds for basemap to load
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        
+        // Function to check if canvas has actual content
+        function canvasHasRealContent(canvas) {
+            if (!canvas || canvas.width === 0 || canvas.height === 0) return false;
+            
+            try {
+                // Try to get 2D context first
+                let ctx = canvas.getContext('2d', { willReadFrequently: true });
+                
+                // If 2D context is null, it's likely a WebGL canvas - use toDataURL to check
+                if (!ctx) {
+                    // For WebGL canvases, try toDataURL - if it returns valid data, canvas has content
+                    try {
+                        const dataURL = canvas.toDataURL('image/png');
+                        // If toDataURL returns a valid data URL (not "data:,"), canvas has content
+                        return dataURL && dataURL.length > 100 && !dataURL.startsWith('data:,');
+                    } catch (e) {
+                        // If toDataURL fails, assume canvas has content (can't verify)
+                        console.warn('Cannot verify WebGL canvas content, assuming it has content');
+                        return true;
+                    }
+                }
+                
+                // For 2D canvases, sample multiple areas
+                const sampleAreas = [
+                    [0, 0, Math.min(100, canvas.width), Math.min(100, canvas.height)], // Top-left
+                    [canvas.width - Math.min(100, canvas.width), 0, Math.min(100, canvas.width), Math.min(100, canvas.height)], // Top-right
+                    [0, canvas.height - Math.min(100, canvas.height), Math.min(100, canvas.width), Math.min(100, canvas.height)], // Bottom-left
+                    [Math.floor(canvas.width / 2) - 50, Math.floor(canvas.height / 2) - 50, 100, 100] // Center
+                ];
+                
+                for (const [x, y, w, h] of sampleAreas) {
+                    if (x >= 0 && y >= 0 && x + w <= canvas.width && y + h <= canvas.height && w > 0 && h > 0) {
+                        try {
+                            const imageData = ctx.getImageData(x, y, w, h);
+                            // Check if there are non-white/non-transparent pixels
+                            for (let i = 0; i < imageData.data.length; i += 4) {
+                                const r = imageData.data[i];
+                                const g = imageData.data[i + 1];
+                                const b = imageData.data[i + 2];
+                                const a = imageData.data[i + 3];
+                                // If pixel has opacity and is not white, canvas has content
+                                if (a > 10 && (r < 250 || g < 250 || b < 250)) {
+                                    return true;
+                                }
+                            }
+                        } catch (e) {
+                            // Skip this sample area if it fails
+                            continue;
+                        }
+                    }
+                }
+                return false;
+            } catch (e) {
+                console.warn('Error checking canvas content:', e);
+                // If we can't check, assume it might have content to avoid false negatives
+                return true;
+            }
+        }
+        
+        // Function to wait for map tiles to load
+        function waitForTilesToLoad(isVectorTile) {
+            return new Promise((resolve) => {
+                // For vector tiles, wait longer and check for map ready state
+                if (isVectorTile) {
+                    // Wait for map to be ready
+                    let attempts = 0;
+                    const maxAttempts = 40; // 20 seconds total
+                    const checkReady = () => {
+                        attempts++;
+                        // Check if map has loaded tiles
+                        const mapDiv = document.getElementById('map_div');
+                        if (mapDiv) {
+                            // Look for leaflet map container
+                            const leafletContainer = mapDiv.querySelector('.leaflet-container');
+                            if (leafletContainer) {
+                                // For vector tiles, check for canvas elements (Mapbox GL uses canvas)
+                                const canvas = leafletContainer.querySelector('canvas');
+                                
+                                // Check if canvas exists and has content
+                                if (canvas && canvas.width > 0 && canvas.height > 0) {
+                                    const hasContent = canvasHasRealContent(canvas);
+                                    if (hasContent || attempts >= maxAttempts) {
+                                        if (hasContent) {
+                                            console.log(`Canvas has content after ${attempts} attempts`);
+                                        } else {
+                                            console.warn(`Canvas still appears empty after ${attempts} attempts, proceeding anyway`);
+                                        }
+                                        // Additional wait for rendering to complete
+                                        setTimeout(resolve, 3000);
+                                        return;
+                                    }
+                                }
+                                
+                                // Also check for tile images (fallback for image-based vector tiles)
+                                const tiles = leafletContainer.querySelectorAll('img.leaflet-tile-loaded');
+                                if (tiles.length > 0 && attempts >= 10) {
+                                    setTimeout(resolve, 2000);
+                                    return;
+                                }
+                            }
+                        }
+                        if (attempts < maxAttempts) {
+                            setTimeout(checkReady, 500);
+                        } else {
+                            // Timeout - proceed anyway after additional wait
+                            console.warn('Timeout waiting for tiles, proceeding anyway');
+                            setTimeout(resolve, 3000);
+                        }
+                    };
+                    checkReady();
+                } else {
+                    // For image tiles, wait for images to load
+                    let attempts = 0;
+                    const maxAttempts = 20;
+                    const checkReady = () => {
+                        attempts++;
+                        const mapDiv = document.getElementById('map_div');
+                        if (mapDiv) {
+                            const leafletContainer = mapDiv.querySelector('.leaflet-container');
+                            if (leafletContainer) {
+                                const tiles = leafletContainer.querySelectorAll('img.leaflet-tile-loaded');
+                                if (tiles.length > 0 || attempts >= maxAttempts) {
+                                    setTimeout(resolve, 2000);
+                                    return;
+                                }
+                            }
+                        }
+                        if (attempts < maxAttempts) {
+                            setTimeout(checkReady, 500);
+                        } else {
+                            setTimeout(resolve, 2000);
+                        }
+                    };
+                    checkReady();
+                }
+            });
+        }
+        
+        // Function to take screenshot using html2canvas
+        function takeScreenshot(basemapName) {
+            return new Promise((resolve, reject) => {
+                // Sanitize filename
+                const safeName = basemapName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                
+                // Use html2canvas if available
+                if (typeof html2canvas !== 'undefined') {
+                    const mapDiv = document.getElementById('map_div');
+                    if (!mapDiv) {
+                        reject(new Error('Map div not found'));
+                        return;
+                    }
+                    
+                    // Suppress image loading errors during screenshot
+                    const originalErrorHandler = window.onerror;
+                    const errorHandler = (event, source, lineno, colno, error) => {
+                        // Suppress image loading errors during screenshot
+                        if (source && (source.includes('img') || source.includes('Image'))) {
+                            return true; // Suppress the error
+                        }
+                        // Let other errors through
+                        if (originalErrorHandler) {
+                            return originalErrorHandler(event, source, lineno, colno, error);
+                        }
+                        return false;
+                    };
+                    window.onerror = errorHandler;
+                    
+                    // Also add error event listener to suppress image errors
+                    const suppressImageErrors = (e) => {
+                        if (e.target && e.target.tagName === 'IMG') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                        }
+                    };
+                    document.addEventListener('error', suppressImageErrors, true);
+                    
+                    console.log(`Starting screenshot for ${basemapName}...`);
+                    
+                    // Function to proceed with html2canvas (used as fallback or for vector tiles)
+                    const proceedWithHtml2Canvas = () => {
+                        console.log(`Using html2canvas for ${basemapName}`);
+                        html2canvas(mapDiv, {
+                            width: 500,
+                            height: 500,
+                            useCORS: true,
+                            allowTaint: true,
+                            logging: false,
+                            scale: 1,
+                            backgroundColor: '#ffffff',
+                            // Options for capturing canvas/WebGL content
+                            foreignObjectRendering: false, // Disable for better WebGL support
+                            // Remove proxy - not needed
+                            proxy: undefined,
+                            // For WebGL canvases, we need to capture the container, not the canvas itself
+                            // html2canvas will try to render what's visible
+                            onclone: (clonedDoc, element) => {
+                                // For vector tiles, try to ensure the map container is visible
+                                const clonedMapDiv = clonedDoc.getElementById('map_div');
+                                if (clonedMapDiv) {
+                                    // Make sure the container is visible and has proper dimensions
+                                    clonedMapDiv.style.width = '500px';
+                                    clonedMapDiv.style.height = '500px';
+                                    clonedMapDiv.style.display = 'block';
+                                    clonedMapDiv.style.visibility = 'visible';
+                                }
+                                
+                                // Wait for any images to load
+                                const images = clonedDoc.querySelectorAll('img');
+                                return Promise.all(Array.from(images).map(img => {
+                                    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+                                    return new Promise((resolve) => {
+                                        img.onload = resolve;
+                                        img.onerror = resolve;
+                                        setTimeout(resolve, 1000);
+                                    });
+                                }));
+                            }
+                        }).then(canvas => {
+                            // Restore original error handler immediately after canvas is created
+                            window.onerror = originalErrorHandler;
+                            document.removeEventListener('error', suppressImageErrors, true);
+                            
+                            console.log(`Canvas created for ${basemapName}, width: ${canvas?.width}, height: ${canvas?.height}`);
+                            
+                            if (!canvas) {
+                                console.error(`Canvas is null for ${basemapName}`);
+                                reject(new Error('Canvas is null'));
+                                return;
+                            }
+                            
+                            // Check if canvas is empty (all white/transparent)
+                            try {
+                                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                                const sampleSize = Math.min(200, Math.min(canvas.width, canvas.height));
+                                const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
+                                let hasContent = false;
+                                let nonWhitePixels = 0;
+                                
+                                // Check multiple sample points
+                                for (let i = 0; i < imageData.data.length; i += 16) { // Sample every 4th pixel
+                                    const r = imageData.data[i];
+                                    const g = imageData.data[i + 1];
+                                    const b = imageData.data[i + 2];
+                                    const a = imageData.data[i + 3];
+                                    // Check if pixel is not white/transparent
+                                    if (a > 10 && (r < 250 || g < 250 || b < 250)) {
+                                        hasContent = true;
+                                        nonWhitePixels++;
+                                    }
+                                }
+                                console.log(`Canvas has content: ${hasContent} (${nonWhitePixels} non-white pixels) for ${basemapName}`);
+                                
+                                if (!hasContent) {
+                                    console.warn(`Canvas appears empty for ${basemapName}, but proceeding with download anyway`);
+                                }
+                            } catch (e) {
+                                console.warn(`Could not check canvas content for ${basemapName}:`, e);
+                            }
+                            
+                            canvas.toBlob(blob => {
+                                if (!blob) {
+                                    console.error(`Failed to create blob for ${basemapName}`);
+                                    reject(new Error('Failed to create blob'));
+                                    return;
+                                }
+                                console.log(`Blob created for ${basemapName}, size: ${blob.size} bytes`);
+                                
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${safeName}.png`;
+                                document.body.appendChild(a);
+                                console.log(`Triggering download for ${safeName}.png`);
+                                a.click();
+                                setTimeout(() => {
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    console.log(`Screenshot saved: ${safeName}.png`);
+                                    resolve();
+                                }, 100);
+                            }, 'image/png', 1.0);
+                        }).catch(error => {
+                            // Restore original error handler
+                            window.onerror = originalErrorHandler;
+                            document.removeEventListener('error', suppressImageErrors, true);
+                            
+                            // Check if this is an image loading error (Event object with target img)
+                            const isImageError = error && 
+                                (error.type === 'error' && error.target && error.target.tagName === 'IMG') ||
+                                (error.message && (error.message.includes('img') || error.message.includes('Image'))) ||
+                                (error.toString && error.toString().includes('img'));
+                            
+                            // Log all errors for debugging
+                            console.error(`Error taking screenshot of ${basemapName}:`, error);
+                            console.error(`Error details:`, {
+                                type: error?.type,
+                                message: error?.message,
+                                stack: error?.stack,
+                                target: error?.target
+                            });
+                            
+                            // Still resolve to continue with next basemap
+                            resolve();
+                        });
+                    };
+                    
+                    // Check if this is a vector tile basemap
+                    const currentBasemap = allBasemaps.find(b => b.name === basemapName);
+                    const isVectorTileBasemap = currentBasemap?.id?.startsWith('VT_');
+                    
+                    // For vector tiles, WebGL canvases can't be read directly due to security restrictions
+                    // Skip canvas capture and use html2canvas directly
+                    if (isVectorTileBasemap) {
+                        console.log(`Vector tile basemap detected (${currentBasemap.id}) for ${basemapName}, using html2canvas directly`);
+                        console.warn(`Note: Vector tiles use WebGL which may have screenshot limitations`);
+                        proceedWithHtml2Canvas();
+                        return;
+                    }
+                    
+                    // For image tiles, try to capture canvas elements directly first
+                    let canvasCaptureAttempted = false;
+                    const canvasElements = mapDiv.querySelectorAll('canvas');
+                    if (canvasElements.length > 0) {
+                        console.log(`Found ${canvasElements.length} canvas element(s) for ${basemapName}`);
+                        // Use the first canvas (usually the main map canvas)
+                        const mapCanvas = canvasElements[0];
+                        if (mapCanvas && mapCanvas.width > 0 && mapCanvas.height > 0) {
+                            console.log(`Attempting direct canvas capture for ${basemapName}`);
+                            canvasCaptureAttempted = true;
+                            
+                            try {
+                                // Create a new canvas to copy the content
+                                const outputCanvas = document.createElement('canvas');
+                                outputCanvas.width = 500;
+                                outputCanvas.height = 500;
+                                const ctx = outputCanvas.getContext('2d');
+                                
+                                // Draw the map canvas onto our output canvas
+                                ctx.drawImage(mapCanvas, 0, 0, 500, 500);
+                                
+                                // Convert to blob and download
+                                outputCanvas.toBlob(blob => {
+                                    if (blob && blob.size > 0) {
+                                        console.log(`Blob created from canvas for ${basemapName}, size: ${blob.size} bytes`);
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `${safeName}.png`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        setTimeout(() => {
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                            console.log(`Screenshot saved (canvas method): ${safeName}.png`);
+                                            // Restore error handlers
+                                            window.onerror = originalErrorHandler;
+                                            document.removeEventListener('error', suppressImageErrors, true);
+                                            resolve();
+                                        }, 100);
+                                    } else {
+                                        console.warn(`Canvas blob creation failed for ${basemapName}, falling back to html2canvas`);
+                                        // Continue to html2canvas below
+                                        proceedWithHtml2Canvas();
+                                    }
+                                }, 'image/png', 1.0);
+                                
+                                // If canvas capture works, we return early, otherwise continue
+                                return; // This will be skipped if blob creation fails
+                            } catch (canvasError) {
+                                console.warn(`Canvas capture failed for ${basemapName}, falling back to html2canvas:`, canvasError);
+                                // Continue to html2canvas below
+                                proceedWithHtml2Canvas();
+                            }
+                        }
+                    }
+                    
+                    // If we get here and haven't used canvas capture, use html2canvas
+                    if (!canvasCaptureAttempted) {
+                        proceedWithHtml2Canvas();
+                    }
+                } else {
+                    console.log(`html2canvas not available for ${basemapName}`);
+                    resolve();
+                }
+            });
+        }
+        
+        // Function to process next basemap
+        async function nextBasemap() {
+            if (currentBasemapIndex >= allBasemaps.length) {
+                document.getElementById('status').textContent = 'All screenshots completed!';
+                isTakingScreenshots = false;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('startBtn').disabled = false;
+                return;
+            }
+            
+            const basemap = allBasemaps[currentBasemapIndex];
+            document.getElementById('status').textContent = `Processing: ${basemap.name} (${currentBasemapIndex + 1}/${allBasemaps.length})`;
+            
+            try {
+                const isVectorTile = basemap.id.startsWith('VT_');
+                await changeBasemap(basemap.id);
+                
+                // Wait for tiles to load - longer wait for vector tiles
+                await waitForTilesToLoad(isVectorTile);
+                
+                // Additional wait to ensure rendering is complete
+                await new Promise(resolve => setTimeout(resolve, isVectorTile ? 2000 : 1000));
+                
+                // Signal ready for screenshot
+                window.currentBasemapName = basemap.name;
+                window.screenshotReady = true;
+                
+                // Take screenshot using html2canvas
+                if (typeof html2canvas !== 'undefined') {
+                    await takeScreenshot(basemap.name);
+                    // Wait a bit for download to start
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                currentBasemapIndex++;
+                
+                if (isTakingScreenshots) {
+                    // Continue to next basemap
+                    setTimeout(() => nextBasemap(), 500);
+                } else {
+                    document.getElementById('nextBtn').disabled = false;
+                }
+            } catch (error) {
+                // Log error but continue processing
+                console.warn(`Error processing ${basemap.name}:`, error.message || error);
+                currentBasemapIndex++;
+                if (isTakingScreenshots) {
+                    // Continue to next basemap after a short delay
+                    setTimeout(() => nextBasemap(), 1000);
+                } else {
+                    document.getElementById('nextBtn').disabled = false;
+                }
+            }
+        }
+        
+        // Function to start automatic screenshot process
+        function startScreenshots() {
+            currentBasemapIndex = 0;
+            isTakingScreenshots = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = true;
+            nextBasemap();
+        }
+        
+        // Expose functions globally for browser automation
+        window.allBasemaps = allBasemaps;
+        window.changeBasemap = changeBasemap;
+        window.currentBasemapIndex = 0;
+        window.mapReady = false;
+    </script>
+    
+    <!-- html2canvas for client-side screenshots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</body>
+</html>

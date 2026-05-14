@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+  
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="ixmaps embed example">
+	<meta name="author" content="guenter richter">
+	<link rel="shortcut icon" href="https://gjrichter.github.io/ixmaps/ui/resources/images/ixmaps_logo.png">
+ 
+	<title>Created by Composer</title>
+</head>
+ 
+<body style="margin:0;padding:0;">
+ 
+	<!-- here goes the map -->
+	<div id="map-div"></div>
+ 
+	<!-- include the ixmaps API -->
+	<script src="https://gjrichter.github.io/ixmaps-flat/ui/js/htmlgui_flat.js"></script>
+ 
+	<script type="text/javascript" charset="utf-8">
+ 
+		// create and embed the map
+		// ! reference to "map-div", the hosting html div
+
+		ixmaps.Map("map-div", {
+			mapService: "leaflet_vt",
+			mapType: "OpenStreetMap - Osmarenderer",
+			map: "../../maps/svg/maps/generic/mercator.svg",
+			name: "map_1",
+			mode: "pan",
+			legend: "true",
+			tools: "true",
+			search: "Europe",
+			about: "test"
+		},
+		map => map
+		.options({
+			featurescaling: "true",
+			objectscaling: "true",
+			normalSizeScale: "20000000",
+			flushChartDraw: "1000000",
+			flushPaintShape: "1000000",
+			basemapopacity: "0.5",
+			worksilent: "false",
+			loadsilent: "false",
+			hideOnPan:  "false",
+			freezeOnPan:"false",
+		})
+		.legend("{{layers}}")
+		.attribution("")
+		.view({
+			center: {
+				lat: "31.947656410426376",
+				lng: "35.08483788732875"
+				},
+			zoom: "9.299342651850873"
+			})
+		.layer(ixmaps.layer("area-c", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/area-c.geojson",
+				type: "geojson",
+				name: "data_1767890401936",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "area-c",
+				snippet: "",
+				description: "",
+				name: "area-c",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("arial-1", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/arial-1.geojson",
+				type: "geojson",
+				name: "data_1767890423699",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "[arial-1",
+				snippet: "",
+				description: "",
+				name: "arial-1",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("arial-2", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/arial-2.geojson",
+				type: "geojson",
+				name: "data_1767890436381",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "arial-2",
+				snippet: "",
+				description: "",
+				name: "arial-2",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("barrier-2016", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/barrier-2016.geojson",
+				type: "geojson",
+				name: "data_1767890453639",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0088dd"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "1",
+				valuescale: "1"
+				})
+			.meta({
+				title: "barrier-2016",
+				snippet: "",
+				description: "",
+				name: "barrier-2016",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("bimkom", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/bimkom.geojson",
+				type: "geojson",
+				name: "data_1767890462619",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "bimkom",
+				snippet: "",
+				description: "",
+				name: "bimkom",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("e1", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/e1.geojson",
+				type: "geojson",
+				name: "data_1767890475124",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "e1",
+				snippet: "",
+				description: "",
+				name: "e1",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("ej-settlements", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/ej-settlements.geojson",
+				type: "geojson",
+				name: "data_1767890484370",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "ej-settlements",
+				snippet: "",
+				description: "",
+				name: "ej-settlements",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("gates", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/gates.geojson",
+				type: "geojson",
+				name: "data_1767890493104",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "gates",
+				snippet: "",
+				description: "",
+				name: "gates",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("green-line", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/green-line.geojson",
+				type: "geojson",
+				name: "data_1767890503120",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0088dd"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "1",
+				valuescale: "1"
+				})
+			.meta({
+				title: "green-line",
+				snippet: "",
+				description: "",
+				name: "green-line",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("h1h2", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/h1h2.geojson",
+				type: "geojson",
+				name: "data_1767890511900",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "h1h2",
+				snippet: "",
+				description: "",
+				name: "h1h2",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("hebron", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/hebron.geojson",
+				type: "geojson",
+				name: "data_1767890520190",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "hebron",
+				snippet: "",
+				description: "",
+				name: "hebron",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("israeldata", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/israeldata.geojson",
+				type: "geojson",
+				name: "data_1767890529472",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "israeldata",
+				snippet: "",
+				description: "",
+				name: "israeldata",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("jerusalem-municipal-border", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/jerusalem-municipal-border.geojson",
+				type: "geojson",
+				name: "data_1767890539195",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#0088dd"],
+				fillopacity: "1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "1",
+				valuescale: "1"
+				})
+			.meta({
+				title: "jerusalem-municipal-border",
+				snippet: "",
+				description: "",
+				name: "jerusalem-municipal-border",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("labels-israeli", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/labels-israeli.geojson",
+				type: "geojson",
+				name: "data_1767890546293",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "labels-israeli",
+				snippet: "",
+				description: "",
+				name: "labels-israeli",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("military-bases", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/military-bases.geojson",
+				type: "geojson",
+				name: "data_1767890554475",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "military-bases",
+				snippet: "",
+				description: "",
+				name: "military-bases",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("muvlaot", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/muvlaot.geojson",
+				type: "geojson",
+				name: "data_1767890562297",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "muvlaot",
+				snippet: "",
+				description: "",
+				name: "muvlaot",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("outposts-en", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/outposts-en.geojson",
+				type: "geojson",
+				name: "data_1767890572403",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "outposts-en",
+				snippet: "",
+				description: "",
+				name: "outposts-en",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("pal-labels-en", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/pal-labels-en.geojson",
+				type: "geojson",
+				name: "data_1767890581460",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "pal-labels-en",
+				snippet: "",
+				description: "",
+				name: "pal-labels-en",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("settlements-border", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/settlements-border.geojson",
+				type: "geojson",
+				name: "data_1767890592473",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "settlements-border",
+				snippet: "",
+				description: "",
+				name: "settlements-border",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("settlements-muni-border", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/settlements-muni-border.geojson",
+				type: "geojson",
+				name: "data_1767890604016",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "settlements-muni-border",
+				snippet: "",
+				description: "",
+				name: "settlements-muni-border",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("settlements", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/settlements.geojson",
+				type: "geojson",
+				name: "data_1767890612749",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("FEATURE")
+			.style({
+				colorscheme: [
+					"#eeeeee"],
+				fillopacity: "0.1",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				linecolor: [
+					"#0088dd"],
+				linewidth: "0.5",
+				valuescale: "1"
+				})
+			.meta({
+				title: "settlements",
+				snippet: "",
+				description: "",
+				name: "settlements",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+		.layer(ixmaps.layer("tunnel-entrance", layer => layer
+			.data({
+				url: "https://s3.fr-par.scw.cloud/ixmaps.data/geometries/administrative_boundaries/Palestine_Btselem/tunnel-entrance.geojson",
+				type: "geojson",
+				name: "data_1767890620956",
+				cache: "true"
+				})
+			.binding({
+				geo: "geometry",
+				value: "$item$"
+				})
+			.type("CHART|DOT|RAW")
+			.style({
+				colorscheme: [
+					"1",
+					"#0000dd",
+					"#0000dd"],
+				fillopacity: "0.2",
+				shadow: "false",
+				visible: "true",
+				showdata: "true",
+				units: "",
+				scale: "1",
+				sizepow: "2",
+				valuescale: "1"
+				})
+			.meta({
+				title: "tunnel-entrance",
+				snippet: "",
+				description: "",
+				name: "tunnel-entrance",
+				tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+				})
+		))
+	);
+	</script>
+</body>
+</html>

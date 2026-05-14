@@ -1,0 +1,21 @@
+{
+  "name": "ixmaps-basemap-screenshots",
+  "version": "1.0.0",
+  "description": "Take screenshots of all ixmaps basemaps using Puppeteer",
+  "main": "take_basemap_screenshots.js",
+  "scripts": {
+    "screenshots": "node take_basemap_screenshots.js",
+    "install-deps": "npm install puppeteer"
+  },
+  "keywords": [
+    "ixmaps",
+    "screenshots",
+    "basemaps"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}
+

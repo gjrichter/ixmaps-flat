@@ -1,0 +1,123 @@
+<!--
+  File: demo_composecolor_USA_counties_albers.html
+  Project: iXMaps demo gallery
+  Author: (add maintainer name if desired)
+
+  Description:
+    Multivariate choropleth example using iXMaps' compose color renderer on
+    U.S. county statistics. Geometry is streamed from a FlatGeobuf service
+    while attributes are pulled from the USDA "Atlas of Rural and Small Town America"
+    dataset. The map applies the Albers Equal Area projection to maintain area fidelity.
+
+  Structure:
+    - Fullscreen map container (#map_div)
+    - iXMaps embed call initializing Leaflet, Albers projection, and a base layer
+    - Reference layer for county geometries plus a compose-color thematic layer
+
+  Dependencies:
+    - ../../../ui/js/ixmaps.js
+    - Remote FlatGeobuf and CSV datasets referenced in the layer definitions
+
+  Usage:
+    Open directly or via the dual pane viewer to explore the subtractive color
+    blending of three health-related indicators per county.
+
+  Created: (insert date)
+  Last updated: (insert date)
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>iXMaps example - Multivariate Choropleth Map - Albert Equal Area</title>
+</head>
+<body style="margin:0;padding:0;width:100%;height:100%">
+    <div id="map_div" style="width:100%;height:100%;"></div>
+    
+    <script src="https://gjrichter.github.io/ixmaps-flat/ui/js/ixmaps.js"></script>
+    
+    <script>
+        ixmaps.Map("map_div", {
+            mapService: "leaflet",
+            maptype: "white",
+            mapProjection: "albers",
+            align: ""
+        }).then(map => map
+
+            // Minimal map setup
+
+            .view({
+                center: {
+                    "lat": "38.89103282648846",
+                    "lng": "-90.93261718750001"
+                    },
+                zoom: "4.2",
+            })
+
+            // World countries layer
+            // this layer is used as geografic reference for the chart layer
+            
+            .layer(
+                ixmaps.Layer("World_countries")
+                .data({
+                    url: "https://s3.tebi.io/geometries/administrative_boundaries/USA/UScounties.topojson",
+                    type: "topojson"
+                })
+                // define id as ISO3_CODE, to be used later for the chart layer
+                .binding({
+                    id:"FIPS",
+                    geo: "geometry"
+                })
+                .type("FEATURE")
+                .style({
+                    colorscheme: ["none"],
+                    fillopacity: "1",
+                    linecolor: ["black"],
+                    linewidth: "0.2",
+                })
+                .json()
+            )
+
+            // World population layer
+            // uses the world_countries layer to position the chart
+
+            .layer(
+                ixmaps.Layer("World_countries")
+                .data({
+                    name: "themeDataObj",
+                    url: "https://s3.eu-west-1.amazonaws.com/data.ixmaps.com/Atlas%20of%20Rural%20and%20Small%20Town%20America/chr_measures_CSV_2018-csv.csv.gz",
+                    type: "csv",
+                    cache: "true",
+                })
+                .binding({
+                    // take values from the FIPSTXT column to select the shape to colorize
+                    // take values from the measure_9_value|measure_11_value|measure_49_value columns to colorize the shape
+                    // take the NAME column to label the shape
+                    geo: "FIPSTXT", 
+                    value: "measure_9_value|measure_11_value|measure_49_value", 
+                    title: "county"
+                })
+                .type("CHOROPLETH|COMPOSECOLOR|SUBTRACTIVE|HARMONIZE|SIMPLELEGEND")
+                .style({
+                    colorscheme: [
+                        "RGB(0,255,255)",
+                        "RGB(255,0,255)",
+                        "RGB(255,255,0)"],
+                    opacity:"1",
+                    lookupfield: "FIPSTXT",
+                    label: [
+                        "smoke",
+                        "eat",
+                        "drink"],
+                    scale: "1",
+                    valuescale: "1",
+                    brightness: "1.3",
+                    title: "Health Risk 2018",
+                    snippet: "from"
+                })
+                .json()
+            )
+        );
+    </script>
+</body>
+</html>
