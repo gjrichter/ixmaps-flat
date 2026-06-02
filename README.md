@@ -195,7 +195,7 @@ myMap.layer(populationLayer)
 
 #### You have some data and want to see it, just head to [Chat2Map](https://chat2map.it)
 
-Chat2Map is an AI powered application to load data with (or without) geocoodinates into an iXMaps powered map. See the data, analyze and filter it, style the map representation, save a working HTML page embedding the map. 
+Chat2Map is an AI powered application to load data with (or without) geocoordinates into an iXMaps powered map. See the data, analyze and filter it, style the map representation, save a working HTML page embedding the map. 
 
 
 
