@@ -217,7 +217,7 @@ Just point your assistant at the skill (e.g. share the raw `SKILL.md` URL) and a
 
 - [ixMaps Introduction](ixmaps_introduction.md) - Basic framework documentation
 - [Chat Application Guide](ixmaps_chat_app.md) - AI-assisted map creation
-- [DeepWiki](https://deepwiki.com/gjrichter/ixmaps-flat) - if you want to dive into the framework (a generous contribute of Andrea Borruso)
+- [DeepWiki](https://deepwiki.com/gjrichter/ixmaps-flat) - if you want to dive into the framework (a generous contribute of Andrea Borruso) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gjrichter/ixmaps-flat)
 
 ## Architecture
 
