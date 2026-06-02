@@ -189,11 +189,21 @@ myMap.layer(populationLayer)
 - **CHART|BAR** - Bar charts
 - **CHART|DOT** - Point markers
 
+
+
+## Playground
+
+You have some data and want to see it, just head to [Chat2Map](https://chat2map.it)
+
+Chat2Map is an AI powered application to load data with (or without) geocoodinates into an iXMaps powered map. See the data, analyze and filter it, style the map representation, save a working HTML page embedding the map. 
+
+
+
 ## Documentation
 
 - [ixMaps Introduction](ixmaps_introduction.md) - Basic framework documentation
 - [Chat Application Guide](ixmaps_chat_app.md) - AI-assisted map creation
-- [Multi-Map Extension](MULTI_MAP_README.md) - Multiple synchronized maps
+- [DeepWiki](https://deepwiki.com/gjrichter/ixmaps-flat) - if you want to dive into the framework (a generous contribute of Andrea Borruso)
 
 ## Architecture
 
