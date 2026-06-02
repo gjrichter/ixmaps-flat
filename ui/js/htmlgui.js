@@ -294,6 +294,9 @@ $Log: htmlgui.js,v $
 		if (options.scrollsafesilent) {
 			ixmaps.scrollsafesilent = options.scrollsafesilent;
 		}
+		if (ixmaps.applyForceDarkUiOption) {
+			ixmaps.applyForceDarkUiOption(options);
+		}
 
 		ixmaps.options = options;
 

@@ -33,8 +33,10 @@ class DialogManager {
         dialog.id = dialogId;
         dialog.setAttribute('aria-label', config.title || 'Dialog');
         dialog.style.cssText = `
-            top: ${config.position.top};
-            left: ${config.position.left};
+            position: fixed;
+            top: ${config.position.top || 'auto'};
+            left: ${config.position.left || 'auto'};
+            bottom: ${config.position.bottom || 'auto'};
             z-index: ${config.zIndex};
             margin: 0;
             padding: 0;
@@ -451,7 +453,10 @@ class DialogManager {
     moveDialog(dialogId, top, left) {
         const dialogInstance = this.dialogs.get(dialogId);
         if (dialogInstance) {
-            if (top) dialogInstance.element.style.top = top;
+            if (top) {
+                dialogInstance.element.style.top = top;
+                dialogInstance.element.style.bottom = 'auto';
+            }
             if (left) dialogInstance.element.style.left = left;
         }
     }
@@ -470,6 +475,7 @@ class DialogManager {
             
             isDragging = true;
             const rect = dialog.getBoundingClientRect();
+            dialog.style.bottom = 'auto';
             dialog.style.left = rect.left + "px";
             dialog.style.top = rect.top + "px";
             startX = e.clientX;

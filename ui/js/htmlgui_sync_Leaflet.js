@@ -492,7 +492,7 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			if (!szId) {
 				return;
 			}
-			if (szId.match(/dark/i) || szId.match(/black/i) || szId.match(/satellite/i)) {
+			if (ixmaps.shouldUseDarkUi && ixmaps.shouldUseDarkUi(szId)) {
 
 				$("#attribution").css("background-color", "rgba(0,0,0,1)");
 

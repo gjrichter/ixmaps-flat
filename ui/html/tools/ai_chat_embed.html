@@ -1,13 +1,59 @@
-<div id="ai-chat" style="width:100%;height:100%;min-height:520px;padding:0;margin:0;box-sizing:border-box;">
-	<iframe id="ixmaps-ai-chat-frame" style="border:0;width:100%;height:100%;min-height:520px;display:block;background:#fff;" title="iXMaps AI Chat"></iframe>
+<div id="ai-chat" style="width:100%;height:100%;min-height:320px;padding:0;margin:0;box-sizing:border-box;">
+	<iframe id="ixmaps-ai-chat-frame" style="border:0;width:100%;height:100%;min-height:320px;display:block;background:#fff;" title="iXMaps AI Chat"></iframe>
 </div>
 <script>
 (function () {
 	var base = (typeof ixmaps !== "undefined" && ixmaps.szResourceBase) ? ixmaps.szResourceBase : "";
-	var url = base + "app/Chat_split/index.html?embed=host";
-	var f = document.getElementById("ixmaps-ai-chat-frame");
-	if (f) {
-		f.src = url;
+	var url = base + "app/Chat/index.html?embed=host";
+	var frame = document.getElementById("ixmaps-ai-chat-frame");
+	if (frame) {
+		frame.src = url;
 	}
+
+	var chatRoot = document.getElementById("ai-chat");
+	var body = chatRoot && chatRoot.closest(".dialog-body");
+	if (body) {
+		body.style.padding = "0";
+		body.style.overflow = "hidden";
+	}
+
+	function expandedDialogHeightPx() {
+		var vh = window.innerHeight || 800;
+		if (typeof window.__IXMAPS_AI_CHAT_DIALOG_EXPANDED_HEIGHT__ === "number") {
+			return window.__IXMAPS_AI_CHAT_DIALOG_EXPANDED_HEIGHT__;
+		}
+		return Math.max(400, Math.round(vh * 0.78));
+	}
+
+	var compactHeight = (typeof window.__IXMAPS_AI_CHAT_DIALOG_COMPACT_HEIGHT__ === "number")
+		? (window.__IXMAPS_AI_CHAT_DIALOG_COMPACT_HEIGHT__ + "px")
+		: (Math.round((window.innerHeight || 800) * 0.5) + "px");
+	var maxHeight = expandedDialogHeightPx() + "px";
+
+	function applyDialogHeight(expanded) {
+		if (!body) {
+			return;
+		}
+		var h = expanded ? maxHeight : compactHeight;
+		body.style.height = h;
+		if (frame) {
+			frame.style.height = "100%";
+			frame.style.minHeight = h;
+		}
+	}
+
+	window.addEventListener("message", function (ev) {
+		if (!ev.data || ev.data.source !== "ixmaps-ai-chat" || ev.data.type !== "resize") {
+			return;
+		}
+		applyDialogHeight(!!ev.data.expanded);
+	});
+
+	window.addEventListener("resize", function () {
+		maxHeight = expandedDialogHeightPx() + "px";
+		if (typeof window.__IXMAPS_AI_CHAT_DIALOG_COMPACT_HEIGHT__ === "number") {
+			compactHeight = window.__IXMAPS_AI_CHAT_DIALOG_COMPACT_HEIGHT__ + "px";
+		}
+	});
 })();
 </script>

@@ -3082,6 +3082,13 @@
 
                 if ($("#chartAggregationMode").val().match(/AGGREGATE/)) {
 
+                    objTheme.style.type = __removeTypeFlag(objTheme.style.type, "GRIDSIZE");
+                    if ($("#chartAggregationMode").val().match(/RECT|HEX/) ||
+                        $("#chartAggregationType").val() == "pixel") {
+                        objTheme.style.type = __removeTypeFlag(objTheme.style.type, "AUTOSIZE");
+                        objTheme.style.type += "|AUTOSIZE";
+                    }
+
                     objTheme.style.type += "|" + $("#chartAggregationMode").val();
 
                     if ($("#chartAggregationType").val() == "pixel") {
@@ -3316,6 +3323,37 @@
 
 
 
+            ixmaps.editor.getChartTypeList = function(themeObj) {
+                if (!themeObj) {
+                    return szChartTypeListSingleValue;
+                }
+                var szFlag = String(themeObj.szFlag || themeObj.szOrigFlag || "");
+                var szFieldsA = themeObj.szFieldsA || [];
+                var nValueCount = 0;
+                if (themeObj.szValuesA && themeObj.szValuesA.length) {
+                    nValueCount = themeObj.szValuesA.length;
+                } else if (themeObj.szLabelA && themeObj.szLabelA.length) {
+                    nValueCount = themeObj.szLabelA.length;
+                }
+
+                if (szFlag.match(/PLOT/)) {
+                    return szChartTypeListPLOT;
+                }
+                if (szFieldsA.length > 1) {
+                    return szChartTypeList;
+                }
+                if (szFlag.match(/CATEGORICAL/) && szFlag.match(/AGGREGATE/)) {
+                    return szChartTypeList;
+                }
+                // single-field categorical multi-part charts (pie, bar, sequence, ...)
+                if (szFlag.match(/CATEGORICAL/) &&
+                    (szFlag.match(/PIE/) || szFlag.match(/BAR/) || szFlag.match(/SEQUENCE/) ||
+                     szFlag.match(/WAFFLE/) || szFlag.match(/DOMINANT/) || nValueCount > 1)) {
+                    return szChartTypeList;
+                }
+                return szChartTypeListSingleValue;
+            };
+
             ixmaps.editor.makeChartMenueHTML = function(szId, szTarget) {
 
                 if ($("#" + szTarget).html().length) {
@@ -3332,17 +3370,9 @@
                 $("#" + szTarget).html(szHtml);
 
                 var __themeObj = ixmaps.getThemeObj(ixmaps.editor.themeId);
+                var szTypeList = ixmaps.editor.getChartTypeList(__themeObj);
 
-                var szTypeList = szChartTypeListSingleValue;
-                if ((__themeObj.szFieldsA.length > 1) ||
-                    (__themeObj.szFlag.match(/CATEGORICAL/) && __themeObj.szFlag.match(/AGGREGATE/))) {
-                    szTypeList = szChartTypeList;
-                }
-                if (__themeObj.szFlag.match(/PLOT/)) {
-                    szTypeList = szChartTypeListPLOT;
-                }
-
-                for (i = 0; i < szTypeList.length; i++) {
+                for (var i = 0; i < szTypeList.length; i++) {
                     ixmaps.editor.makeOneChartHTML(szId, szTypeList, i);
                 }
 
@@ -3350,8 +3380,6 @@
             }
 
             ixmaps.editor.makeOneChartHTML = function(szId, szTypeList, index) {
-
-                console.log(i);
 
                 var szTargetDiv = "chartmenu-div";
 
@@ -3363,7 +3391,7 @@
 
                 var szMerkFlag = __themeObj.szFlag;
 
-                var szFlag = szTypeList[i] + "|NORMSIZE|SILENT|MENUSIZE";
+                var szFlag = szTypeList[index] + "|NORMSIZE|SILENT|MENUSIZE";
 
                 if (szMerkFlag.match(/CATEGORICAL/)) {
                     szFlag += "|CATEGORICAL";
@@ -3373,6 +3401,30 @@
                 }
                 if (szMerkFlag.match(/AGGREGATE/)) {
                     szFlag += "|AGGREGATE";
+                }
+                if (szMerkFlag.match(/\bSUM\b/)) {
+                    szFlag += "|SUM";
+                }
+                if (szMerkFlag.match(/\bMEAN\b/)) {
+                    szFlag += "|MEAN";
+                }
+                if (szMerkFlag.match(/\bMAX\b/)) {
+                    szFlag += "|MAX";
+                }
+                if (szMerkFlag.match(/\bMIN\b/)) {
+                    szFlag += "|MIN";
+                }
+                if (szMerkFlag.match(/\bAUTOSIZE\b/)) {
+                    szFlag += "|AUTOSIZE";
+                }
+                if (szMerkFlag.match(/\bGRIDSIZE\b/)) {
+                    szFlag += "|GRIDSIZE";
+                }
+                if (szMerkFlag.match(/\bRECT\b/)) {
+                    szFlag += "|RECT";
+                }
+                if (szMerkFlag.match(/\bHEX\b/)) {
+                    szFlag += "|HEX";
                 }
                 if (szMerkFlag.match(/FAST/)) {
                     szFlag += "|FAST";
@@ -3445,7 +3497,8 @@
 
                 var nTempClipParts = __themeObj.nClipParts;
                 if (!szFlag.match(/PLOT/)) {
-                    __themeObj.nClipParts = 10;
+                    var nMenuClip = (__themeObj.colorScheme && __themeObj.colorScheme.length) ? __themeObj.colorScheme.length : 10;
+                    __themeObj.nClipParts = Math.max(10, nMenuClip);
                     if (szFlag.match(/STACKED/)) {
                         __themeObj.szFlag += "|SORT|DOWN";
                     }
@@ -3544,7 +3597,7 @@
                 }
                 // if new chart type has SIZE flag
                 // -------------------------------
-                if (szTypeList[i].match(/SIZE/)) {
+                if (szTypeList[index].match(/SIZE/)) {
                     if (szMerkFlag.match(/SIZELOG/)) {
                         szOrigFlagKeep += "|SIZELOG";
                     } else
@@ -3573,6 +3626,9 @@
                 if (szMerkFlag.match(/\bGRIDSIZE\b/)) {
                     szOrigFlagKeep += "|GRIDSIZE";
                 }
+                if (szMerkFlag.match(/\bAUTOSIZE\b/)) {
+                    szOrigFlagKeep += "|AUTOSIZE";
+                }
 
                 // make <div> + <svg> to receive the chart (svg)
 
@@ -3591,36 +3647,53 @@
 
                 // ------------------------------------------------------------------------------------
 
-                __themeObj.drawChart($("#getchartmenutarget" + index)[0], null, 30);
+                var targetEl = $("#getchartmenutarget" + index)[0];
+                try {
+                    __themeObj.drawChart(targetEl, null, 30);
 
-                if (!szFlag.match(/PLOT/)) {
-                    __themeObj.addChartTypeSign($("#getchartmenutarget" + index)[0], szTypeList[index]);
+                    if (!szFlag.match(/PLOT/)) {
+                        __themeObj.addChartTypeSign(targetEl, szTypeList[index]);
+                    }
+                } catch (e) {
+                    console.warn("chart menu preview failed:", szTypeList[index], e);
                 }
                 // ------------------------------------------------------------------------------------
 
                 __themeObj.szFlag = szMerkFlag;
                 __themeObj.nClipParts = nTempClipParts;
 
-                // size the chart to div extent
-
-                var SVGBox = $("#getchartmenutarget" + index)[0].getBBox();
-                var scale = Math.max(1, 200 / SVGBox.width);
-                SVGBox.width *= scale;
-                SVGBox.height *= scale;
-                SVGBox.x += 100;
-                SVGBox.y -= 10;
-                SVGBox.height += 20;
-
-                var size = __themeObj.szFlag.match(/PLOT/) ? 120 : 75;
-                var width = size;
-                var height = size / SVGBox.width * SVGBox.height;
-
-                while (height > width) {
-                    height *= 0.9;
+                // size the chart to div extent (copy bbox; SVGRect from getBBox() is read-only)
+                var bbox = null;
+                try {
+                    bbox = targetEl.getBBox();
+                } catch (e2) {
+                    console.warn("chart menu getBBox failed:", szTypeList[index], e2);
                 }
+                if (bbox && bbox.width && bbox.height && isFinite(bbox.width) && isFinite(bbox.height)) {
+                    var SVGBox = {
+                        x: bbox.x,
+                        y: bbox.y,
+                        width: bbox.width,
+                        height: bbox.height
+                    };
+                    var scale = Math.max(1, 200 / SVGBox.width);
+                    SVGBox.width *= scale;
+                    SVGBox.height *= scale;
+                    SVGBox.x += 100;
+                    SVGBox.y -= 10;
+                    SVGBox.height += 20;
 
-                $("#getchartmenutarget" + index)[0].parentNode.setAttribute("height", height);
-                $("#getchartmenutarget" + index)[0].parentNode.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
+                    var size = szMerkFlag.match(/PLOT/) ? 120 : 75;
+                    var width = size;
+                    var height = size / SVGBox.width * SVGBox.height;
+
+                    while (height > width) {
+                        height *= 0.9;
+                    }
+
+                    targetEl.parentNode.setAttribute("height", height);
+                    targetEl.parentNode.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
+                }
 
                 resize();
 

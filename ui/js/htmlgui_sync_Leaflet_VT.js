@@ -860,7 +860,7 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			if (!szId) {
 				return;
 			}
-			if (szId.match(/dark/i) || szId.match(/black/i) || szId.match(/satellite/i)) {
+			if (ixmaps.shouldUseDarkUi && ixmaps.shouldUseDarkUi(szId)) {
 
 				$("#attribution").css("background-color", "rgba(0,0,0,1)");
 
@@ -884,6 +884,8 @@ $Log: htmlgui_sync_Leaflet.js,v $
 				$(".leaflet-bar a").css("color", "#888888");
 				$(".leaflet-bar a").css("border", "solid #dddddd 1px");
 
+				setTimeout('$(".leaflet-control-attribution a").css("color","")', 50);
+				setTimeout('$(".leaflet-control-attribution").css("color","")', 50);
 				setTimeout('$(".leaflet-control-attribution").css("background","#fff")', 50);
 				setTimeout('$(".leaflet-control-attribution").css("opacity","0.8")', 50);
 				setTimeout('$(".leaflet-control-zoom").css("opacity","0.8")', 50);

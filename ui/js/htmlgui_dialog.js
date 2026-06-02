@@ -80,6 +80,42 @@ $Log: htmlgui.js,v $
 		}
 	};
 	
+	ixmaps.parseDialogPosition = function(szPosition, extraOffset) {
+		extraOffset = extraOffset || 0;
+		if (!szPosition || szPosition === 'auto') {
+			return null;
+		}
+		const parts = String(szPosition).split(',');
+		const left = (parseInt(parts[0], 10) || 0) + extraOffset;
+		const vertical = parts[1] ? String(parts[1]).trim().toLowerCase() : '';
+		if (vertical.indexOf('bottom') === 0) {
+			const bottomMatch = vertical.match(/bottom(?:[:=](\d+))?/);
+			const bottom = ((bottomMatch && bottomMatch[1] ? parseInt(bottomMatch[1], 10) : 20) + extraOffset);
+			return {
+				left: `${left}px`,
+				bottom: `${bottom}px`,
+				top: 'auto',
+				anchor: 'bottom'
+			};
+		}
+		const top = (parseInt(parts[1], 10) || 0) + extraOffset;
+		return {
+			top: `${top}px`,
+			left: `${left}px`,
+			bottom: 'auto'
+		};
+	};
+
+	ixmaps.formatDialogSize = function(nSize, fallback) {
+		if (typeof nSize === 'string' && nSize.trim()) {
+			return nSize.trim();
+		}
+		if (typeof nSize === 'number' && nSize > 0) {
+			return `${nSize}px`;
+		}
+		return fallback;
+	};
+
 	ixmaps.openDialog = function(szElement, szUrl, szTitle, szPosition, nWidth, nHeight, nOpacity) {
 		// Input validation
 		if (!szUrl || !szTitle) {
@@ -100,12 +136,13 @@ $Log: htmlgui.js,v $
 		console.log(`Currently open dialogs: ${openDialogsCount}`);
 
 		// Validate dimensions
-		const width = nWidth && nWidth > 0 ? `${nWidth}px` : '400px';
-		const height = nHeight && nHeight > 0 ? `${nHeight}px` : '300px';
+		const width = ixmaps.formatDialogSize(nWidth, '400px');
+		const height = ixmaps.formatDialogSize(nHeight, '300px');
 
-		// Calculate position with offset for multiple dialogs
+		// Calculate position with offset for multiple dialogs (unless explicit position given)
 		const positionOffset = openDialogsCount * 10;
-		const position = {
+		const explicitPosition = ixmaps.parseDialogPosition(szPosition, 0);
+		const position = explicitPosition || {
 			top: `${10 + positionOffset}px`,
 			left: `${10 + positionOffset}px`
 		};
@@ -128,6 +165,10 @@ $Log: htmlgui.js,v $
 				timeout: 15000,
 				successHandler: function(dialogInstance, html) {
 					console.log('Dialog content loaded successfully');
+					if (szElement === 'ai-chat' && dialogInstance && dialogInstance.body) {
+						dialogInstance.body.style.padding = '0';
+						dialogInstance.body.style.overflow = 'hidden';
+					}
 					// Execute any scripts in the loaded content
 					ixmaps.dialogExecScripts(szElement);
 				},
@@ -521,9 +562,22 @@ $Log: htmlgui.js,v $
 
 	/**
 	 * Open AI chat (Chat_split) in a dialog; iframe uses parent map via ?embed=host (no second map).
+	 * Initial layout: bottom-left (60px from left, 30px from bottom), height ~50% of viewport; iframe asks to expand when tools open.
 	 */
 	ixmaps.popupAIChat = function(position){
-		this.openDialog('ai-chat',ixmaps.szResourceBase+'ui/html/tools/ai_chat_embed.html','AI Chat',position||'10,10',560,720);
+		var vh = window.innerHeight || 800;
+		var compactHeight = Math.max(320, Math.round(vh * 0.5));
+		var width = Math.min(560, Math.max(360, Math.round((window.innerWidth || 1200) * 0.42)));
+		window.__IXMAPS_AI_CHAT_DIALOG_COMPACT_HEIGHT__ = compactHeight;
+		window.__IXMAPS_AI_CHAT_DIALOG_EXPANDED_HEIGHT__ = Math.max(400, Math.round(vh * 0.78));
+		this.openDialog(
+			'ai-chat',
+			ixmaps.szResourceBase + 'ui/html/tools/ai_chat_embed.html',
+			'AI Chat',
+			position || '60,bottom:30',
+			width,
+			compactHeight
+		);
 	};
 
 	/**
@@ -627,6 +681,40 @@ $Log: htmlgui.js,v $
 		cssMainContainer.append(className + " {" + classValue + "}\n");
 	}
 
+	function applyDarkUiChrome(sidebarBg) {
+		$("#ixmap").addClass("dark-controls");
+
+		try{
+			window.parent.window.parent.window.document.getElementById('sidebar').parentNode.parentNode.style.setProperty("background-color", sidebarBg || "black");
+		}
+		catch (e){}
+
+		$( "#switchlegendbutton" ).css("background-color","#222222");
+		$( "#switchlegendbutton" ).css("border-color","#666666");
+
+		changeCss(".ui-dialog", "opacity:0.9" );
+		changeCss(".ui-dialog", "background:#222" );
+		changeCss(".ui-dialog-titlebar", "background:#222" );
+		changeCss(".ui-dialog-titlebar", "color:#888" );
+		changeCss(".legend-description", "color:#888" );
+		changeCss("tr.theme-legend-item-selected", "background:#333" );
+
+		changeCss("span.theme-button", "background:none" );
+		changeCss("span.theme-button", "color:white" );
+		changeCss("span.legend-button-settings", "color:#333333" );
+
+		changeCss(".btn-default","background-color:#444444");
+
+		changeCss(".loading-text","background-color:rgba(0,0,0,0.5)");
+	}
+
+	function applyLightUiChrome(switchLegendBg, switchLegendBorder) {
+		$("#ixmap").removeClass("dark-controls");
+		$( "#switchlegendbutton" ).css("background-color", switchLegendBg || "#ffffff");
+		$( "#switchlegendbutton" ).css("border-color", switchLegendBorder || "#dddddd");
+		changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
+	}
+
 	ixmaps.htmlgui_setMapTypeBG = function(szId){
 
 		if (!szId){
@@ -634,79 +722,44 @@ $Log: htmlgui.js,v $
 		}
 		$("#css-modifier-container-dialog").remove();
 
-		if ( szId.match(/dark/i) || szId.match(/black/i) || szId.match(/satellite/i)){
-			//$("#ixmap").css({"background":"black"});
-			$("#gmap").css({"background":"black"});
-			$("#story_board").css({"background":"black"});
-			$("#ixmap").addClass("dark-controls");
+		var isColor = ixmaps.isCssColorValue && ixmaps.isCssColorValue(szId);
+		var isDarkBg = ixmaps.isDarkMapBackground && ixmaps.isDarkMapBackground(szId);
+		var uiDark = ixmaps.shouldUseDarkUi && ixmaps.shouldUseDarkUi(szId);
+		var sidebarBg = isColor ? szId : "black";
 
-			// GR 18.06.2019 change color of sidebar body, for legend left/right
-			try{
-				window.parent.window.parent.window.document.getElementById('sidebar').parentNode.parentNode.style.setProperty("background-color","black");
+		if ( uiDark ){
+			if ( isDarkBg && isColor ){
+				$("#ixmap").css({"background":szId});
+				$("#gmap").css({"background":szId});
+				$("#story_board").css({"background":szId});
+			}else if ( isDarkBg ){
+				$("#gmap").css({"background":"black"});
+				$("#story_board").css({"background":"black"});
 			}
-			catch (e){}
-
-			$( "#switchlegendbutton" ).css("background-color","#222222");
-			$( "#switchlegendbutton" ).css("border-color","#666666");
-
-			//$( "#switchmodebutton" ).css("background-color","#888888");
-			//$( "#switchmodebutton" ).css("border-color","#666666");
-
-			changeCss(".ui-dialog", "opacity:0.9" );
-			changeCss(".ui-dialog", "background:#222" );
-			changeCss(".ui-dialog-titlebar", "background:#222" );
-			changeCss(".ui-dialog-titlebar", "color:#888" );
-			changeCss(".legend-description", "color:#888" );
-			changeCss("tr.theme-legend-item-selected", "background:#333" );
-
-			changeCss("span.theme-button", "background:none" );
-			changeCss("span.theme-button", "color:white" );
-			changeCss("span.legend-button-settings", "color:#333333" );
-
-			changeCss(".btn-default","background-color:#444444");
-
-			changeCss(".loading-text","background-color:rgba(0,0,0,0.5)");
+			applyDarkUiChrome(sidebarBg);
 
 		}else if ( szId.match(/gray/i) ){
 			$("#ixmap").css({"background":"#D4DADC"});
-			//$("#gmap").css({"background":"#D4DADC"});
 			$("#story_board").css({"background":"#D4DADC"});
-			$("#ixmap").removeClass("dark-controls");
-			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
-			$( "#switchlegendbutton" ).css("border-color","#dddddd");
-
-			changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
+			applyLightUiChrome("#D4DADC", "#dddddd");
 			
 		}else if ( szId.match(/transparent/i) ){
 			$("#ixmap").css({"background":"none"});
 			$("#gmap").css({"background":"none"});
 			$("#story_board").css({"background":"#ffffff"});
-			$("#ixmap").removeClass("dark-controls");
-			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
-			$( "#switchlegendbutton" ).css("border-color","#dddddd");
-
-			changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
+			applyLightUiChrome("#D4DADC", "#dddddd");
 			
-		}else if ( szId.match(/#/i) ){
-			console.log({"background":szId});
+		}else if ( isColor ){
 			$("#ixmap").css({"background":szId});
 			$("#gmap").css({"background":szId});
 			$("#story_board").css({"background":szId});
-			$("#ixmap").removeClass("dark-controls");
-			$( "#switchlegendbutton" ).css("background-color","#D4DADC");
-			$( "#switchlegendbutton" ).css("border-color","#dddddd");
-
-			changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
+			applyLightUiChrome("#D4DADC", "#dddddd");
 			
 		}else{
 			$("#ixmap").css({"background":"none"});
 			$("#gmap").css({"background":"none"});
 			$("#story_board").css({"background":"#ffffff"});
-			$( "#switchlegendbutton" ).css("background-color","#ffffff");
-			$( "#switchlegendbutton" ).css("border-color","#dddddd");
-			$("#ixmap").removeClass("dark-controls");
-
-			changeCss(".loading-text","background-color:rgba(255,255,255,0.5)");
+			applyLightUiChrome("#ffffff", "#dddddd");
 		}
 
 		__cssControls(szId);

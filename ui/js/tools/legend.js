@@ -3774,12 +3774,16 @@ window.ixmaps.legend = window.ixmaps.legend || {};
         $("#css-modifier-container").remove();
 		
 		var nBasemapOpacity = $(this.gmapDiv).css("opacity");
+        var isColor = ixmaps.isCssColorValue && ixmaps.isCssColorValue(szId);
+        var isDarkBg = ixmaps.isDarkMapBackground && ixmaps.isDarkMapBackground(szId);
+        var uiDark = ixmaps.shouldUseDarkUi && ixmaps.shouldUseDarkUi(szId);
+        var legendPaneBg = (isColor && isDarkBg) ? szId : "#111";
 
-        if (nBasemapOpacity > 0.5 && (szId.match(/dark/i) || szId.match(/black/i) || szId.match(/satellite/i))) {
+        if (nBasemapOpacity > 0.5 && uiDark) {
 
             changeCss(".map-legend-body", "color:#fff");
 
-            changeCss(".map-legend-pane:before", "background:#111");
+            changeCss(".map-legend-pane:before", "background:" + legendPaneBg);
             changeCss(".map-legend-pane:before", "border-color:#444");
             changeCss(".map-legend-pane", "color:#fff");
             changeCss(".map-legend-count", "color:#ddd");
@@ -3814,17 +3818,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
             changeCss(".loading-text", "background-color:rgba(0,0,0,0.5)");
             changeCss(".loading-text", "color:#d8d8d8");
 
-        } else 
-		// explicit legend background color (hex, CSS color string, or named color)
-		// Examples: "#f5f5f0", "rgba(255,255,255,0.8)", "red"
-		if (
-			szId.match(/#/i) ||                      // hex
-			szId.match(/\(/) ||                      // functional rgb()/hsl()
-			szId.match(/rgba|rgb|hsl/i) ||           // explicit functions
-			// simple named colors that are not typical maptype IDs
-			(!szId.match(/dark|light|satellite|street|toner|positron|terrain|osm|mapbox|stamen/i) &&
-			 szId.match(/^[a-zA-Z]+$/))
-		) {
+        } else if ( isColor ) {
             changeCss(".map-legend-pane:before", "background:"+szId);
             changeCss(".map-legend", "background:"+szId);
             changeCss("#map-legend", "background:"+szId);

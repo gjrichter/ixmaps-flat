@@ -193,6 +193,10 @@
             type: 'js'
         },
         {
+            url: 'ui/js/tools/background_theme.js',
+            type: 'js'
+        },
+        {
             url: 'ui/js/htmlgui_dialog.js',
             type: 'js'
         },
@@ -760,6 +764,9 @@
         if (opt.legendBackground != null && opt.legendBackground !== "") {
             ixmaps.legendBackground = opt.legendBackground;
         }
+        if (ixmaps.applyForceDarkUiOption) {
+            ixmaps.applyForceDarkUiOption(opt);
+        }
         
         ixmaps.fMapControls = true;
         let szControls = "small";
@@ -871,6 +878,12 @@
                     ixmaps.htmlgui_setMapTypeBG(opt.legendBackground);
                 } catch (e) {
                     console && console.warn && console.warn("legendBackground error:", e);
+                }
+            } else if (ixmaps.forceDarkUi && typeof ixmaps.refreshMapUiTheme === "function") {
+                try {
+                    ixmaps.refreshMapUiTheme();
+                } catch (e) {
+                    console && console.warn && console.warn("forceDarkUi error:", e);
                 }
             }
             
@@ -1197,6 +1210,14 @@
         },
         setBasemapOpacity: function (nOpacity, szMode) {
             ixmaps.setBasemapOpacity(nOpacity, szMode);
+            return this;
+        },
+        forceDarkUi: function (val) {
+            ixmaps.setForceDarkUi(val);
+            return this;
+        },
+        setForceDarkUi: function (val) {
+            ixmaps.setForceDarkUi(val);
             return this;
         },
 
