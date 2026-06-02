@@ -215,7 +215,7 @@ The framework consists of several layers:
 
 ## License
 
-[License information to be added]
+iXMaps-flat is licensed under the [BSD 3-Clause License](LICENSE.txt).
 
 ## Contributing
 
