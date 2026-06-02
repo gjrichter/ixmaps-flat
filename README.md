@@ -1,5 +1,7 @@
 # ixMaps Framework
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gjrichter/ixmaps-flat)
+
 **ixMaps** is a JavaScript framework for creating interactive, data-driven web maps with sophisticated visualization capabilities. It combines SVG-based cartography with Leaflet/OpenStreetMap base maps to enable powerful geospatial data visualizations including choropleth maps, bubble charts, pie charts, and bar charts. The framework supports 15+ data formats (CSV, JSON, GeoJSON, Parquet, GeoPackage, etc.) and features an AI-assisted chat interface for intuitive map creation. With its fluent API and browser-based architecture, ixMaps allows both developers and non-technical users to create sophisticated interactive maps without server infrastructure.
 
 ## Key Features
