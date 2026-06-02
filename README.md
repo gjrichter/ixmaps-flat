@@ -201,6 +201,10 @@ Chat2Map is an AI powered application to load data with (or without) geocoordina
 
 ## AI Skills
 
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-D97757?logo=claude&logoColor=white)](https://github.com/gjrichter/ixmaps-skills)
+[![Codex](https://img.shields.io/badge/Codex-412991?logo=openai&logoColor=white)](https://github.com/gjrichter/ixmaps-skills)
+[![Any chat assistant](https://img.shields.io/badge/Any%20chat%20assistant-SKILL.md-2088FF?logo=markdown&logoColor=white)](https://github.com/gjrichter/ixmaps-skills/blob/main/SKILL.md)
+
 Want an AI assistant to build iXMaps maps for you? The [ixmaps-skills](https://github.com/gjrichter/ixmaps-skills) repository packages everything an assistant needs to generate complete, browser-ready HTML maps powered by `ixmaps-flat`. It includes tool-specific skills for **Claude Code** and **Codex**, a general `SKILL.md` for any chat assistant, plus ready-to-use templates and guides covering map types, data hosting, symbols, facets, and runtime controls.
 
 Just point your assistant at the skill (e.g. share the raw `SKILL.md` URL) and ask for a map — bubble charts, choropleths, pie/bar charts, density heatmaps, multi-layer joins, and more from point data, GeoJSON, or TopoJSON.
