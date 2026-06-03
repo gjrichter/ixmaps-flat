@@ -89,7 +89,7 @@ $Log: theme_legend.js,v $
             '\t\t// create and embed the map\n' +
             '\t\t// ! reference to "map-div", the hosting html div\n' +
             '\n' +
-            '\t\tixmaps.embed("map-div", {\n' +
+            '\t\tixmaps.Map("map-div", {\n' +
             '\t\t\tmapService: "leaflet_vt",\n' +
             '\t\t\tmapType: "' + (project.map.basemap || "VT_OPENSTREETMAP") + '",\n' +
             '\t\t\tmap: "../../maps/svg/maps/generic/mercator.svg",\n' +
