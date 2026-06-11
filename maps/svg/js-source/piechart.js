@@ -64,8 +64,9 @@ $Log: piechart.js,v $
 
     function DonutChart(targetDocument, targetGroup, mX, mY, nRadOuter, nRadInner) {
         /** the SVG Document to draw the donut in */
-        // GR 10/03/2025 in flat framework the SVG document is the window.document
-        this.targetDocument = window.document; //targetDocument;
+        this.targetDocument = (targetGroup && targetGroup.ownerDocument) ?
+            targetGroup.ownerDocument :
+            (targetDocument || window.document);
         /** the SVG group <g> to draw the donut in */
         this.targetGroup = targetGroup;
         /** the x coordinate of the center */

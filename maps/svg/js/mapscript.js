@@ -1480,8 +1480,10 @@ $Log: mapscript.js,v $
      * @return the created element
      */
     ixMap.Dom.prototype.newNode = function (tagName, targetGroup) {
-        var newNode = this.targetDocument.createElementNS(szSVG, tagName);
-        (targetGroup || this.targetGroup).appendChild(newNode);
+        var group = targetGroup || this.targetGroup;
+        var doc = (group && group.ownerDocument) ? group.ownerDocument : this.targetDocument;
+        var newNode = doc.createElementNS(szSVG, tagName);
+        group.appendChild(newNode);
         return newNode;
     };
     /**
@@ -3421,7 +3423,14 @@ $Log: mapscript.js,v $
         const λ0 = degreesToRadians(this.nOrthographicLon0);
         const φ = degreesToRadians(lat);
         const λ = degreesToRadians(lon);
-        const Δλ = λ - λ0;
+        let Δλ = λ - λ0;
+        // Normalize longitude difference to [-π, π] for correct hemisphere test
+        while (Δλ > Math.PI) {
+            Δλ -= 2 * Math.PI;
+        }
+        while (Δλ < -Math.PI) {
+            Δλ += 2 * Math.PI;
+        }
         
         // Calculate cos(angular_distance) using spherical law of cosines
         // cos(angular_distance) = sin(φ0)*sin(φ) + cos(φ0)*cos(φ)*cos(Δλ)
@@ -3429,7 +3438,8 @@ $Log: mapscript.js,v $
                               Math.cos(φ0) * Math.cos(φ) * Math.cos(Δλ);
         
         // If cos(angular_distance) < 0, point is >90° away (on backside)
-        return cosAngularDist < 0;
+        // Small epsilon keeps rim points visible
+        return cosAngularDist < -1e-10;
     };
     /**
      * returns the map coordinates of a point given in widget coordinates (antizoomandpan).
@@ -8313,7 +8323,13 @@ $Log: mapscript.js,v $
         const λ = degreesToRadians(lon);
         
         // Calculate angular distance from center
-        const Δλ = λ - λ0;
+        let Δλ = λ - λ0;
+        while (Δλ > Math.PI) {
+            Δλ -= 2 * Math.PI;
+        }
+        while (Δλ < -Math.PI) {
+            Δλ += 2 * Math.PI;
+        }
         
         // Calculate trigonometric values
         const cosφ = Math.cos(φ);

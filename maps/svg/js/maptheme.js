@@ -652,46 +652,57 @@ $Log: maptheme.js,v $
 	};
 
 	/**
-	 * SQL LIKE-style match: % = any run of chars, _ = one char.
-	 * If the pattern has no % or _, it is treated as %pattern% (substring / legacy behavior).
+	 * Map SQL LIKE wildcards to regex; all other characters pass through as regex syntax.
+	 *   %  ->  .*   (zero or more chars)
+	 *   _  ->  .    (one char)
+	 * Backslash escapes the next character (e.g. \% stays literal % in the regex).
+	 */
+	var __sqlLikePatternToRegex = function (sqlPattern) {
+		sqlPattern = String(sqlPattern);
+		var out = '';
+		for (var i = 0; i < sqlPattern.length; i++) {
+			var c = sqlPattern.charAt(i);
+			if (c === '\\' && i + 1 < sqlPattern.length) {
+				out += '\\' + sqlPattern.charAt(i + 1);
+				i++;
+				continue;
+			}
+			if (c === '%') {
+				out += '.*';
+			} else if (c === '_') {
+				out += '.';
+			} else {
+				out += c;
+			}
+		}
+		return out;
+	};
+
+	/**
+	 * LIKE: arbitrary regex match; SQL wildcards % and _ are mapped first (legacy ixMaps behavior).
 	 */
 	var __safeSqlLikeMatch = function (value, sqlPattern, caseSensitive) {
 		try {
 			if (sqlPattern == null || typeof sqlPattern === 'undefined') {
 				return false;
 			}
-			sqlPattern = String(sqlPattern);
 			var flags = caseSensitive ? '' : 'i';
-			if (sqlPattern.indexOf('%') === -1 && sqlPattern.indexOf('_') === -1) {
-				sqlPattern = '%' + sqlPattern + '%';
-			}
-			var out = '';
-			for (var i = 0; i < sqlPattern.length; i++) {
-				var c = sqlPattern.charAt(i);
-				if (c === '%') {
-					out += '[\\s\\S]*?';
-				} else if (c === '_') {
-					out += '[\\s\\S]';
-				} else {
-					out += __escapeRegex(c);
-				}
-			}
-			var regex = new RegExp('^(?:' + out + ')$', flags);
-			return regex.test(String(value));
+			var pattern = __sqlLikePatternToRegex(sqlPattern).replace(/\//g, '\\/');
+			return new RegExp(pattern, flags).test(String(value));
 		} catch (e) {
 			return false;
 		}
 	};
 
+	/**
+	 * NOT / default: arbitrary regex (no SQL wildcard mapping); only / is escaped (legacy).
+	 */
 	var __safeRegexMatch = function(value, pattern, caseSensitive) {
 		try {
-			var flags = caseSensitive ? 'g' : 'gi';
-			// Escape the pattern to prevent regex injection
-			var escapedPattern = __escapeRegex(pattern);
-			var regex = new RegExp(escapedPattern, flags);
-			return regex.test(value);
+			var flags = caseSensitive ? '' : 'i';
+			pattern = String(pattern).replace(/\//g, '\\/');
+			return new RegExp(pattern, flags).test(String(value));
 		} catch (e) {
-			// If regex construction fails, return false
 			return false;
 		}
 	};
@@ -1913,6 +1924,9 @@ $Log: maptheme.js,v $
 			// GR 13.12.2022 layer hidden ?
 			if (__isdef(styleObj.visible)) {
 				mapTheme.fVisible = __safeJsonParse(styleObj.visible);
+				if (mapTheme.fVisible === false) {
+					mapTheme.fUserHidden = true;
+				}
 				//mapTheme.fHide = !mapTheme.fVisible;
 			}
 		}
@@ -2522,6 +2536,32 @@ $Log: maptheme.js,v $
 	};
 
 	/**
+	 * Keep theme.fVisible aligned with zoom bounds and user hide/show (fUserHidden).
+	 * @param theme MapTheme instance
+	 */
+	function __mapTheme_recomputeFVisible(theme) {
+		if (!theme) {
+			return;
+		}
+		if (theme.fUserHidden === true) {
+			theme.fVisible = false;
+			return;
+		}
+		var scale = map.Scale.nTrueMapScale * map.Scale.nZoomScale;
+		if (theme.szFlag && theme.szFlag.match(/FEATURE/) && (theme.nFeatureUpper || theme.nFeatureLower)) {
+			var inFeat = !((theme.nFeatureLower && scale <= theme.nFeatureLower) || (theme.nFeatureUpper && scale > theme.nFeatureUpper));
+			theme.fVisible = !!inFeat;
+			return;
+		}
+		if (theme.nChartUpper || theme.nChartLower) {
+			var inChart = !((theme.nChartUpper && scale > theme.nChartUpper) || (theme.nChartLower && scale <= theme.nChartLower));
+			theme.fVisible = !!inChart;
+			return;
+		}
+		theme.fVisible = true;
+	}
+
+	/**
 	 * show a MapTheme 
 	 * @parameter evt the event
 	 * @parameter szId the id of the theme
@@ -2529,7 +2569,9 @@ $Log: maptheme.js,v $
 	ixMap.Themes.prototype.showTheme = function (evt, szId) {
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
+			mapTheme.fUserHidden = false;
 			mapTheme.fShow = true;
+			__mapTheme_recomputeFVisible(mapTheme);
 			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
 		if (evt) {
@@ -2545,6 +2587,8 @@ $Log: maptheme.js,v $
 	ixMap.Themes.prototype.hideTheme = function (evt, szId) {
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme) {
+			mapTheme.fUserHidden = true;
+			mapTheme.fVisible = false;
 			mapTheme.fHide = true;
 			executeWithMessage(() => map.Themes.execute(), "... processing ...");
 		}
@@ -6662,12 +6706,9 @@ $Log: maptheme.js,v $
 			if (this.themesA[i].szFlag.match(/FEATURE/) &&
 				(this.themesA[i].nFeatureUpper || this.themesA[i].nFeatureLower) &&
 				this.themesA[i].fDone) {
-				var scale = map.Scale.nTrueMapScale * map.Scale.nZoomScale;
-				var inScale = !(this.themesA[i].nFeatureLower && scale <= this.themesA[i].nFeatureLower) &&
-					!(this.themesA[i].nFeatureUpper && scale > this.themesA[i].nFeatureUpper);
 				var wasVisible = this.themesA[i].fVisible;
-				this.themesA[i].fVisible = inScale;
-				if (wasVisible !== inScale) {
+				__mapTheme_recomputeFVisible(this.themesA[i]);
+				if (wasVisible !== this.themesA[i].fVisible) {
 					try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.themesA[i].szId); } catch (e) {}
 				}
 			}
@@ -7909,16 +7950,15 @@ $Log: maptheme.js,v $
 		}
 
 		if (this.szFlag.match(/FEATURE/)) {
+			var scale = map.Scale.nTrueMapScale * map.Scale.nZoomScale;
+			var inScale = !((this.nFeatureLower && scale <= this.nFeatureLower) || (this.nFeatureUpper && scale > this.nFeatureUpper));
 			var wasVisible = this.fVisible;
-			if ((this.nFeatureLower && (map.Scale.nTrueMapScale * map.Scale.nZoomScale <= this.nFeatureLower)) ||
-				(this.nFeatureUpper && (map.Scale.nTrueMapScale * map.Scale.nZoomScale > this.nFeatureUpper))) {
-				this.fVisible = false;
+			__mapTheme_recomputeFVisible(this);
+			if (wasVisible !== this.fVisible) {
 				try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.szId); } catch (e) {}
-				return;
 			}
-			this.fVisible = true;
-			if (!wasVisible) {
-				try { map.HTMLWindow.ixmaps.htmlgui_onDrawTheme(this.szId); } catch (e) {}
+			if (!inScale) {
+				return;
 			}
 		}
 
@@ -12756,13 +12796,13 @@ $Log: maptheme.js,v $
 
 		if (this.nChartUpper && (map.Scale.nTrueMapScale * map.Scale.nZoomScale > this.nChartUpper)) {
 			this.unpaintMap();
-			this.fVisible = false;
+			__mapTheme_recomputeFVisible(this);
 			this.realizeDone();
 			return;
 		}
 		if (this.nChartLower && (map.Scale.nTrueMapScale * map.Scale.nZoomScale <= this.nChartLower)) {
 			this.unpaintMap();
-			this.fVisible = false;
+			__mapTheme_recomputeFVisible(this);
 			this.realizeDone();
 			return;
 		}
@@ -13193,6 +13233,7 @@ $Log: maptheme.js,v $
 			}
 		}
 		this.isVisible = true;
+		__mapTheme_recomputeFVisible(this);
 		this.realizeDone();
 
 		this.fShowProgressBar = false;
@@ -15595,7 +15636,7 @@ $Log: maptheme.js,v $
 				}
 				this.chartGroup.style.setProperty("display", "none", "");
 				//this.unpaintMap();
-				this.fVisible = false;
+				__mapTheme_recomputeFVisible(this);
 				this.realizeDone();
 				return;
 			} else {
@@ -15603,7 +15644,7 @@ $Log: maptheme.js,v $
 					this.createChartGroup(map.Layer.objectGroup);
 				}
 				this.chartGroup.style.setProperty("display", "inline", "");
-				this.fVisible = true;
+				__mapTheme_recomputeFVisible(this);
 			}
 		}
 
@@ -16589,69 +16630,365 @@ $Log: maptheme.js,v $
 				shapeGroup.setAttributeNS(szMapNs, "class", (typeof (this.itemA[a].nClass) != "undefined") ? this.itemA[a].nClass : String(this.itemA[a].nValuesA[0] - 1));
 
 				// maximal length of map elements
-				var ptMax1 = map.Scale.getMapPositionOfLatLon(80, 180);
-				var ptMax2 = map.Scale.getMapPositionOfLatLon(80, -180);
-				var maxLenX = (ptMax1 && ptMax2 && ptMax1.x !== undefined && ptMax2.x !== undefined) 
-					? (ptMax1.x - ptMax2.x) 
-					: 10000000; // Fallback value if calculation fails
+				var maxLenX = 10000000;
+				if (map.Scale.szMapProjection === "Orthographic") {
+					var ptCenter = map.Scale.getMapPositionOfLatLon(map.Scale.nOrthographicLat0, map.Scale.nOrthographicLon0);
+					var ptEdge = map.Scale.getMapPositionOfLatLon(map.Scale.nOrthographicLat0, map.Scale.nOrthographicLon0 + 90);
+					if (ptCenter && ptEdge && ptCenter.x !== undefined && ptEdge.x !== undefined) {
+						maxLenX = Math.abs(ptEdge.x - ptCenter.x) * 2;
+					}
+				} else {
+					var ptMax1 = map.Scale.getMapPositionOfLatLon(80, 180);
+					var ptMax2 = map.Scale.getMapPositionOfLatLon(80, -180);
+					if (ptMax1 && ptMax2 && ptMax1.x !== undefined && ptMax2.x !== undefined) {
+						maxLenX = (ptMax1.x - ptMax2.x);
+					}
+				}
+
+				var isOrthographic = map.Scale.szMapProjection === "Orthographic";
+
+				function isGeoVisibleOrthographic(lat, lon) {
+					return !map.Scale.isPointOnBacksideOrthographic(lat, lon);
+				}
+
+				function lerpLon(lon1, lon2, t) {
+					var d = lon2 - lon1;
+					while (d > 180) {
+						d -= 360;
+					}
+					while (d < -180) {
+						d += 360;
+					}
+					var lon = lon1 + d * t;
+					while (lon > 180) {
+						lon -= 360;
+					}
+					while (lon < -180) {
+						lon += 360;
+					}
+					return lon;
+				}
+
+				function lerpSegmentLatLon(lat1, lon1, lat2, lon2, t) {
+					return {
+						lat: lat1 + (lat2 - lat1) * t,
+						lon: lerpLon(lon1, lon2, t)
+					};
+				}
 
 				/**
-				 * Move invisible points to the horizon for Orthographic projection
-				 * Uses binary search to find the intersection point between a segment and the horizon
-				 * @param {number} lat - Latitude of the invisible point
-				 * @param {number} lon - Longitude of the invisible point
-				 * @param {number} prevLat - Latitude of the previous visible point
-				 * @param {number} prevLon - Longitude of the previous visible point
-				 * @param {object} referenceHorizonPoint - Reference point on horizon (for consistency)
-				 * @returns {object|null} Object with {pt, lat, lon} or null if not found
+				 * Find the horizon intersection on a segment that crosses the visible hemisphere boundary.
+				 * Uses backside detection (not projected coords) so entry and exit clipping both work.
 				 */
-				function movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint) {
-					if (prevLat !== undefined && prevLon !== undefined) {
-						var steps = 12;
-						var t0 = 0, t1 = 1;
-						
-						// Binary search along the segment from prevPoint to currentPoint
-						for (var step = 0; step < steps; step++) {
-							var tMid = (t0 + t1) / 2;
-							var latMid = prevLat + (lat - prevLat) * tMid;
-							var lonMid = prevLon + (lon - prevLon) * tMid;
-							var ptMid = map.Scale.getMapPositionOfLatLon(latMid, lonMid);
-							
-							if (ptMid && ptMid.x !== undefined && ptMid.y !== undefined) {
-								t0 = tMid;
-							} else {
-								t1 = tMid;
-							}
-						}
-						
-						var tFinal = t0;
-						if (tFinal > 0) {
-							var latFinal = prevLat + (lat - prevLat) * tFinal;
-							var lonFinal = prevLon + (lon - prevLon) * tFinal;
-							var ptFinal = map.Scale.getMapPositionOfLatLon(latFinal, lonFinal);
-							if (ptFinal && ptFinal.x !== undefined && ptFinal.y !== undefined) {
-								return {
-									pt: ptFinal,
-									lat: latFinal,
-									lon: lonFinal
-								};
-							}
+				function findHorizonOnSegment(lat1, lon1, lat2, lon2) {
+					if (!isOrthographic) {
+						return null;
+					}
+					var vis1 = isGeoVisibleOrthographic(lat1, lon1);
+					var vis2 = isGeoVisibleOrthographic(lat2, lon2);
+					if (vis1 === vis2) {
+						return null;
+					}
+					var t0 = 0, t1 = 1;
+					for (var step = 0; step < 20; step++) {
+						var tMid = (t0 + t1) / 2;
+						var mid = lerpSegmentLatLon(lat1, lon1, lat2, lon2, tMid);
+						if (isGeoVisibleOrthographic(mid.lat, mid.lon) === vis1) {
+							t0 = tMid;
+						} else {
+							t1 = tMid;
 						}
 					}
-					
-					// Fallback: use reference horizon point if available
-					if (referenceHorizonPoint && referenceHorizonPoint.lat !== undefined) {
-						var ptRef = map.Scale.getMapPositionOfLatLon(referenceHorizonPoint.lat, referenceHorizonPoint.lon);
-						if (ptRef && ptRef.x !== undefined && ptRef.y !== undefined) {
-							return {
-								pt: ptRef,
-								lat: referenceHorizonPoint.lat,
-								lon: referenceHorizonPoint.lon
-							};
-						}
+					var tFinal = vis1 ? t0 : t1;
+					var end = lerpSegmentLatLon(lat1, lon1, lat2, lon2, tFinal);
+					var ptFinal = map.Scale.getMapPositionOfLatLon(end.lat, end.lon);
+					if (ptFinal && ptFinal.x !== undefined && ptFinal.y !== undefined) {
+						return {
+							pt: ptFinal,
+							lat: end.lat,
+							lon: end.lon
+						};
 					}
-					
 					return null;
+				}
+
+				function segmentCrossesBackside(lat1, lon1, lat2, lon2) {
+					if (!isGeoVisibleOrthographic(lat1, lon1) || !isGeoVisibleOrthographic(lat2, lon2)) {
+						return false;
+					}
+					var mid = lerpSegmentLatLon(lat1, lon1, lat2, lon2, 0.5);
+					return !isGeoVisibleOrthographic(mid.lat, mid.lon);
+				}
+
+				function appendVisibleLineTo(parts, state, pt2) {
+					parts.push(" l " + (pt2.x - state.ptAct.x) + "," + (pt2.y - state.ptAct.y));
+					state.ptAct = new point(pt2.x, pt2.y);
+					state.cx += pt2.x;
+					state.cy += pt2.y;
+					state.count++;
+					state.fHasSegment = true;
+				}
+
+				function moveToVisiblePoint(parts, state, pt) {
+					parts.push((parts.length ? " M " : "M ") + pt.x + "," + pt.y);
+					state.ptAct = new point(pt.x, pt.y);
+					state.pathOpen = true;
+					state.cx += pt.x;
+					state.cy += pt.y;
+					state.count++;
+				}
+
+				/**
+				 * For a backside point, return the point on the visible horizon rim
+				 * lying in the same azimuth direction (great-circle bearing) from the
+				 * projection center. Used to clamp hidden polygon vertices to the rim.
+				 */
+				function horizonPointToward(lat, lon) {
+					var d2r = Math.PI / 180;
+					var r2d = 180 / Math.PI;
+					var lat0 = map.Scale.nOrthographicLat0;
+					var lon0 = map.Scale.nOrthographicLon0;
+					if (lat0 === null || lon0 === null) {
+						return null;
+					}
+					var f0 = lat0 * d2r;
+					var l0 = lon0 * d2r;
+					var f = lat * d2r;
+					var dl = (lon - lon0);
+					while (dl > 180) {
+						dl -= 360;
+					}
+					while (dl < -180) {
+						dl += 360;
+					}
+					dl = dl * d2r;
+					// great-circle bearing from center to the point
+					var theta = Math.atan2(
+						Math.sin(dl) * Math.cos(f),
+						Math.cos(f0) * Math.sin(f) - Math.sin(f0) * Math.cos(f) * Math.cos(dl)
+					);
+					// point at 89.9 degrees along that bearing (just inside the horizon)
+					var c = 89.9 * d2r;
+					var sinC = Math.sin(c);
+					var cosC = Math.cos(c);
+					var fh = Math.asin(Math.sin(f0) * cosC + Math.cos(f0) * sinC * Math.cos(theta));
+					var lh = l0 + Math.atan2(
+						Math.sin(theta) * sinC * Math.cos(f0),
+						cosC - Math.sin(f0) * Math.sin(fh)
+					);
+					return {
+						lat: fh * r2d,
+						lon: lh * r2d
+					};
+				}
+
+				function getMapPointAdjusted(lat, lon, ptAct) {
+					var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+					if (!pt || pt.x === undefined || pt.y === undefined) {
+						return null;
+					}
+					if (ptAct && Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+						pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < ptAct.x) ? 360 : -360));
+						if (!pt || pt.x === undefined || pt.y === undefined) {
+							return null;
+						}
+					}
+					return pt;
+				}
+
+				/**
+				 * Build an SVG path for open line coordinates, clipping at the orthographic horizon.
+				 * Hidden parts break the path into separate subpaths; never closes (no fill).
+				 */
+				function buildOrthographicPathFromCoords(coordinatesA, closed) {
+					var parts = [];
+					var state = {
+						ptAct: null,
+						pathOpen: false,
+						fHasSegment: false,
+						cx: 0,
+						cy: 0,
+						count: 0
+					};
+					var n = coordinatesA.length;
+					if (n < 2) {
+						return { d: "", fHasSegment: false, x: 0, y: 0, count: 0 };
+					}
+
+					function clipExitAtHorizon(lat1, lon1, lat2, lon2) {
+						if (!state.pathOpen) {
+							return;
+						}
+						var horizonExit = findHorizonOnSegment(lat1, lon1, lat2, lon2);
+						if (horizonExit && horizonExit.pt) {
+							appendVisibleLineTo(parts, state, horizonExit.pt);
+						}
+						state.pathOpen = false;
+						state.ptAct = null;
+					}
+
+					function clipEnterFromHorizon(lat1, lon1, lat2, lon2) {
+						var horizonEntry = findHorizonOnSegment(lat1, lon1, lat2, lon2);
+						var pt2Entry = horizonEntry ? getMapPointAdjusted(lat2, lon2, horizonEntry.pt) : null;
+						if (horizonEntry && horizonEntry.pt && pt2Entry) {
+							moveToVisiblePoint(parts, state, horizonEntry.pt);
+							appendVisibleLineTo(parts, state, pt2Entry);
+						}
+					}
+
+					function drawVisibleEdge(lat1, lon1, lat2, lon2) {
+						var pt2 = getMapPointAdjusted(lat2, lon2, state.ptAct);
+						if (!pt2) {
+							return;
+						}
+						if (!state.pathOpen) {
+							var pt1 = getMapPointAdjusted(lat1, lon1, null);
+							if (!pt1) {
+								return;
+							}
+							moveToVisiblePoint(parts, state, pt1);
+						}
+						appendVisibleLineTo(parts, state, pt2);
+					}
+
+					var edgeCount = closed ? n : n - 1;
+					for (var ii = 0; ii < edgeCount; ii++) {
+						var j = (ii + 1) % n;
+						var lat1 = coordinatesA[ii][1];
+						var lon1 = coordinatesA[ii][0];
+						var lat2 = coordinatesA[j][1];
+						var lon2 = coordinatesA[j][0];
+						var vis1 = isGeoVisibleOrthographic(lat1, lon1);
+						var vis2 = isGeoVisibleOrthographic(lat2, lon2);
+
+						if (vis1 && vis2) {
+							if (segmentCrossesBackside(lat1, lon1, lat2, lon2)) {
+								clipExitAtHorizon(lat1, lon1, lat2, lon2);
+								clipEnterFromHorizon(lat1, lon1, lat2, lon2);
+							} else {
+								drawVisibleEdge(lat1, lon1, lat2, lon2);
+							}
+						} else if (vis1 && !vis2) {
+							clipExitAtHorizon(lat1, lon1, lat2, lon2);
+						} else if (!vis1 && vis2) {
+							clipEnterFromHorizon(lat1, lon1, lat2, lon2);
+						}
+					}
+
+					return {
+						d: parts.join(""),
+						fHasSegment: state.fHasSegment,
+						x: state.cx,
+						y: state.cy,
+						count: state.count
+					};
+				}
+
+				/**
+				 * Build a closed SVG ring for polygon coordinates in Orthographic projection.
+				 * Backside vertices are clamped to the horizon rim at their azimuth from the
+				 * projection center, so the ring stays continuous and the clipped boundary
+				 * follows the rim in the correct winding direction (no chords, no arc guessing).
+				 */
+				function buildOrthographicRingClamped(coordinatesA) {
+					var n = coordinatesA.length;
+					var empty = { d: "", fHasSegment: false, x: 0, y: 0, count: 0 };
+					if (n < 3) {
+						return empty;
+					}
+					// ignore duplicate closing vertex
+					if (coordinatesA[0][0] === coordinatesA[n - 1][0] &&
+						coordinatesA[0][1] === coordinatesA[n - 1][1]) {
+						n--;
+					}
+					if (n < 3) {
+						return empty;
+					}
+
+					// skip rings entirely on the backside
+					var anyVisible = false;
+					for (var k = 0; k < n; k++) {
+						if (isGeoVisibleOrthographic(coordinatesA[k][1], coordinatesA[k][0])) {
+							anyVisible = true;
+							break;
+						}
+					}
+					if (!anyVisible) {
+						return empty;
+					}
+
+					var parts = [];
+					var ptAct = null;
+					var cx = 0, cy = 0, count = 0;
+					var prevVis = null;
+					var prevLat = null, prevLon = null;
+
+					function emit(pt) {
+						if (!pt || pt.x === undefined || pt.y === undefined) {
+							return;
+						}
+						if (!ptAct) {
+							parts.push("M " + pt.x + "," + pt.y);
+						} else {
+							parts.push(" l " + (pt.x - ptAct.x) + "," + (pt.y - ptAct.y));
+						}
+						ptAct = new point(pt.x, pt.y);
+					}
+
+					for (var ii = 0; ii < n; ii++) {
+						var lat = coordinatesA[ii][1];
+						var lon = coordinatesA[ii][0];
+						var vis = isGeoVisibleOrthographic(lat, lon);
+
+						// add the exact horizon crossing when visibility flips
+						if (prevVis !== null && vis !== prevVis) {
+							var crossing = findHorizonOnSegment(prevLat, prevLon, lat, lon);
+							if (crossing && crossing.pt) {
+								emit(crossing.pt);
+							}
+						}
+
+						if (vis) {
+							var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+							if (pt && pt.x !== undefined && pt.y !== undefined) {
+								emit(pt);
+								cx += pt.x;
+								cy += pt.y;
+								count++;
+							}
+						} else {
+							// clamp hidden vertex to the horizon rim at its azimuth
+							var h = horizonPointToward(lat, lon);
+							var ptH = h ? map.Scale.getMapPositionOfLatLon(h.lat, h.lon) : null;
+							emit(ptH);
+						}
+
+						prevVis = vis;
+						prevLat = lat;
+						prevLon = lon;
+					}
+
+					// closing edge back to the first vertex
+					var firstVis = isGeoVisibleOrthographic(coordinatesA[0][1], coordinatesA[0][0]);
+					if (prevVis !== null && firstVis !== prevVis) {
+						var closingCross = findHorizonOnSegment(prevLat, prevLon, coordinatesA[0][1], coordinatesA[0][0]);
+						if (closingCross && closingCross.pt) {
+							emit(closingCross.pt);
+						}
+					}
+
+					if (!parts.length || count === 0) {
+						return empty;
+					}
+					parts.push(" z");
+
+					return {
+						d: parts.join(""),
+						fHasSegment: true,
+						x: cx,
+						y: cy,
+						count: count
+					};
 				}
 
 
@@ -16688,6 +17025,13 @@ $Log: maptheme.js,v $
 					}
 					var coordinatesA = json.coordinates;
 					
+					if (isOrthographic) {
+						var orthoPath = buildOrthographicPathFromCoords(coordinatesA, false);
+						if (!orthoPath.fHasSegment) {
+							continue;
+						}
+						var shape = map.Dom.newShape('path', shapeGroup, orthoPath.d, "");
+					} else {
 					var dParts = [];
 					var ptAct = null;
 					var fHasSegment = false;
@@ -16695,14 +17039,10 @@ $Log: maptheme.js,v $
 						var lat = coordinatesA[coordIdx][1];
 						var lon = coordinatesA[coordIdx][0];
 						var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
-						// Skip backside points; start a new segment afterwards
 						if (!pt || pt.x === undefined || pt.y === undefined) {
 							ptAct = null;
 							continue;
 						}
-						// polygon segments with x length >= 99% of max width 
-						// are most probably caused by coordinate transition (-180 -> 178) or so
-						// we treat them like coordinate overflow and add/subtract max width
 						if (ptAct && Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
 							var ptAdjusted = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
 							if (ptAdjusted && ptAdjusted.x !== undefined && ptAdjusted.y !== undefined) {
@@ -16727,6 +17067,7 @@ $Log: maptheme.js,v $
 
 					var d = dParts.join("");
 					var shape = map.Dom.newShape('path', shapeGroup, d, "");
+					}
 				}
 
 				// geojson MultiLineString
@@ -16747,6 +17088,13 @@ $Log: maptheme.js,v $
 					for (i in linesA) {
 						var coordinatesA = linesA[i];
 						
+						if (isOrthographic) {
+							var orthoPath = buildOrthographicPathFromCoords(coordinatesA, false);
+							if (!orthoPath.fHasSegment) {
+								continue;
+							}
+							var shape = map.Dom.newShape('path', shapeGroup, orthoPath.d, "");
+						} else {
 						var dParts = [];
 						var ptAct = null;
 						var fHasSegment = false;
@@ -16755,14 +17103,10 @@ $Log: maptheme.js,v $
 							var lat = coordinatesA[coordIdx][1];
 							var lon = coordinatesA[coordIdx][0];
 							var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
-							// Skip backside points; start a new segment afterwards
 							if (!pt || pt.x === undefined || pt.y === undefined) {
 								ptAct = null;
 								continue;
 							}
-							// polygon segments with x length >= 99% of max width 
-							// are most probably caused by coordinate transition (-180 -> 178) or so
-							// we treat them like coordinate overflow and add/subtract max width
 							if (ptAct && Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
 								var ptAdjusted = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
 								if (ptAdjusted && ptAdjusted.x !== undefined && ptAdjusted.y !== undefined) {
@@ -16787,6 +17131,7 @@ $Log: maptheme.js,v $
 
 						var d = dParts.join("");
 						var shape = map.Dom.newShape('path', shapeGroup, d, "");
+						}
 					}
 				}
 
@@ -16803,77 +17148,50 @@ $Log: maptheme.js,v $
 					
 					for (i in linesA) {
 						var coordinatesA = linesA[i];
+						if (isOrthographic) {
+							var orthoPath = buildOrthographicRingClamped(coordinatesA);
+							if (orthoPath.count > 0) {
+								d += (d.length ? " " : "") + orthoPath.d;
+								x += orthoPath.x;
+								y += orthoPath.y;
+								count += orthoPath.count;
+							}
+						} else {
 						var ptAct = null;
-						var prevLat = null;
-						var prevLon = null;
-						var referenceHorizonPoint = null; // First horizon intersection defines clipping side
 
 						var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-						var firstVisible = (pt && pt.x !== undefined && pt.y !== undefined);
-						
-						if (!firstVisible) {
-							continue; // Skip ring if first point is invisible
+						if (!pt || pt.x === undefined || pt.y === undefined) {
+							continue;
 						}
 						
-						// Start path and initialize tracking
 						d += "M " + (pt.x) + ',' + (pt.y);
 						ptAct = new point(pt.x, pt.y);
 						x += pt.x;
 						y += pt.y;
 						count++;
-						prevLat = coordinatesA[0][1];
-						prevLon = coordinatesA[0][0];
 
 						for (var ii = 1; ii < coordinatesA.length; ii++) {
 							var lat = coordinatesA[ii][1];
 							var lon = coordinatesA[ii][0];
-							var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
-							var visible = (pt && pt.x !== undefined && pt.y !== undefined);
-							
-							if (!visible) {
-								// Invisible point - clip to horizon in Orthographic projection
-								if (map.Scale.szMapProjection === "Orthographic") {
-									var horizonResult = movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint);
-									if (horizonResult && horizonResult.pt) {
-										// Validate distance to prevent wild jumps
-										var dx = Math.abs(horizonResult.pt.x - ptAct.x);
-										var dy = Math.abs(horizonResult.pt.y - ptAct.y);
-										var distance = Math.sqrt(dx*dx + dy*dy);
-										var maxReasonableDistance = maxLenX * 0.5;
-										
-										if (distance < maxReasonableDistance) {
-											if (!referenceHorizonPoint) {
-												referenceHorizonPoint = {
-													lat: horizonResult.lat,
-													lon: horizonResult.lon
-												};
-											}
-											
-											d += " l " + (horizonResult.pt.x - ptAct.x) + ',' + (horizonResult.pt.y - ptAct.y);
-											ptAct = new point(horizonResult.pt.x, horizonResult.pt.y);
-										}
-									}
-								}
-							} else {
-								// Visible point - handle coordinate wrapping
-								if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-									pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
-									if (!pt || pt.x === undefined || pt.y === undefined) {
-										continue;
-									}
-								}
-
-								x += pt.x;
-								y += pt.y;
-								count++;
-								d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
-								ptAct = new point(pt.x, pt.y);
+							pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+							if (!pt || pt.x === undefined || pt.y === undefined) {
+								continue;
 							}
-							
-							prevLat = lat;
-							prevLon = lon;
+							if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+								pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+								if (!pt || pt.x === undefined || pt.y === undefined) {
+									continue;
+								}
+							}
+
+							x += pt.x;
+							y += pt.y;
+							count++;
+							d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
+							ptAct = new point(pt.x, pt.y);
 						}
 						d += " z";
+						}
 					}
 					
 					if (d.length > 0 && count > 0) {
@@ -16903,77 +17221,50 @@ $Log: maptheme.js,v $
 
 						for (i in linesA) {
 							var coordinatesA = linesA[i];
+							if (isOrthographic) {
+								var orthoPath = buildOrthographicRingClamped(coordinatesA);
+								if (orthoPath.count > 0) {
+									d += (d.length ? " " : "") + orthoPath.d;
+									x[p] += orthoPath.x;
+									y[p] += orthoPath.y;
+									count[p] += orthoPath.count;
+								}
+							} else {
 							var ptAct = null;
-							var prevLat = null;
-							var prevLon = null;
-							var referenceHorizonPoint = null; // First horizon intersection defines clipping side
 
 							var pt = map.Scale.getMapPositionOfLatLon(coordinatesA[0][1], coordinatesA[0][0]);
-							var firstVisible = (pt && pt.x !== undefined && pt.y !== undefined);
-							
-							if (!firstVisible) {
-								continue; // Skip ring if first point is invisible
+							if (!pt || pt.x === undefined || pt.y === undefined) {
+								continue;
 							}
 							
-							// Start path and initialize tracking
 							d += "M " + (pt.x) + ',' + (pt.y);
 							ptAct = new point(pt.x, pt.y);
 							x[p] += pt.x;
 							y[p] += pt.y;
 							count[p]++;
-							prevLat = coordinatesA[0][1];
-							prevLon = coordinatesA[0][0];
 
 							for (var ii = 1; ii < coordinatesA.length; ii++) {
 								var lat = coordinatesA[ii][1];
 								var lon = coordinatesA[ii][0];
-								var pt = map.Scale.getMapPositionOfLatLon(lat, lon);
-								var visible = (pt && pt.x !== undefined && pt.y !== undefined);
-								
-								if (!visible) {
-									// Invisible point - clip to horizon in Orthographic projection
-									if (map.Scale.szMapProjection === "Orthographic") {
-										var horizonResult = movePointToHorizon(lat, lon, prevLat, prevLon, referenceHorizonPoint);
-										if (horizonResult && horizonResult.pt) {
-											// Validate distance to prevent wild jumps
-											var dx = Math.abs(horizonResult.pt.x - ptAct.x);
-											var dy = Math.abs(horizonResult.pt.y - ptAct.y);
-											var distance = Math.sqrt(dx*dx + dy*dy);
-											var maxReasonableDistance = maxLenX * 0.5;
-											
-											if (distance < maxReasonableDistance) {
-												if (!referenceHorizonPoint) {
-													referenceHorizonPoint = {
-														lat: horizonResult.lat,
-														lon: horizonResult.lon
-													};
-												}
-												
-												d += " l " + (horizonResult.pt.x - ptAct.x) + ',' + (horizonResult.pt.y - ptAct.y);
-												ptAct = new point(horizonResult.pt.x, horizonResult.pt.y);
-											}
-										}
-									}
-								} else {
-									// Visible point - handle coordinate wrapping
-									if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
-										pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
-										if (!pt || pt.x === undefined || pt.y === undefined) {
-											continue;
-										}
-									}
-
-									x[p] += pt.x;
-									y[p] += pt.y;
-									count[p]++;
-									d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
-									ptAct = new point(pt.x, pt.y);
+								pt = map.Scale.getMapPositionOfLatLon(lat, lon);
+								if (!pt || pt.x === undefined || pt.y === undefined) {
+									continue;
 								}
-								
-								prevLat = lat;
-								prevLon = lon;
+								if (Math.abs(pt.x - ptAct.x) > (maxLenX * 0.99)) {
+									pt = map.Scale.getMapPositionOfLatLon(lat, lon + ((pt.x < 0) ? 360 : -360));
+									if (!pt || pt.x === undefined || pt.y === undefined) {
+										continue;
+									}
+								}
+
+								x[p] += pt.x;
+								y[p] += pt.y;
+								count[p]++;
+								d += " l " + (pt.x - ptAct.x) + ',' + (pt.y - ptAct.y);
+								ptAct = new point(pt.x, pt.y);
 							}
 							d += " z";
+							}
 						}
 						
 						if (d.length > 0 && count[p] > 0) {
@@ -24929,10 +25220,23 @@ $Log: maptheme.js,v $
 		}
 
 		var szOrigFlag = this.szOrigFlag;
+		var szThemeFlag = String(this.szFlag || this.szOrigFlag || "");
+		var szFieldsA = this.szFieldsA || [];
+		var nValueCount = 0;
+		if (this.szValuesA && this.szValuesA.length) {
+			nValueCount = this.szValuesA.length;
+		} else if (this.szLabelA && this.szLabelA.length) {
+			nValueCount = this.szLabelA.length;
+		}
 
 		var szTypeList = szChartTypeListSingleValue;
-		if ((this.szFieldsA.length > 1) ||
-			(this.szFlag.match(/CATEGORICAL/) && this.szFlag.match(/AGGREGATE/))) {
+		if (szFieldsA.length > 1) {
+			szTypeList = szChartTypeList;
+		} else if (szThemeFlag.match(/CATEGORICAL/) && szThemeFlag.match(/AGGREGATE/)) {
+			szTypeList = szChartTypeList;
+		} else if (szThemeFlag.match(/CATEGORICAL/) &&
+			(szThemeFlag.match(/PIE/) || szThemeFlag.match(/BAR/) || szThemeFlag.match(/SEQUENCE/) ||
+			 szThemeFlag.match(/WAFFLE/) || szThemeFlag.match(/DOMINANT/) || nValueCount > 1)) {
 			szTypeList = szChartTypeList;
 		}
 
@@ -24958,6 +25262,30 @@ $Log: maptheme.js,v $
 			}
 			if (merkFlag.match(/AGGREGATE/)) {
 				this.szFlag += "|AGGREGATE";
+			}
+			if (merkFlag.match(/\bSUM\b/)) {
+				this.szFlag += "|SUM";
+			}
+			if (merkFlag.match(/\bMEAN\b/)) {
+				this.szFlag += "|MEAN";
+			}
+			if (merkFlag.match(/\bMAX\b/)) {
+				this.szFlag += "|MAX";
+			}
+			if (merkFlag.match(/\bMIN\b/)) {
+				this.szFlag += "|MIN";
+			}
+			if (merkFlag.match(/\bAUTOSIZE\b/)) {
+				this.szFlag += "|AUTOSIZE";
+			}
+			if (merkFlag.match(/\bGRIDSIZE\b/)) {
+				this.szFlag += "|GRIDSIZE";
+			}
+			if (merkFlag.match(/\bRECT\b/)) {
+				this.szFlag += "|RECT";
+			}
+			if (merkFlag.match(/\bHEX\b/)) {
+				this.szFlag += "|HEX";
 			}
 			if (merkFlag.match(/COMPATIBLE/)) {
 				this.szFlag += "|COMPATIBLE";
@@ -25027,7 +25355,8 @@ $Log: maptheme.js,v $
 			//		this.szAggregation = "mean";
 
 			var nTempClipParts = this.nClipParts;
-			this.nClipParts = 10;
+			var nMenuClip = (this.colorScheme && this.colorScheme.length) ? this.colorScheme.length : 10;
+			this.nClipParts = Math.max(10, nMenuClip);
 
 			// ----------------------------------------------------------
 			var ptNull = this.drawChart(donutGroup, null, nSwatch * 2 / 3);
@@ -25525,6 +25854,8 @@ $Log: maptheme.js,v $
 				map.Themes.execute();
 			}
 		}
+		this.fUserHidden = !this.isChecked;
+		__mapTheme_recomputeFVisible(this);
 	};
 
 	/**
