@@ -3323,9 +3323,84 @@
 
 
 
+            ixmaps.editor.chartTypeFamily = function(szType) {
+                if (szType.match(/PIE/)) {
+                    return "pie";
+                }
+                if (szType.match(/BAR/)) {
+                    return "bar";
+                }
+                if (szType.match(/SEQUENCE/)) {
+                    return "sequence";
+                }
+                if (szType.match(/WAFFLE/)) {
+                    return "waffle";
+                }
+                if (szType.match(/PLOT/)) {
+                    return "plot";
+                }
+                if (szType.match(/BUBBLE/)) {
+                    return "bubble";
+                }
+                if (szType.match(/SQUARE/)) {
+                    return "square";
+                }
+                if (szType.match(/LABEL/)) {
+                    return "label";
+                }
+                return "other";
+            };
+
+            ixmaps.editor.chartTypeSectionTitle = function(szFamily) {
+                return {
+                    pie: "Pie charts",
+                    bar: "Bar charts",
+                    sequence: "Sequence / symbol charts",
+                    waffle: "Waffle charts",
+                    plot: "Plot charts",
+                    bubble: "Bubble charts",
+                    square: "Square charts",
+                    label: "Label charts",
+                    other: "Other charts"
+                }[szFamily] || "Charts";
+            };
+
+            ixmaps.editor.organizeChartTypeList = function(szTypeList) {
+                var buckets = {
+                    pie: [],
+                    bar: [],
+                    sequence: [],
+                    waffle: [],
+                    plot: [],
+                    bubble: [],
+                    square: [],
+                    label: [],
+                    other: []
+                };
+                var order = ["pie", "bar", "sequence", "waffle", "bubble", "square", "label", "plot", "other"];
+                var seen = {};
+
+                for (var i = 0; i < szTypeList.length; i++) {
+                    var szType = szTypeList[i];
+                    if (!szType || seen[szType]) {
+                        continue;
+                    }
+                    seen[szType] = true;
+                    var family = ixmaps.editor.chartTypeFamily(szType);
+                    buckets[family].push(szType);
+                }
+
+                var organized = [];
+                for (var j = 0; j < order.length; j++) {
+                    organized = organized.concat(buckets[order[j]]);
+                }
+                return organized;
+            };
+
             ixmaps.editor.getChartTypeList = function(themeObj) {
+                var szTypeList = szChartTypeListSingleValue;
                 if (!themeObj) {
-                    return szChartTypeListSingleValue;
+                    return ixmaps.editor.organizeChartTypeList(szTypeList);
                 }
                 var szFlag = String(themeObj.szFlag || themeObj.szOrigFlag || "");
                 var szFieldsA = themeObj.szFieldsA || [];
@@ -3337,21 +3412,240 @@
                 }
 
                 if (szFlag.match(/PLOT/)) {
-                    return szChartTypeListPLOT;
-                }
-                if (szFieldsA.length > 1) {
-                    return szChartTypeList;
-                }
-                if (szFlag.match(/CATEGORICAL/) && szFlag.match(/AGGREGATE/)) {
-                    return szChartTypeList;
-                }
-                // single-field categorical multi-part charts (pie, bar, sequence, ...)
-                if (szFlag.match(/CATEGORICAL/) &&
+                    szTypeList = szChartTypeListPLOT;
+                } else if (szFieldsA.length > 1) {
+                    szTypeList = szChartTypeList;
+                } else if (szFlag.match(/CATEGORICAL/) && szFlag.match(/AGGREGATE/)) {
+                    szTypeList = szChartTypeList;
+                } else if (szFlag.match(/CATEGORICAL/) &&
                     (szFlag.match(/PIE/) || szFlag.match(/BAR/) || szFlag.match(/SEQUENCE/) ||
                      szFlag.match(/WAFFLE/) || szFlag.match(/DOMINANT/) || nValueCount > 1)) {
-                    return szChartTypeList;
+                    szTypeList = szChartTypeList;
                 }
-                return szChartTypeListSingleValue;
+                return ixmaps.editor.organizeChartTypeList(szTypeList);
+            };
+
+            ixmaps.editor.chartMenuScopeId = function(szTarget) {
+                return String(szTarget || "menu").replace(/[^a-zA-Z0-9_]/g, "_");
+            };
+
+            ixmaps.editor.getCurrentChartTypeFlag = function(themeObj) {
+                if (!themeObj) {
+                    return "";
+                }
+                if (themeObj.style && themeObj.style.type) {
+                    return String(themeObj.style.type);
+                }
+                return String(themeObj.szFlag || themeObj.szOrigFlag || "");
+            };
+
+            ixmaps.editor.normalizeChartTypeFlag = function(szFlag) {
+                var seen = {};
+                var parts = String(szFlag || "").split("|");
+                var normalized = [];
+                for (var i = 0; i < parts.length; i++) {
+                    var part = parts[i];
+                    if (part && !seen[part]) {
+                        seen[part] = true;
+                        normalized.push(part);
+                    }
+                }
+                normalized.sort();
+                return normalized.join("|");
+            };
+
+            ixmaps.editor.buildChartOrigFlagKeep = function(szMerkFlag, szMenuType) {
+                var szOrigFlagKeep = "";
+                if (szMerkFlag.match(/UNDEFINEDISVALUE/)) {
+                    szOrigFlagKeep += "|UNDEFINEDISVALUE";
+                }
+                if (szMerkFlag.match(/ZEROISVALUE/)) {
+                    szOrigFlagKeep += "|ZEROISVALUE";
+                }
+                if (szMerkFlag.match(/NEGATIVEISVALUE/)) {
+                    szOrigFlagKeep += "|NEGATIVEISVALUE";
+                }
+                if (szMerkFlag.match(/NONEGATIVE/)) {
+                    szOrigFlagKeep += "|NEGATIVEISVALUE";
+                }
+                if (szMerkFlag.match(/GROUP/)) {
+                    szOrigFlagKeep += "|GROUP";
+                }
+                if (szMerkFlag.match(/AGGREGATE/)) {
+                    szOrigFlagKeep += "|AGGREGATE";
+                }
+                if (szMerkFlag.match(/FAST/)) {
+                    szOrigFlagKeep += "|FAST";
+                }
+                if (szMerkFlag.match(/RECT/)) {
+                    szOrigFlagKeep += "|RECT";
+                }
+                if (szMerkFlag.match(/HEX/)) {
+                    szOrigFlagKeep += "|HEX";
+                }
+                if (szMerkFlag.match(/RELOCATE/)) {
+                    szOrigFlagKeep += "|RELOCATE";
+                }
+                if (szMerkFlag.match(/CATEGORICAL/)) {
+                    szOrigFlagKeep += "|CATEGORICAL";
+                }
+                if (szMerkFlag.match(/SUM/)) {
+                    szOrigFlagKeep += "|SUM";
+                }
+                if (szMerkFlag.match(/MEAN/)) {
+                    szOrigFlagKeep += "|MEAN";
+                }
+                if (szMerkFlag.match(/MAX/)) {
+                    szOrigFlagKeep += "|MAX";
+                }
+                if (szMerkFlag.match(/MIN/)) {
+                    szOrigFlagKeep += "|MIN";
+                }
+                if (szMerkFlag.match(/DIFFERENCE/)) {
+                    szOrigFlagKeep += "|DIFFERENCE";
+                }
+                if (szMerkFlag.match(/RELATIVE/)) {
+                    szOrigFlagKeep += "|RELATIVE";
+                }
+                if (szMerkFlag.match(/INVERT/)) {
+                    szOrigFlagKeep += "|INVERT";
+                }
+                if (szMerkFlag.match(/INVERTSIZE/)) {
+                    szOrigFlagKeep += "|INVERTSIZE";
+                }
+                if (szMerkFlag.match(/CALCMEAN/)) {
+                    szOrigFlagKeep += "|CALCMEAN";
+                }
+                if (szMerkFlag.match(/CALC100/)) {
+                    szOrigFlagKeep += "|CALC100";
+                }
+                if (szMerkFlag.match(/PRODUCT/)) {
+                    szOrigFlagKeep += "|PRODUCT";
+                }
+                if (szMerkFlag.match(/AUTOCOMPLETE/)) {
+                    szOrigFlagKeep += "|AUTOCOMPLETE";
+                }
+                if (szMerkFlag.match(/AUTO100/)) {
+                    szOrigFlagKeep += "|AUTO100";
+                }
+                if (szMerkFlag.match(/QUANTILE/)) {
+                    szOrigFlagKeep += "|QUANTILE";
+                }
+                if (szMerkFlag.match(/DENSITY/)) {
+                    szOrigFlagKeep += "|DENSITY";
+                }
+                if (szMerkFlag.match(/DOPACITY/)) {
+                    szOrigFlagKeep += "|DOPACITY";
+                }
+                if (szMerkFlag.match(/VALUES/)) {
+                    szOrigFlagKeep += "|VALUES";
+                }
+                if (szMerkFlag.match(/VALUEBACKGROUND/)) {
+                    szOrigFlagKeep += "|VALUEBACKGROUND";
+                }
+                if (szMenuType.match(/SIZE/)) {
+                    if (szMerkFlag.match(/SIZELOG/)) {
+                        szOrigFlagKeep += "|SIZELOG";
+                    } else if (szMerkFlag.match(/SIZEP4/)) {
+                        szOrigFlagKeep += "|SIZEP4";
+                    } else if (szMerkFlag.match(/SIZEP3/)) {
+                        szOrigFlagKeep += "|SIZEP3";
+                    } else if (szMerkFlag.match(/SIZE/)) {
+                        szOrigFlagKeep += "|SIZE";
+                    }
+                }
+                if (szMerkFlag.match(/SPACED/)) {
+                    szOrigFlagKeep += "|SPACED";
+                }
+                if (szMerkFlag.match(/BOX/)) {
+                    szOrigFlagKeep += "|BOX";
+                }
+                if (szMerkFlag.match(/TITLE/)) {
+                    szOrigFlagKeep += "|TITLE";
+                }
+                if (szMerkFlag.match(/\bGRID\b/)) {
+                    szOrigFlagKeep += "|GRID";
+                }
+                if (szMerkFlag.match(/\bGRIDSIZE\b/)) {
+                    szOrigFlagKeep += "|GRIDSIZE";
+                }
+                if (szMerkFlag.match(/\bAUTOSIZE\b/)) {
+                    szOrigFlagKeep += "|AUTOSIZE";
+                }
+                return szOrigFlagKeep;
+            };
+
+            ixmaps.editor.scoreChartMenuMatch = function(szMenuType, szOrigFlagKeep, szCurrentFlag) {
+                var target = szMenuType + szOrigFlagKeep;
+                var current = String(szCurrentFlag || "");
+                if (current === target) {
+                    return 100000 + target.length;
+                }
+                if (ixmaps.editor.normalizeChartTypeFlag(current) === ixmaps.editor.normalizeChartTypeFlag(target)) {
+                    return 90000 + target.length;
+                }
+                var menuParts = szMenuType.split("|").filter(function(part) {
+                    return !!part;
+                });
+                if (!menuParts.length) {
+                    return -1;
+                }
+                var currentSet = {};
+                current.split("|").forEach(function(part) {
+                    if (part) {
+                        currentSet[part] = true;
+                    }
+                });
+                for (var i = 0; i < menuParts.length; i++) {
+                    if (!currentSet[menuParts[i]]) {
+                        return -1;
+                    }
+                }
+                return menuParts.length;
+            };
+
+            ixmaps.editor.findActiveChartMenuIndex = function(szTypeList, themeObj) {
+                if (!themeObj || !szTypeList || !szTypeList.length) {
+                    return -1;
+                }
+                var current = ixmaps.editor.getCurrentChartTypeFlag(themeObj);
+                var szMerkFlag = String(themeObj.szFlag || current);
+                var bestIndex = -1;
+                var bestScore = -1;
+                for (var i = 0; i < szTypeList.length; i++) {
+                    var keep = ixmaps.editor.buildChartOrigFlagKeep(szMerkFlag, szTypeList[i]);
+                    var score = ixmaps.editor.scoreChartMenuMatch(szTypeList[i], keep, current);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestIndex = i;
+                    }
+                }
+                return bestIndex;
+            };
+
+            ixmaps.editor.markChartMenuItemActive = function(szTarget, index) {
+                if (!szTarget || index < 0) {
+                    return;
+                }
+                var $grid = $("#" + szTarget).find(".chart-menu-grid");
+                if (!$grid.length) {
+                    return;
+                }
+                $grid.find(".chart-menu-item").each(function() {
+                    var $item = $(this);
+                    var itemIndex = parseInt($item.attr("data-chart-menu-index"), 10);
+                    var baseLabel = $item.attr("data-chart-label") || "";
+                    var chartType = $item.attr("data-chart-type") || "";
+                    var isActive = (itemIndex === index);
+                    $item.toggleClass("chart-menu-item-active", isActive);
+                    $item.find(".chart-menu-label")
+                        .css({
+                            fontWeight: isActive ? "600" : "300",
+                            color: isActive ? "#1a6fa8" : "#666"
+                        })
+                        .text(isActive ? ("● current · " + baseLabel) : baseLabel);
+                    $item.find("[data-chart-menu-click]").attr("title", chartType + (isActive ? " (current)" : ""));
+                });
             };
 
             ixmaps.editor.makeChartMenueHTML = function(szId, szTarget) {
@@ -3364,24 +3658,36 @@
                 // make <div> + <svg> to receive the chart menu (in svg)
                 var szHtml = "";
                 szHtml += "<div style='font-size:0.6em;margin-bottom:0.5em'>select chart type:</div>";
-                szHtml += "<div id='chartmenu-div' style='height:500px;width:100%;background:white;overflow:auto'><div></div></div>";
+                szHtml += "<div class='chartmenu-div chart-menu-panel' style='max-height:70vh;width:100%;background:white;overflow:auto'><div class='row chart-menu-grid'></div></div>";
 
                 // create dialog
                 $("#" + szTarget).html(szHtml);
 
                 var __themeObj = ixmaps.getThemeObj(ixmaps.editor.themeId);
                 var szTypeList = ixmaps.editor.getChartTypeList(__themeObj);
+                var activeChartIndex = ixmaps.editor.findActiveChartMenuIndex(szTypeList, __themeObj);
+                var lastSection = null;
 
                 for (var i = 0; i < szTypeList.length; i++) {
-                    ixmaps.editor.makeOneChartHTML(szId, szTypeList, i);
+                    var sectionFamily = ixmaps.editor.chartTypeFamily(szTypeList[i]);
+                    if (sectionFamily !== lastSection) {
+                        var sectionTitle = ixmaps.editor.chartTypeSectionTitle(sectionFamily);
+                        $("#" + szTarget).find(".chart-menu-grid").append(
+                            "<div class='col-12 chart-menu-section' style='flex:0 0 100%;max-width:100%;font-size:0.65em;font-weight:600;padding:0.7em 0.2em 0.15em;color:#444;border-bottom:1px solid #eee'>" + sectionTitle + "</div>"
+                        );
+                        lastSection = sectionFamily;
+                    }
+                    ixmaps.editor.makeOneChartHTML(szId, szTypeList, i, szTarget, activeChartIndex);
                 }
 
 
             }
 
-            ixmaps.editor.makeOneChartHTML = function(szId, szTypeList, index) {
+            ixmaps.editor.makeOneChartHTML = function(szId, szTypeList, index, szTarget, activeChartIndex) {
 
-                var szTargetDiv = "chartmenu-div";
+                var $menuRoot = $("#" + szTarget);
+                var scopeId = ixmaps.editor.chartMenuScopeId(szTarget);
+                var previewId = "chartpreview_" + scopeId + "_" + index;
 
                 var __themeObj = ixmaps.getThemeObj(ixmaps.editor.themeId);
 
@@ -3480,6 +3786,13 @@
                 if (szMerkFlag.match(/AUTOCOMPLETE/)) {
                     szFlag += "|AUTOCOMPLETE";
                 }
+                if (szMerkFlag.match(/\bCOUNT\b/)) {
+                    szFlag += "|COUNT";
+                }
+                // menu previews: PIE needs AUTOCOMPLETE when aggregate sums are not ready
+                if (szTypeList[index].match(/PIE/) && !szFlag.match(/AUTOCOMPLETE/)) {
+                    szFlag += "|AUTOCOMPLETE";
+                }
 
                 if (0 && szFlag.match(/PLOT/)) {
                     if (szMerkFlag.match(/BOX/)) {
@@ -3507,147 +3820,31 @@
                     }
                 }
 
-                var szOrigFlagKeep = "";
-                if (szMerkFlag.match(/UNDEFINEDISVALUE/)) {
-                    szOrigFlagKeep += "|UNDEFINEDISVALUE";
+                var szOrigFlagKeep = ixmaps.editor.buildChartOrigFlagKeep(szMerkFlag, szTypeList[index]);
+                var isActive = (index === activeChartIndex);
+                var chartLabel = szTypeList[index].replace(/^CHART\|/, "").replace(/\|/g, " ");
+                if (isActive) {
+                    chartLabel = "● current · " + chartLabel;
                 }
-                if (szMerkFlag.match(/ZEROISVALUE/)) {
-                    szOrigFlagKeep += "|ZEROISVALUE";
-                }
-                if (szMerkFlag.match(/NEGATIVEISVALUE/)) {
-                    szOrigFlagKeep += "|NEGATIVEISVALUE";
-                }
-                if (szMerkFlag.match(/NONEGATIVE/)) {
-                    szOrigFlagKeep += "|NEGATIVEISVALUE";
-                }
-                if (szMerkFlag.match(/GROUP/)) {
-                    szOrigFlagKeep += "|GROUP";
-                }
-                if (szMerkFlag.match(/AGGREGATE/)) {
-                    szOrigFlagKeep += "|AGGREGATE";
-                }
-                if (szMerkFlag.match(/FAST/)) {
-                    szOrigFlagKeep += "|FAST";
-                }
-                if (szMerkFlag.match(/RECT/)) {
-                    szOrigFlagKeep += "|RECT";
-                }
-                if (szMerkFlag.match(/HEX/)) {
-                    szOrigFlagKeep += "|HEX";
-                }
-                if (szMerkFlag.match(/RELOCATE/)) {
-                    szOrigFlagKeep += "|RELOCATE";
-                }
-                if (szMerkFlag.match(/CATEGORICAL/)) {
-                    szOrigFlagKeep += "|CATEGORICAL";
-                }
-                if (szMerkFlag.match(/SUM/)) {
-                    szOrigFlagKeep += "|SUM";
-                }
-                if (szMerkFlag.match(/MEAN/)) {
-                    szOrigFlagKeep += "|MEAN";
-                }
-                if (szMerkFlag.match(/MAX/)) {
-                    szOrigFlagKeep += "|MAX";
-                }
-                if (szMerkFlag.match(/MIN/)) {
-                    szOrigFlagKeep += "|MIN";
-                }
-                if (szMerkFlag.match(/DIFFERENCE/)) {
-                    szOrigFlagKeep += "|DIFFERENCE";
-                }
-                if (szMerkFlag.match(/RELATIVE/)) {
-                    szOrigFlagKeep += "|RELATIVE";
-                }
-                if (szMerkFlag.match(/INVERT/)) {
-                    szOrigFlagKeep += "|INVERT";
-                }
-                if (szMerkFlag.match(/INVERTSIZE/)) {
-                    szOrigFlagKeep += "|INVERTSIZE";
-                }
-                if (szMerkFlag.match(/CALCMEAN/)) {
-                    szOrigFlagKeep += "|CALCMEAN";
-                }
-                if (szMerkFlag.match(/CALC100/)) {
-                    szOrigFlagKeep += "|CALC100";
-                }
-                if (szMerkFlag.match(/PRODUCT/)) {
-                    szOrigFlagKeep += "|PRODUCT";
-                }
-                if (szMerkFlag.match(/AUTOCOMPLETE/)) {
-                    szOrigFlagKeep += "|AUTOCOMPLETE";
-                }
-                if (szMerkFlag.match(/AUTO100/)) {
-                    szOrigFlagKeep += "|AUTO100";
-                }
-                if (szMerkFlag.match(/QUANTILE/)) {
-                    szOrigFlagKeep += "|QUANTILE";
-                }
-                if (szMerkFlag.match(/DENSITY/)) {
-                    szOrigFlagKeep += "|DENSITY";
-                }
-                if (szMerkFlag.match(/DOPACITY/)) {
-                    szOrigFlagKeep += "|DOPACITY";
-                }
-                if (szMerkFlag.match(/VALUES/)) {
-                    szOrigFlagKeep += "|VALUES";
-                }
-                if (szMerkFlag.match(/VALUEBACKGROUND/)) {
-                    szOrigFlagKeep += "|VALUEBACKGROUND";
-                }
-                // if new chart type has SIZE flag
-                // -------------------------------
-                if (szTypeList[index].match(/SIZE/)) {
-                    if (szMerkFlag.match(/SIZELOG/)) {
-                        szOrigFlagKeep += "|SIZELOG";
-                    } else
-                    if (szMerkFlag.match(/SIZEP4/)) {
-                        szOrigFlagKeep += "|SIZEP4";
-                    } else
-                    if (szMerkFlag.match(/SIZEP3/)) {
-                        szOrigFlagKeep += "|SIZEP3";
-                    } else
-                    if (szMerkFlag.match(/SIZE/)) {
-                        szOrigFlagKeep += "|SIZE";
-                    }
-                }
-                if (szMerkFlag.match(/SPACED/)) {
-                    szOrigFlagKeep += "|SPACED";
-                }
-                if (szMerkFlag.match(/BOX/)) {
-                    szOrigFlagKeep += "|BOX";
-                }
-                if (szMerkFlag.match(/TITLE/)) {
-                    szOrigFlagKeep += "|TITLE";
-                }
-                if (szMerkFlag.match(/\bGRID\b/)) {
-                    szOrigFlagKeep += "|GRID";
-                }
-                if (szMerkFlag.match(/\bGRIDSIZE\b/)) {
-                    szOrigFlagKeep += "|GRIDSIZE";
-                }
-                if (szMerkFlag.match(/\bAUTOSIZE\b/)) {
-                    szOrigFlagKeep += "|AUTOSIZE";
-                }
-
-                // make <div> + <svg> to receive the chart (svg)
 
                 var szHtml = "";
-                szHtml += "<div class='col-lg-4 col-md-4 col-sm-4 col-xs-4' style='min-height:100px;border:solid #ddd 1px'>";
-                //szHtml += "<div id='chart-title' style='font-size:0.5em;font-weight:300;padding:1em;margin-top:0.5em'>"+szTypeList[index];
-                //szHtml += "</div>";
+                szHtml += "<div class='col-4 chart-menu-item" + (isActive ? " chart-menu-item-active" : "") + "' data-chart-menu-index='" + index + "' data-chart-label='" + chartLabel.replace(/'/g, "&#39;") + "' data-chart-type='" + szTypeList[index].replace(/'/g, "&#39;") + "' style='min-height:100px;border:solid #ddd 1px'>";
                 szHtml += "<a href='#'>";
-                szHtml += "<div style='text-align:center;display:block;margin-top:10%;' title='" + szTypeList[index] + "' onclick='ixmaps.chartClick(\"" + (szTypeList[index] + szOrigFlagKeep) + "\");event.stopPropagation();event.preventDefault();' >";
-                szHtml += "<svg width='120' height='120' viewBox='-500 -3500 5000 5000' ><g id='getchartmenutarget" + index + "' ></g></svg>"
+                szHtml += "<div data-chart-menu-click='1' style='text-align:center;display:block;margin-top:6%;' title='" + szTypeList[index] + (isActive ? " (current)" : "") + "' onclick='ixmaps.chartClick(\"" + (szTypeList[index] + szOrigFlagKeep) + "\");ixmaps.editor.markChartMenuItemActive(\"" + szTarget + "\"," + index + ");event.stopPropagation();event.preventDefault();' >";
+                szHtml += "<svg width='120' height='120' viewBox='-500 -3500 5000 5000' ><g id='" + previewId + "' ></g></svg>";
+                szHtml += "<div class='chart-menu-label' style='font-size:0.55em;font-weight:" + (isActive ? "600" : "300") + ";padding:0.3em 0.2em;line-height:1.2;color:" + (isActive ? "#1a6fa8" : "#666") + "'>" + chartLabel + "</div>";
                 szHtml += "</div>";
                 szHtml += "</a>";
                 szHtml += "</div>";
 
-                $("#" + szTargetDiv).append(szHtml);
+                $menuRoot.find(".chart-menu-grid").append(szHtml);
 
                 // ------------------------------------------------------------------------------------
 
-                var targetEl = $("#getchartmenutarget" + index)[0];
+                var targetEl = document.getElementById(previewId);
+                if (!targetEl) {
+                    return;
+                }
                 try {
                     __themeObj.drawChart(targetEl, null, 30);
 
@@ -3679,11 +3876,10 @@
                     var scale = Math.max(1, 200 / SVGBox.width);
                     SVGBox.width *= scale;
                     SVGBox.height *= scale;
-                    SVGBox.x += 100;
-                    SVGBox.y -= 10;
-                    SVGBox.height += 20;
+                    SVGBox.y -= 30;
+                    SVGBox.height += 60;
 
-                    var size = szMerkFlag.match(/PLOT/) ? 120 : 75;
+                    var size = (szMerkFlag.match(/PLOT/) || szTypeList[index].match(/PIE|BAR|SEQUENCE|WAFFLE/)) ? 120 : 75;
                     var width = size;
                     var height = size / SVGBox.width * SVGBox.height;
 
@@ -3691,8 +3887,10 @@
                         height *= 0.9;
                     }
 
-                    targetEl.parentNode.setAttribute("height", height);
-                    targetEl.parentNode.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
+                    if (isFinite(height) && height > 0) {
+                        targetEl.parentNode.setAttribute("height", height);
+                        targetEl.parentNode.setAttribute("viewBox", SVGBox.x + ' ' + SVGBox.y + ' ' + SVGBox.width + ' ' + SVGBox.height);
+                    }
                 }
 
                 resize();
@@ -4378,6 +4576,37 @@
         
         .theme-configurator .apply {
             font-size: 0.5em;
+        }
+
+        /* Chart type menu: 3-column grid (needs .row parent for Bootstrap 5 cols) */
+        .chartmenu-div .chart-menu-grid {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .chartmenu-div .chart-menu-item {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+            box-sizing: border-box;
+        }
+
+        #chartTypeMenuTarget .chartmenu-div,
+        #myMenuTarget .chartmenu-div {
+            height: auto !important;
+            max-height: none !important;
+        }
+
+        .chartmenu-div .chart-menu-section {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .chartmenu-div .chart-menu-item-active {
+            border-color: #2AA2DE !important;
+            border-width: 2px !important;
+            background: #e8f4fc;
+            box-shadow: inset 0 0 0 1px rgba(42, 162, 222, 0.25);
         }
 
     </style>

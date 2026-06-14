@@ -880,59 +880,25 @@ $Log: htmlgui.js,v $
 	// -----------------------------------
 
 	/**
-	 * display the defined loading message
-	 * @param szMessage the message text
-	 * @type void
+	 * Ensure #loading-div lives inside #gmap and fills the map area.
+	 * mappage.html defines #loading-div as a sibling of #ixmap; without reparenting,
+	 * %-based centering is relative to the viewport (broken for sidebar embeds).
+	 * @param {HTMLElement} gmapDiv
 	 */
-	ixmaps.showLoading = function (szMessage, fForce) {
-
-		// GR 09.12.2016 ixmaps parameter defined to not show loading messages
-		if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window.fExecuteSilent && !fForce) {
+	var __ensureLoadingOverlay = function (gmapDiv) {
+		if (!gmapDiv) {
 			return;
 		}
-
-		if (!szMessage) {
-			return;
-		}
-
-		try {
-			if (ixmaps.embeddedSVG) {
-				szMessage = ixmaps.embeddedSVG.window.map.Dictionary.getLocalText(szMessage);
-			}
-		} catch (e) { }
-
-		if (szMessage && (szMessage.length > 25)) {
-			szMessage = "..." + szMessage.slice(-25);
-		}
-
-		if (!$("#loading-div")[0]) {
-			$(this.gmapDiv).append(
+		var $loadingDiv = $("#loading-div");
+		if (!$loadingDiv.length) {
+			$(gmapDiv).append(
 				'<div id="loading-div" style="pointer-events:none;z-index:9999">' +
 				'<div id="loading-text-div" class="loading-text-div">' +
 				'<span id="loading-text" class="loading-text">.&nbsp;&nbsp;</span>' +
 				'</div>' +
 				'</div>'
 			);
-			// Fill the tile map host (#gmap) so %-based centering is relative to the map, not a collapsed box
-			$("#loading-div").css({
-				"position": "absolute",
-				"top": "0",
-				"left": "0",
-				"width": "100%",
-				"height": "100%",
-				"box-sizing": "border-box"
-			});
-			$("#loading-text-div").css({
-				"position": "absolute",
-				"top": "50%",
-				"left": "50%",
-				"transform": "translate(-50%, -50%)",
-				"width": "auto",
-				"max-width": "96%",
-				"opacity": "1",
-				"z-index": "99",
-				"text-align": "center"
-			});
+			$loadingDiv = $("#loading-div");
 			$("#loading-text").css({
 				"font-family": "arial",
 				"font-size": "28px",
@@ -951,7 +917,57 @@ $Log: htmlgui.js,v $
 				"margin": "1em auto",
 				"height": "64px"
 			});
+		} else if ($loadingDiv.parent()[0] !== gmapDiv) {
+			$(gmapDiv).append($loadingDiv);
 		}
+		// Fill the tile map host (#gmap) so %-based centering is relative to the map, not the page
+		$loadingDiv.css({
+			"position": "absolute",
+			"top": "0",
+			"left": "0",
+			"width": "100%",
+			"height": "100%",
+			"box-sizing": "border-box",
+			"visibility": "visible"
+		});
+		$("#loading-text-div").css({
+			"position": "absolute",
+			"top": "50%",
+			"left": "50%",
+			"transform": "translate(-50%, -50%)",
+			"width": "auto",
+			"max-width": "96%",
+			"opacity": "1",
+			"z-index": "99",
+			"text-align": "center"
+		});
+	};
+
+	/**
+	 * display the defined loading message
+	 * @param szMessage the message text
+	 * @type void
+	 */
+	ixmaps.showLoading = function (szMessage, fForce) {
+
+		// GR 09.12.2016 ixmaps parameter defined to not show loading messages
+		if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window.fExecuteSilent && !fForce) {
+			return;
+		}
+
+		if (szMessage) {
+			try {
+				if (ixmaps.embeddedSVG) {
+					szMessage = ixmaps.embeddedSVG.window.map.Dictionary.getLocalText(szMessage);
+				}
+			} catch (e) { }
+
+			if (szMessage && (szMessage.length > 25)) {
+				szMessage = "..." + szMessage.slice(-25);
+			}
+		}
+
+		__ensureLoadingOverlay(this.gmapDiv);
 
 		try {
 			// Center inside #loading-div (fills #gmap). Do not use document offset() — #loading-text-div
@@ -2612,7 +2628,7 @@ $Log: htmlgui.js,v $
 		}
 		$("#loading-text").empty();
 		$("#loading-text").append(szMessage);
-		ixmaps.showLoading();
+		ixmaps.showLoading(null, true);
 		return;
 	};
 	/**
