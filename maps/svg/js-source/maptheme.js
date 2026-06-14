@@ -12428,7 +12428,13 @@ $Log: maptheme.js,v $
 		if (this.szFlag.match(/NORMALIZE/) && this.nMax) {
 			var nRange = this.nMax - this.nMin;
 			for (a in this.itemA) {
-				this.itemA[a].nValuesA[0] = (this.itemA[a].nValuesA[0] - this.nMin) / nRange;
+				var nValue = this.itemA[a].nValuesA[0];
+				if (nRange) {
+					this.itemA[a].nValuesA[0] = (nValue - this.nMin) / nRange;
+				} else {
+					// zero range: avoid division by zero; non-zero values map to 1
+					this.itemA[a].nValuesA[0] = nValue ? 1 : 0;
+				}
 			}
 			this.nMin = 0;
 			this.nMax = 1;
