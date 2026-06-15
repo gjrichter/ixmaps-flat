@@ -956,6 +956,12 @@ $Log: mapscript.js,v $
 
         setSVGDocument(evt, null);
 
+        if (!map.SVGDocument) {
+            map.fInitializing = false;
+            setTimeout(function () { delayedInitAll(evt, embedName); }, 100);
+            return;
+        }
+
 
         // clear screen during init                                    
         map.hideAll();
@@ -1355,6 +1361,9 @@ $Log: mapscript.js,v $
                 map.SVGDocument = document.getElementById("svg_map_document");
             }
 
+        }
+        if (!map.SVGDocument) {
+            return;
         }
         // check, if we have all external svg included ; 
         if (map.SVGDocument.getElementById("widgetstore") && map.SVGDocument.getElementById("widgetstore").childNodes.length > 2) {
