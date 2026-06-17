@@ -42,12 +42,29 @@ var ixmaps = {
 // @param src - The URL of the script to load
 // @returns A promise that resolves when the script is loaded
 // @returns A promise that rejects if the script fails to load
-function loadScript(src) {
+function loadScript(src, timeoutMs) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
+        let settled = false;
+        // Single-exit guard: whichever of onload/onerror/timeout fires first wins;
+        // the others (incl. a late onload after timeout) are ignored.
+        const done = (fn, arg) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            fn(arg);
+        };
+        // onerror only fires on a *definitive* failure (404, blocked, offline). A
+        // connection that opens and then stalls fires neither onload nor onerror,
+        // which would otherwise leave this promise pending forever. The timeout
+        // converts that silent hang into a rejection callers can handle.
+        const timer = setTimeout(() => {
+            script.remove(); // stop the zombie request and prevent a late onload
+            done(reject, new Error("ixmaps: timed out loading " + src + " after " + (timeoutMs || 30000) + "ms"));
+        }, timeoutMs || 30000);
         script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
+        script.onload = () => done(resolve);
+        script.onerror = () => done(reject, new Error("ixmaps: failed to load " + src));
         document.head.appendChild(script);
     });
 }
@@ -160,6 +177,11 @@ function ensureMapInitialized() {
         _scriptLoaded = true;
         // Store reference to the real Map function from htmlgui_flat.js
         _realMapFunction = ixmaps.Map;
+    }).catch(function(error) {
+        // Clear the cached promise so a later ixmaps.Map()/init() can retry,
+        // instead of every future call inheriting this one failure.
+        _scriptLoadPromise = null;
+        throw error;
     });
     return _scriptLoadPromise;
 }
