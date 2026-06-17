@@ -54,7 +54,7 @@ $Log: theme_legend.js,v $
             '\t<div id="map-div"></div>\n' +
             ' \n' +
             '\t<!-- include the ixmaps API -->\n' +
-            '\t<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@master/ixmaps.js"><\/script>\n' +
+            '\t<script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@1/ixmaps.js"><\/script>\n' +
             ' \n' +
             '\t<script type="text/javascript" charset="utf-8">\n' +
             ' \n';
