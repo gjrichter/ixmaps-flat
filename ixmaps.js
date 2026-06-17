@@ -42,12 +42,29 @@ var ixmaps = {
 // @param src - The URL of the script to load
 // @returns A promise that resolves when the script is loaded
 // @returns A promise that rejects if the script fails to load
-function loadScript(src) {
+function loadScript(src, timeoutMs) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
+        let settled = false;
+        // Single-exit guard: whichever of onload/onerror/timeout fires first wins;
+        // the others (incl. a late onload after timeout) are ignored.
+        const done = (fn, arg) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            fn(arg);
+        };
+        // onerror only fires on a *definitive* failure (404, blocked, offline). A
+        // connection that opens and then stalls fires neither onload nor onerror,
+        // which would otherwise leave this promise pending forever. The timeout
+        // converts that silent hang into a rejection callers can handle.
+        const timer = setTimeout(() => {
+            script.remove(); // stop the zombie request and prevent a late onload
+            done(reject, new Error("ixmaps: timed out loading " + src + " after " + (timeoutMs || 30000) + "ms"));
+        }, timeoutMs || 30000);
         script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
+        script.onload = () => done(resolve);
+        script.onerror = () => done(reject, new Error("ixmaps: failed to load " + src));
         document.head.appendChild(script);
     });
 }
@@ -160,6 +177,11 @@ function ensureMapInitialized() {
         _scriptLoaded = true;
         // Store reference to the real Map function from htmlgui_flat.js
         _realMapFunction = ixmaps.Map;
+    }).catch(function(error) {
+        // Clear the cached promise so a later ixmaps.Map()/init() can retry,
+        // instead of every future call inheriting this one failure.
+        _scriptLoadPromise = null;
+        throw error;
     });
     return _scriptLoadPromise;
 }
@@ -176,6 +198,16 @@ function _warnParam(method, message, value) {
 function _isNum(v) {
     return Number.isFinite(Number(v));
 }
+
+// Single source of truth for the fluent chaining API surface.
+// _queueOrExecute validates calls against the chainable methods; the Map() proxy
+// additionally permits the Promise methods (then/catch). Keep this list in sync
+// with the chainable methods defined on MapBuilder.prototype.
+var _CHAINABLE_METHODS = [
+    'view', 'center', 'zoom', 'layer', 'options', 'on', 'attribution',
+    'require', 'local', 'legend'
+];
+var _PROMISE_METHODS = ['then', 'catch'];
 
 /**
  * MapBuilder class for fluent API map configuration.
@@ -196,8 +228,7 @@ ixmaps.MapBuilder = function (div, options, callback) {
     this._map = null;           // Reference to actual map (null until ready)
     this._ready = false;        // Boolean flag indicating initialization complete
     this._error = null;         // Stores any error that occurred
-    this._promiseResolve = null; // For .then() support
-    this._promiseReject = null;  // For .then() support
+    this._subscribers = [];     // [{resolve, reject}] pending .then()/.catch() handlers
     this._callback = callback;   // Legacy callback support
     this._projection = null;     // Store projection type for special handling
     
@@ -218,26 +249,22 @@ ixmaps.MapBuilder = function (div, options, callback) {
                 
                 self._map = map;
                 self._ready = true;
-                
-                // If legacy callback was provided, call it and skip queue
+
+                // Legacy callback is just one more "ready" listener - it must NOT
+                // short-circuit the queue or the .then() subscribers (Bug A).
                 if (self._callback) {
                     try {
                         self._callback(map);
                     } catch (callbackError) {
                         console.error("Error in Map callback:", callbackError);
                     }
-                    return;
                 }
-                
-                // Execute queued method calls immediately - callback is called when map is ready
-                // This matches the behavior of the .then() version where methods are called
-                // directly on the map instance in the callback
+
+                // Flush the fluent chain queued before the map was ready.
                 self._executeQueue();
-                
-                // Resolve promise if .then() was called
-                if (self._promiseResolve) {
-                    self._promiseResolve(map);
-                }
+
+                // Resolve every pending .then()/.catch() subscriber (Bug B).
+                self._resolveSubscribers(map);
             });
         } catch (mapError) {
             self._onError(mapError, 'Map creation');
@@ -292,10 +319,32 @@ ixmaps.MapBuilder.prototype = {
         this._error = error;
         var msg = "ixmaps.Map error in ." + methodName + "(): " + error.message;
         console.error(msg);
-        
-        // Reject promise if .then() was called
-        if (this._promiseReject) {
-            this._promiseReject(error);
+
+        // Reject every pending .then()/.catch() subscriber.
+        this._rejectSubscribers(error);
+    },
+
+    /**
+     * Resolve and clear all pending .then()/.catch() subscribers with the map.
+     * @private
+     */
+    _resolveSubscribers: function(map) {
+        var subs = this._subscribers;
+        this._subscribers = [];
+        for (var i = 0; i < subs.length; i++) {
+            subs[i].resolve(map);
+        }
+    },
+
+    /**
+     * Reject and clear all pending .then()/.catch() subscribers with the error.
+     * @private
+     */
+    _rejectSubscribers: function(error) {
+        var subs = this._subscribers;
+        this._subscribers = [];
+        for (var i = 0; i < subs.length; i++) {
+            subs[i].reject(error);
         }
     },
     
@@ -312,12 +361,9 @@ ixmaps.MapBuilder.prototype = {
             return this;
         }
         
-        // List of supported chainable methods
-        var supportedMethods = [
-            'view', 'center', 'zoom', 'layer', 'options', 'on', 'attribution', 
-            'require', 'local', 'legend'
-        ];
-        
+        // Supported chainable methods (single source of truth)
+        var supportedMethods = _CHAINABLE_METHODS;
+
         // Check if method is supported by the chaining API
         if (supportedMethods.indexOf(method) === -1) {
             var error = new Error(
@@ -463,9 +509,15 @@ ixmaps.MapBuilder.prototype = {
             var lb = new ixmaps.themeConstruct(this.szMap, layerDefOrName);
             lb.__mapBuilder = this;
             var self = this;
-            lb.define = function () {
+            // In the fluent map context the terminal adds the layer to the map and
+            // returns the builder. define/definition/json are documented aliases,
+            // so all three must behave identically here (Bug D).
+            var addToMap = function () {
                 return self._queueOrExecute('layer', [this.def]);
             };
+            lb.define = addToMap;
+            lb.definition = addToMap;
+            lb.json = addToMap;
             return lb;
         }
         return this._queueOrExecute('layer', [layerDefOrName]);
@@ -550,44 +602,38 @@ ixmaps.MapBuilder.prototype = {
      */
     then: function(onFulfilled, onRejected) {
         var self = this;
-        
+
         return new Promise(function(resolve, reject) {
-            if (self._ready && self._map) {
-                // Already ready
+            // Spec-correct: passing onRejected marks the error handled, so the
+            // returned promise RESOLVES with the handler's result; it only rejects
+            // if a handler itself throws (Bug C).
+            function settle(map) {
                 try {
-                    var result = onFulfilled ? onFulfilled(self._map) : self._map;
-                    resolve(result);
+                    resolve(onFulfilled ? onFulfilled(map) : map);
                 } catch (error) {
-                    if (onRejected) {
-                        onRejected(error);
-                    }
                     reject(error);
                 }
-            } else if (self._error) {
-                // Already errored
+            }
+            function fail(error) {
                 if (onRejected) {
-                    onRejected(self._error);
-                }
-                reject(self._error);
-            } else {
-                // Store resolve/reject for later
-                self._promiseResolve = function(map) {
                     try {
-                        var result = onFulfilled ? onFulfilled(map) : map;
-                        resolve(result);
-                    } catch (error) {
-                        if (onRejected) {
-                            onRejected(error);
-                        }
-                        reject(error);
+                        resolve(onRejected(error));
+                    } catch (handlerError) {
+                        reject(handlerError);
                     }
-                };
-                self._promiseReject = function(error) {
-                    if (onRejected) {
-                        onRejected(error);
-                    }
+                } else {
                     reject(error);
-                };
+                }
+            }
+
+            if (self._ready && self._map) {
+                settle(self._map);
+            } else if (self._error) {
+                fail(self._error);
+            } else {
+                // Independent subscriber: multiple .then()/.catch() before the map
+                // is ready all fire (Bug B).
+                self._subscribers.push({ resolve: settle, reject: fail });
             }
         });
     },
@@ -616,10 +662,8 @@ ixmaps.MapBuilder.prototype = {
 window.ixmaps.Map = function (div, options, callback) {
     var builder = new ixmaps.MapBuilder(div, options, callback);
 
-    var supportedMethods = [
-        'view', 'center', 'zoom', 'layer', 'options', 'on', 'attribution',
-        'require', 'local', 'legend', 'then', 'catch'
-    ];
+    // Proxy permits the chainable methods plus the Promise methods (single source of truth)
+    var supportedMethods = _CHAINABLE_METHODS.concat(_PROMISE_METHODS);
 
     // Proxy: intercept undefined property access to throw with supported-method list (AI/tooling-friendly)
     return new Proxy(builder, {
@@ -643,13 +687,9 @@ window.ixmaps.Map = function (div, options, callback) {
                     "If you need to call this method, use the Promise-based API: " +
                     "ixmaps.Map(...).then(map => map." + prop + "(...))"
                 );
-                // Return a function that validates and throws the error when called
+                // Report via _onError (console) and throw. No alert(): a library must
+                // not block the UI thread or break headless/AI/test usage.
                 return function() {
-                    // Show alert for immediate feedback
-                    alert("Error: Method '" + prop + "' is not supported by the fluent chaining API.\n\n" +
-                          "Supported methods: " + supportedMethods.join(', ') + "\n\n" +
-                          "If you need to call this method, use the Promise-based API:\n" +
-                          "ixmaps.Map(...).then(map => map." + prop + "(...))");
                     target._onError(error, prop);
                     throw error;
                 };
