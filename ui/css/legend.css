@@ -527,7 +527,8 @@
 		display: inline !important;
 		overflow: visible !important;
 	}
-	.map-legend.legend-top-align .theme-legend-item {
+	.map-legend.legend-top-align .theme-legend-item,
+	.map-legend.legend-top-align .theme-legend-item-selected {
 		float: none !important;
 		display: inline-block !important;
 		vertical-align: top;
