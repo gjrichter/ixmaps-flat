@@ -72,9 +72,12 @@ ixmaps.__showLoadingOverlay = function (div) {
         ov.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;z-index:9998;" +
             "display:flex;align-items:center;justify-content:center;background:#f7f7f5;" +
             "transition:opacity .4s ease;";
+        // Match the framework's own ".loading" spinner (ui/css/main.css) so the
+        // init spinner and the data-load spinner look identical. Inlined because
+        // main.css isn't loaded yet at this point in init.
         ov.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;' +
-            'border:4px solid #e2e2de;border-top-color:#0066cc;' +
-            'animation:ixmaps-spin .8s linear infinite;"></div>';
+            'border:2px solid #f3f3f3;border-top:2px solid #0b4ce5;' +
+            'animation:ixmaps-spin 1s linear infinite;"></div>';
         host.appendChild(ov);
         ixmaps.__loadingHost = host;
     } catch (e) { /* never block init on the overlay */ }
