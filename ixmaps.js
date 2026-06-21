@@ -57,9 +57,7 @@ ixmaps.__showLoadingOverlay = function (div) {
     try {
         if (typeof document === "undefined") return;
         var host = (typeof div === "string") ? document.getElementById(div) : div;
-        if (!host || host.querySelector(".ixmaps-loading")) return;
-        var cs = window.getComputedStyle(host);
-        if (cs && cs.position === "static") { host.style.position = "relative"; }
+        if (!host || document.getElementById("ixmaps-loading")) return;
         if (!document.getElementById("ixmaps-loading-kf")) {
             var st = document.createElement("style");
             st.id = "ixmaps-loading-kf";
@@ -67,10 +65,14 @@ ixmaps.__showLoadingOverlay = function (div) {
             document.head.appendChild(st);
         }
         var ov = document.createElement("div");
+        ov.id = "ixmaps-loading";
         ov.className = "ixmaps-loading";
         ov.setAttribute("aria-busy", "true");
-        ov.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;z-index:9998;" +
-            "display:flex;align-items:center;justify-content:center;background:#f7f7f5;" +
+        // position:fixed and attached to <body>, NOT to the target div: ixmaps loads
+        // mappage.html into the div via innerHTML during init (htmlgui_flat.js), which
+        // would otherwise wipe this overlay ~2-3s in, long before the map is ready.
+        ov.style.cssText = "position:fixed;z-index:9998;display:flex;" +
+            "align-items:center;justify-content:center;background:#f7f7f5;" +
             "transition:opacity .4s ease;";
         // Match the framework's own ".loading" spinner (ui/css/main.css) so the
         // init spinner and the data-load spinner look identical. Inlined because
@@ -78,16 +80,28 @@ ixmaps.__showLoadingOverlay = function (div) {
         ov.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;' +
             'border:2px solid #f3f3f3;border-top:2px solid #0b4ce5;' +
             'animation:ixmaps-spin 1s linear infinite;"></div>';
-        host.appendChild(ov);
-        ixmaps.__loadingHost = host;
+        // Track the host div's box so the overlay covers exactly the map area.
+        var place = function () {
+            var r = host.getBoundingClientRect();
+            ov.style.top = r.top + "px"; ov.style.left = r.left + "px";
+            ov.style.width = r.width + "px"; ov.style.height = r.height + "px";
+        };
+        place();
+        document.body.appendChild(ov);
+        ixmaps.__loadingReposition = place;
+        window.addEventListener("resize", place);
+        // Safety net: if "ready"/"error" never fire (upstream fatal), don't stick forever.
+        ixmaps.__loadingTimer = setTimeout(function () { ixmaps.__hideLoadingOverlay(); }, 30000);
     } catch (e) { /* never block init on the overlay */ }
 };
-ixmaps.__hideLoadingOverlay = function (div) {
+ixmaps.__hideLoadingOverlay = function () {
     try {
-        var host = (typeof div === "string") ? document.getElementById(div)
-                 : (div || ixmaps.__loadingHost);
-        if (!host) return;
-        var ov = host.querySelector(".ixmaps-loading");
+        if (ixmaps.__loadingTimer) { clearTimeout(ixmaps.__loadingTimer); ixmaps.__loadingTimer = null; }
+        if (ixmaps.__loadingReposition) {
+            window.removeEventListener("resize", ixmaps.__loadingReposition);
+            ixmaps.__loadingReposition = null;
+        }
+        var ov = document.getElementById("ixmaps-loading");
         if (!ov) return;
         ov.style.opacity = "0";
         setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 450);
