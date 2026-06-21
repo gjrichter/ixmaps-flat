@@ -50,10 +50,26 @@ var ixmaps = {
     } catch (e) {}
 })();
 
-// --- init loading overlay: immediate "life sign" during the ~init phase ---
-// Injected when ixmaps.Map() is called; removed when the map is ready or errors.
+// --- init loading overlay: "life sign" during the ~init phase ---
+// Scheduled when ixmaps.Map() is called; removed when the map is ready or errors.
 // Wrapped in try/catch throughout: the overlay must never block or break init.
+//
+// Painting is deferred by __loadingShowDelay: on a fast (warm-cache) load the map
+// becomes ready within that window, __hideLoadingOverlay cancels the pending paint,
+// and the spinner never appears — avoiding a brief flash that would just switch to
+// the framework's own data-load spinner. Only genuinely slow (cold) inits show it.
+ixmaps.__loadingShowDelay = 250;
 ixmaps.__showLoadingOverlay = function (div) {
+    try {
+        if (typeof document === "undefined") return;
+        if (ixmaps.__loadingShowTimer || document.getElementById("ixmaps-loading")) return;
+        ixmaps.__loadingShowTimer = setTimeout(function () {
+            ixmaps.__loadingShowTimer = null;
+            ixmaps.__paintLoadingOverlay(div);
+        }, ixmaps.__loadingShowDelay);
+    } catch (e) { /* never block init on the overlay */ }
+};
+ixmaps.__paintLoadingOverlay = function (div) {
     try {
         if (typeof document === "undefined") return;
         var host = (typeof div === "string") ? document.getElementById(div) : div;
@@ -97,6 +113,9 @@ ixmaps.__showLoadingOverlay = function (div) {
 };
 ixmaps.__hideLoadingOverlay = function () {
     try {
+        // Cancel a pending paint: if the map readied before __loadingShowDelay elapsed,
+        // the spinner never appears at all.
+        if (ixmaps.__loadingShowTimer) { clearTimeout(ixmaps.__loadingShowTimer); ixmaps.__loadingShowTimer = null; }
         if (ixmaps.__loadingTimer) { clearTimeout(ixmaps.__loadingTimer); ixmaps.__loadingTimer = null; }
         if (ixmaps.__loadingReposition) {
             window.removeEventListener("resize", ixmaps.__loadingReposition);
