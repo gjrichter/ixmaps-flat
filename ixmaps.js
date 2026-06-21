@@ -59,17 +59,22 @@ var ixmaps = {
 // and the spinner never appears — avoiding a brief flash that would just switch to
 // the framework's own data-load spinner. Only genuinely slow (cold) inits show it.
 ixmaps.__loadingShowDelay = 250;
-ixmaps.__showLoadingOverlay = function (div) {
+// Default text shown above the init spinner. Override per embed with the
+// `loadingText` option: ixmaps.Map(div, { loadingText: "Caricamento mappa…" }, …).
+// Pass "" to show the spinner with no text.
+ixmaps.__loadingText = "Loading map…";
+ixmaps.__showLoadingOverlay = function (div, text) {
     try {
         if (typeof document === "undefined") return;
         if (ixmaps.__loadingShowTimer || document.getElementById("ixmaps-loading")) return;
+        var msg = (typeof text === "string") ? text : ixmaps.__loadingText;
         ixmaps.__loadingShowTimer = setTimeout(function () {
             ixmaps.__loadingShowTimer = null;
-            ixmaps.__paintLoadingOverlay(div);
+            ixmaps.__paintLoadingOverlay(div, msg);
         }, ixmaps.__loadingShowDelay);
     } catch (e) { /* never block init on the overlay */ }
 };
-ixmaps.__paintLoadingOverlay = function (div) {
+ixmaps.__paintLoadingOverlay = function (div, text) {
     try {
         if (typeof document === "undefined") return;
         var host = (typeof div === "string") ? document.getElementById(div) : div;
@@ -87,16 +92,24 @@ ixmaps.__paintLoadingOverlay = function (div) {
         // position:fixed and attached to <body>, NOT to the target div: ixmaps loads
         // mappage.html into the div via innerHTML during init (htmlgui_flat.js), which
         // would otherwise wipe this overlay ~2-3s in, long before the map is ready.
-        ov.style.cssText = "position:fixed;z-index:9998;display:flex;" +
-            "align-items:center;justify-content:center;background:#f7f7f5;" +
+        ov.style.cssText = "position:fixed;z-index:9998;display:flex;flex-direction:column;" +
+            "align-items:center;justify-content:center;gap:16px;background:#f7f7f5;" +
             "transition:opacity .4s ease;";
         // Match the framework's own ".spinner" element (ui/css/main.css) exactly so the
         // init spinner is identical to the data-load spinner: a 5x5 box stretched by
         // padding-top:30px into a #444 ellipse, spinning at 2s. Inlined because
-        // main.css isn't loaded yet at this point in init.
-        ov.innerHTML = '<div style="flex:0 0 auto;width:5px;height:5px;padding-top:30px;' +
+        // main.css isn't loaded yet at this point in init. An optional message sits
+        // above it (set via the `loadingText` option; textContent so it can't inject HTML).
+        ov.innerHTML = '<div class="ixmaps-loading-text" style="font:14px/1.4 ' +
+            "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;" +
+            'color:#444;text-align:center;max-width:80%"></div>' +
+            '<div style="flex:0 0 auto;width:5px;height:5px;padding-top:30px;' +
             'border-radius:50%;border:2px solid #444;' +
             'animation:ixmaps-spin 2s linear infinite;"></div>';
+        var txt = ov.querySelector(".ixmaps-loading-text");
+        if (txt) {
+            if (text) { txt.textContent = text; } else { txt.style.display = "none"; }
+        }
         // Track the host div's box so the overlay covers exactly the map area.
         var place = function () {
             var r = host.getBoundingClientRect();
@@ -319,7 +332,7 @@ ixmaps.MapBuilder = function (div, options, callback) {
     // Immediate visual feedback: the framework paints nothing into the target div
     // until the full init chain resolves (~several seconds on a cold CDN), so show
     // a spinner now and remove it on ready / error below.
-    if (ixmaps.__showLoadingOverlay) { ixmaps.__showLoadingOverlay(div); }
+    if (ixmaps.__showLoadingOverlay) { ixmaps.__showLoadingOverlay(div, options && options.loadingText); }
 
     // Properties
     this._queue = [];           // Array of pending method calls {method, args}
