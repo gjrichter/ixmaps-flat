@@ -66,7 +66,7 @@
 (function (window, document, undefined) {
 
     var ixmaps = window.ixmaps || {}
-    ixmaps.version = ixmaps.version || "1.0.1";
+    ixmaps.version = ixmaps.version || "1.0.3";
     ixmaps.JSON_Schema = ixmaps.JSON_Schem || "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json";
 
     /**
@@ -397,7 +397,8 @@
     const __config_map_ui = function (opt) {
         // Ensure opt is always an object, even if undefined
         opt = opt || {};
-        var legendBg = opt.legendBackground || ixmaps.legendBackground || "rgba(255,255,255,0.9)";
+        var legendBg = opt.legendBackground || opt.legendbackground || ixmaps.legendBackground || "rgba(255,255,255,0.9)";
+        var legendMaxWidth = opt.legendMaxWidth || ixmaps.legendMaxWidth || "1200px";
 
         $("#map-overlay").css("pointer-events", "none");
         $("#map-overlay").css("width", "100%");
@@ -439,14 +440,33 @@
                 $(".map-legend").css("position", "relative");
                 $(".map-legend").attr("data-align", "right");
                 $(".map-legend").css("text-align", "center");
-                $(".map-legend").css("font-size", "0.7em");
+                $(".map-legend").css("font-size", "1em");
                 $(".map-legend").css("margin", "auto");
                 $(".map-legend").css("margin-top", "-15px");
                 $(".map-legend").css("min-height", "77px");
                 $(".map-legend").css("width", "100%");
-                $(".map-legend").css("max-width", "inferit");
+                $(".map-legend").css("max-width", legendMaxWidth);
                 $(".map-legend").css("left", "0px");
                 $(".map-legend").css("opacity", "1");
+                $(".map-legend").css("background", legendBg);
+                $(".map-legend").addClass("legend-top-align");
+                // Move the chart-size slider into the items row so it renders inline.
+                // The slider is appended by legend.js as a direct child of #map-legend
+                // (sibling of #map-legend-body), so CSS alone can't place it inline with
+                // the items inside #legend-classesgeneric. We watch for it and reparent it.
+                var __legendTopEl = document.querySelector('#map-legend');
+                if (__legendTopEl) {
+                    new MutationObserver(function() {
+                        for (var i = 0; i < __legendTopEl.children.length; i++) {
+                            var child = __legendTopEl.children[i];
+                            if (child.classList && child.classList.contains('legend-bottom-slider')) {
+                                var items = __legendTopEl.querySelector('#legend-classesgeneric');
+                                if (items) { items.appendChild(child); }
+                                break;
+                            }
+                        }
+                    }).observe(__legendTopEl, { childList: true });
+                }
             } else
             if (opt.align == "bottom") {
                 $("#map-legend").appendTo("#map-header");
@@ -465,7 +485,7 @@
                 // GR 13/12/2023 HTML color maptype -> map background color 
                 // TODO: Implement dynamic background color based on maptype parameter
                 // This feature would allow setting the map background color based on URL parameters
-                //$(".map-legend").css("background", "rgba(255,255,255,0.5)");
+                $(".map-legend").css("background", legendBg);
                 //var szBackgroundcolor = decodeURIComponent($(document).getUrlParam('maptype'));
                 //if (szBackgroundcolor && (szBackgroundcolor.charAt(0) == '#')) {
                 //    $("body").css("background", decodeURIComponent($(document).getUrlParam('maptype')));

@@ -31,8 +31,64 @@
 // This is the global object that will be used to access the ixmaps API
 
 var ixmaps = {
-    version: "1.0.2",
+    version: "1.0.3",
     JSON_Schema: "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json"
+};
+
+// Warm the CDN/unpkg handshakes as early as possible (own origin + topojson-client host).
+// Saves the TLS/DNS round-trip on the serial ixmaps.js -> htmlgui_flat -> resources chain.
+(function () {
+    try {
+        var s = document.currentScript && document.currentScript.src;
+        var origins = ["https://unpkg.com"];
+        if (s) { origins.push(new URL(s).origin); }
+        origins.forEach(function (href) {
+            var l = document.createElement("link");
+            l.rel = "preconnect"; l.href = href; l.crossOrigin = "anonymous";
+            document.head.appendChild(l);
+        });
+    } catch (e) {}
+})();
+
+// --- init loading overlay: immediate "life sign" during the ~init phase ---
+// Injected when ixmaps.Map() is called; removed when the map is ready or errors.
+// Wrapped in try/catch throughout: the overlay must never block or break init.
+ixmaps.__showLoadingOverlay = function (div) {
+    try {
+        if (typeof document === "undefined") return;
+        var host = (typeof div === "string") ? document.getElementById(div) : div;
+        if (!host || host.querySelector(".ixmaps-loading")) return;
+        var cs = window.getComputedStyle(host);
+        if (cs && cs.position === "static") { host.style.position = "relative"; }
+        if (!document.getElementById("ixmaps-loading-kf")) {
+            var st = document.createElement("style");
+            st.id = "ixmaps-loading-kf";
+            st.textContent = "@keyframes ixmaps-spin{to{transform:rotate(360deg)}}";
+            document.head.appendChild(st);
+        }
+        var ov = document.createElement("div");
+        ov.className = "ixmaps-loading";
+        ov.setAttribute("aria-busy", "true");
+        ov.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;z-index:9998;" +
+            "display:flex;align-items:center;justify-content:center;background:#f7f7f5;" +
+            "transition:opacity .4s ease;";
+        ov.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;' +
+            'border:4px solid #e2e2de;border-top-color:#0066cc;' +
+            'animation:ixmaps-spin .8s linear infinite;"></div>';
+        host.appendChild(ov);
+        ixmaps.__loadingHost = host;
+    } catch (e) { /* never block init on the overlay */ }
+};
+ixmaps.__hideLoadingOverlay = function (div) {
+    try {
+        var host = (typeof div === "string") ? document.getElementById(div)
+                 : (div || ixmaps.__loadingHost);
+        if (!host) return;
+        var ov = host.querySelector(".ixmaps-loading");
+        if (!ov) return;
+        ov.style.opacity = "0";
+        setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 450);
+    } catch (e) {}
 };
 
 // Load a script (helper)
@@ -222,7 +278,12 @@ var _PROMISE_METHODS = ['then', 'catch'];
  */
 ixmaps.MapBuilder = function (div, options, callback) {
     var self = this;
-    
+
+    // Immediate visual feedback: the framework paints nothing into the target div
+    // until the full init chain resolves (~several seconds on a cold CDN), so show
+    // a spinner now and remove it on ready / error below.
+    if (ixmaps.__showLoadingOverlay) { ixmaps.__showLoadingOverlay(div); }
+
     // Properties
     this._queue = [];           // Array of pending method calls {method, args}
     this._map = null;           // Reference to actual map (null until ready)
@@ -249,6 +310,7 @@ ixmaps.MapBuilder = function (div, options, callback) {
                 
                 self._map = map;
                 self._ready = true;
+                if (ixmaps.__hideLoadingOverlay) { ixmaps.__hideLoadingOverlay(div); }
 
                 // Legacy callback is just one more "ready" listener - it must NOT
                 // short-circuit the queue or the .then() subscribers (Bug A).
@@ -319,6 +381,7 @@ ixmaps.MapBuilder.prototype = {
         this._error = error;
         var msg = "ixmaps.Map error in ." + methodName + "(): " + error.message;
         console.error(msg);
+        if (ixmaps.__hideLoadingOverlay) { ixmaps.__hideLoadingOverlay(); }
 
         // Reject every pending .then()/.catch() subscriber.
         this._rejectSubscribers(error);

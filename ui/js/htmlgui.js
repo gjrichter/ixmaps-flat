@@ -454,11 +454,30 @@ $Log: htmlgui.js,v $
 			if (szUrl.match("../../")) {
 				szUrl = szUrl.split("../../")[1];
 			}
-			if (szUrl.match("http")) {
-				$(this.svgDiv).load(szUrl);
-			} else {
-				$(this.svgDiv).load(ixmaps.szResourceBase + szUrl);
+			var svgUrlToLoad = szUrl.match("http") ? szUrl : ixmaps.szResourceBase + szUrl;
+			var svgDiv = this.svgDiv;
+			var svgLoaded = false;
+			var scriptsLoaded = false;
+			var initStarted = false;
+
+			function tryStartInit() {
+				if (initStarted || !svgLoaded || !scriptsLoaded) {
+					return;
+				}
+				initStarted = true;
+				__waitForSVGAndInitAll(svgDiv, function () {
+					initStarted = false;
+				});
 			}
+
+			$(svgDiv).load(svgUrlToLoad, function (response, status, xhr) {
+				if (status === "error") {
+					console.error('Error loading SVG:', xhr.status, xhr.statusText);
+					return;
+				}
+				svgLoaded = true;
+				tryStartInit();
+			});
 
 			// Try production mode first (mapscript.min.js)
 			// If it fails, fall back to development mode scripts
@@ -471,7 +490,8 @@ $Log: htmlgui.js,v $
 					})
 				).done(function () {
 					console.log("...Production mode: mapscript.min.js loaded successfully");
-					setTimeout("initAll()", 100);
+					scriptsLoaded = true;
+					tryStartInit();
 				}).fail(function (jqXHR, textStatus, errorThrown) {
 					console.warn("Failed to load mapscript.min.js (production):", textStatus, errorThrown);
 					console.log("... Falling back to development mode scripts...");
@@ -496,7 +516,8 @@ $Log: htmlgui.js,v $
 							})
 						).done(function () {
 							console.log("... Development mode: all scripts loaded successfully");
-							setTimeout("initAll()", 100);
+							scriptsLoaded = true;
+							tryStartInit();
 						}).fail(function (jqXHR, textStatus, errorThrown) {
 							console.error("Failed to load development mode scripts:", textStatus, errorThrown);
 							alert("Failed to load map scripts: " + textStatus);
@@ -516,6 +537,64 @@ $Log: htmlgui.js,v $
 
 		return ixmaps;
 	};
+
+	/**
+	 * Wait for inline SVG in svgDiv, then call initAll() with a load event.
+	 * @param {HTMLElement} svgDiv hosting div for the SVG map
+	 * @param {function} [onError] optional error callback
+	 */
+	function __waitForSVGAndInitAll(svgDiv, onError) {
+		var initAllCalled = false;
+
+		var waitForSVGAndInit = function (retries) {
+			retries = retries || 0;
+
+			if (initAllCalled) {
+				return;
+			}
+
+			var svgElement = svgDiv.querySelector('svg');
+
+			if (svgElement && svgElement.getAttribute) {
+				initAllCalled = true;
+
+				var fakeTarget = {
+					ownerDocument: svgElement
+				};
+
+				var loadEvent = {
+					type: 'load',
+					target: fakeTarget,
+					currentTarget: svgElement
+				};
+
+				try {
+					if (typeof window.initAll === 'function') {
+						window.initAll(loadEvent);
+					} else {
+						console.error('initAll() function not found');
+						initAllCalled = false;
+					}
+				} catch (e) {
+					console.error('Error calling initAll():', e);
+					initAllCalled = false;
+					if (onError) {
+						onError(e);
+					}
+				}
+
+			} else if (retries < 20) {
+				setTimeout(function () { waitForSVGAndInit(retries + 1); }, 100);
+			} else {
+				console.error('SVG element not found after 2 seconds');
+				if (onError) {
+					onError(new Error('SVG element not found'));
+				}
+			}
+		};
+
+		waitForSVGAndInit();
+	}
 
 	/**
 	 * load an SVG map ino the map (embed) object    
