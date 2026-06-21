@@ -1020,6 +1020,23 @@ $Log: htmlgui.js,v $
 			"z-index": "99",
 			"text-align": "center"
 		});
+
+		// Hide the loading text until there is a *real* message. The placeholder
+		// content (seed "." / a bare "...") otherwise flashes before the spinner.
+		// Gate the #loading-text span only (NOT #loading-text-div, which contains
+		// #loading-gif), reactively so every writer — incl. error paths — is covered.
+		var __lt = document.getElementById("loading-text");
+		if (__lt && !__lt.__ixMsgGated) {
+			__lt.__ixMsgGated = true;
+			var __gateLoadingText = function () {
+				var t = (__lt.textContent || "").replace(/[. \s]/g, "");
+				__lt.style.visibility = t.length ? "visible" : "hidden";
+			};
+			try {
+				new MutationObserver(__gateLoadingText).observe(__lt, { childList: true, characterData: true, subtree: true });
+			} catch (e) { }
+			__gateLoadingText();
+		}
 	};
 
 	/**
