@@ -74,12 +74,13 @@ ixmaps.__showLoadingOverlay = function (div) {
         ov.style.cssText = "position:fixed;z-index:9998;display:flex;" +
             "align-items:center;justify-content:center;background:#f7f7f5;" +
             "transition:opacity .4s ease;";
-        // Match the framework's own ".loading" spinner (ui/css/main.css) so the
-        // init spinner and the data-load spinner look identical. Inlined because
+        // Match the framework's own ".spinner" element (ui/css/main.css) exactly so the
+        // init spinner is identical to the data-load spinner: a 5x5 box stretched by
+        // padding-top:30px into a #444 ellipse, spinning at 2s. Inlined because
         // main.css isn't loaded yet at this point in init.
-        ov.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;' +
-            'border:2px solid #f3f3f3;border-top:2px solid #0b4ce5;' +
-            'animation:ixmaps-spin 1s linear infinite;"></div>';
+        ov.innerHTML = '<div style="flex:0 0 auto;width:5px;height:5px;padding-top:30px;' +
+            'border-radius:50%;border:2px solid #444;' +
+            'animation:ixmaps-spin 2s linear infinite;"></div>';
         // Track the host div's box so the overlay covers exactly the map area.
         var place = function () {
             var r = host.getBoundingClientRect();
