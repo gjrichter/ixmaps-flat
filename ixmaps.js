@@ -120,6 +120,17 @@ ixmaps.__paintLoadingOverlay = function (div, text) {
         document.body.appendChild(ov);
         ixmaps.__loadingReposition = place;
         window.addEventListener("resize", place);
+        // The host box at paint time isn't necessarily final (e.g. a flex/grid
+        // parent still settling height), and window "resize" doesn't fire when
+        // only the host changes size — that left the overlay stuck at a stale
+        // (often too-short) box, reading as "pinned to the top" of the map area.
+        // A ResizeObserver on the host itself keeps it in sync regardless of cause.
+        try {
+            if (typeof ResizeObserver !== "undefined") {
+                ixmaps.__loadingResizeObserver = new ResizeObserver(place);
+                ixmaps.__loadingResizeObserver.observe(host);
+            }
+        } catch (e) { /* never block init on the overlay */ }
         // Safety net: if "ready"/"error" never fire (upstream fatal), don't stick forever.
         ixmaps.__loadingTimer = setTimeout(function () { ixmaps.__hideLoadingOverlay(); }, 30000);
     } catch (e) { /* never block init on the overlay */ }
@@ -133,6 +144,10 @@ ixmaps.__hideLoadingOverlay = function () {
         if (ixmaps.__loadingReposition) {
             window.removeEventListener("resize", ixmaps.__loadingReposition);
             ixmaps.__loadingReposition = null;
+        }
+        if (ixmaps.__loadingResizeObserver) {
+            ixmaps.__loadingResizeObserver.disconnect();
+            ixmaps.__loadingResizeObserver = null;
         }
         var ov = document.getElementById("ixmaps-loading");
         if (!ov) return;
