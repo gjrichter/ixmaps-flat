@@ -110,11 +110,22 @@ ixmaps.__paintLoadingOverlay = function (div, text) {
         if (txt) {
             if (text) { txt.textContent = text; } else { txt.style.display = "none"; }
         }
-        // Track the host div's box so the overlay covers exactly the map area.
+        // Track the host div's box so the overlay covers exactly the map area. If
+        // host has no real size yet — a cold-load race (its sizing CSS hasn't
+        // applied) or a dead end (framework resources failed to load, so it never
+        // will) — fall back to the full viewport immediately instead of painting a
+        // 0-height box, which leaves the flexbox spinner/text with no room to
+        // center in and pins them to the top for as long as host stays unsized.
+        // The ResizeObserver below re-runs this the moment host gets a real box.
         var place = function () {
             var r = host.getBoundingClientRect();
-            ov.style.top = r.top + "px"; ov.style.left = r.left + "px";
-            ov.style.width = r.width + "px"; ov.style.height = r.height + "px";
+            if (r.width === 0 || r.height === 0) {
+                ov.style.top = "0px"; ov.style.left = "0px";
+                ov.style.width = window.innerWidth + "px"; ov.style.height = window.innerHeight + "px";
+            } else {
+                ov.style.top = r.top + "px"; ov.style.left = r.left + "px";
+                ov.style.width = r.width + "px"; ov.style.height = r.height + "px";
+            }
         };
         place();
         document.body.appendChild(ov);
