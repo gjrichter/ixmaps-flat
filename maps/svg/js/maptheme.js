@@ -12208,12 +12208,14 @@ $Log: maptheme.js,v $
 			}
 		} catch (e) { }
 
-		if ((this.colorScheme[0]).match(/function||\=\>/)) {
+		if (this.colorScheme[0] && (this.colorScheme[0]).match(/function||\=\>/)) {
 			try {
-				// in generated json linebreaks in strings are not allowed
-				// this.origColorScheme[0] = this.colorScheme[0].replace(/\s\s+/g, ' ');
-				eval("var __defineColorScheme = " + this.colorScheme);
-				__defineColorScheme(this);
+				// Indirect eval returns the function value (strict-mode safe; no var inside eval)
+				var src = this.colorScheme[0];
+				var colorSchemeFunc = (0, eval)('(' + src + ')');
+				if (typeof colorSchemeFunc === 'function') {
+					colorSchemeFunc(this);
+				}
 			} catch (e) { }
 		}
 
@@ -16541,7 +16543,8 @@ $Log: maptheme.js,v $
 				}
 
 				var szGeo = this.objTheme.dbRecords[this.itemA[a].dbIndex][this.objTheme.nFieldSelectionIndex];
-				if (!szGeo.match(/coordinates/i)) {
+				// "Sphere" geometry (ixmaps extension) has no coordinates array — let it through
+				if (!szGeo.match(/coordinates/i) && !szGeo.match(/"type"\s*:\s*"Sphere"/i)) {
 					var ptOff = this.itemA[a].ptPos || this.getNodePosition(selectionId);
 					// Check if ptOff is valid and has x/y properties (can be null for orthographic projection when partially culled)
 					if (ptOff && ptOff.x !== undefined && ptOff.y !== undefined) {
@@ -17141,8 +17144,41 @@ $Log: maptheme.js,v $
 					}
 				}
 
+				// geojson Sphere (ixmaps extension, not standard GeoJSON — mirrors the d3-geo
+				// convention of a Feature with geometry {type:"Sphere"} and no coordinates).
+				// Draws the full visible-globe disc for the current projection, e.g. an
+				// ocean/sea background. Uses the same lat/lon-to-pixel pipeline as every other
+				// geometry type, so it automatically re-centers whenever the theme redraws
+				// (including on pan/rotate/zoom of an Orthographic map) with no extra wiring.
+				// -----------------------------------------------------------------------------
+				if (json.type == "Sphere") {
+
+					map.Layer.listA[this.szThemesA[0]].szType = "polygon";
+					this.szShapeType = "polygon";
+
+					if (isOrthographic) {
+						var ptSphereCenter = map.Scale.getMapPositionOfLatLon(map.Scale.nOrthographicLat0, map.Scale.nOrthographicLon0);
+						// A point on the EQUATOR at lon0+90 is always exactly 90 degrees of angular
+						// distance from (lat0, lon0), for any lat0 - unlike the same-latitude "+90 lon"
+						// shortcut (used elsewhere for the unrelated maxLenX heuristic), which only
+						// measures a true 90 degree arc near the equator and collapses toward 0 near
+						// the poles, since longitude lines converge there.
+						var ptSphereEdge = map.Scale.getMapPositionOfLatLon(0, map.Scale.nOrthographicLon0 + 90);
+						if (ptSphereCenter && ptSphereEdge && ptSphereCenter.x !== undefined && ptSphereEdge.x !== undefined) {
+							var nSphereRadius = Math.sqrt(
+								Math.pow(ptSphereEdge.x - ptSphereCenter.x, 2) +
+								Math.pow(ptSphereEdge.y - ptSphereCenter.y, 2)
+							);
+							var shape = map.Dom.newShape('circle', shapeGroup, ptSphereCenter.x, ptSphereCenter.y, nSphereRadius, "");
+							shapeGroup.setAttributeNS(szMapNs, "center", "x:" + ptSphereCenter.x + ",y:" + ptSphereCenter.y);
+							shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
+						}
+					}
+					// non-Orthographic projections: no defined visual equivalent yet — no-op
+				}
+
 				// geojson Polygon
-				// ---------------		
+				// ---------------
 				if (json.type == "Polygon") {
 
 					map.Layer.listA[this.szThemesA[0]].szType = "polygon";

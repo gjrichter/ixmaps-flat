@@ -17,7 +17,7 @@ $Log: mapscript.js,v $
  * @fileoverview This file is the main JavaScript for SVGGIS Map Applications.<br>
  *
  * @author Guenter Richter guenter.richter@medienobjekte.de
- * @version 1.0.0 
+ * @version 1.0.1 
  */
 
 /* jshint funcscope:true, evil:true, eqnull:true, loopfunc:true, shadow: true, laxcomma: true, laxbreak: true, expr: true, sub: true */
@@ -922,7 +922,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "1.0.0";
+    var thisversion = "1.0.1";
     map = new ixMap();
     map.version = thisversion;
     // and make global
@@ -1047,7 +1047,7 @@ $Log: mapscript.js,v $
                 // 2. load from resource base 
                 else
                 if (typeof (ixmaps.szResourceBase) != 'undefined') {
-                    map.Loader.importSVGFile(ixmaps.szResourceBase + "/maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
+                    map.Loader.importSVGFile(ixmaps.szResourceBase + "maps/svg/resources/svg/maplocal.svg", map.SVGDocument, map.SVGTempGroup, null);
                 }
                 // if not defined, try this                                    
                 else {
