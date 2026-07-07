@@ -379,6 +379,17 @@
             }
         } catch (error) {
             console.error('Error loading resources:', error);
+            // Propagate the failure instead of swallowing it: without this, the
+            // ixmaps.embed()/ixmaps.Map() promise (and any legacy callback) never
+            // settles, so callers hang forever with no visible error (see
+            // ixmaps.embed() above, which passes its settle() function as callback2).
+            if (typeof callback2 === 'function') {
+                try {
+                    callback2(null, error);
+                } catch (callbackError) {
+                    console.error('ixmaps: error callback threw:', callbackError);
+                }
+            }
         }
     }
     
@@ -1005,16 +1016,63 @@
         }   
 
         var target = window.document.getElementById(szTargetDiv);
-        
+
         // Return a Promise that resolves when the map is ready
         return new Promise((resolve, reject) => {
+            // settle() decouples "does the promise settle correctly" from "was a legacy
+            // callback(map) also supplied" (used internally by ixmaps.Map's MapBuilder,
+            // and directly by older pages). Both paths funnel through here so a failure
+            // can no longer settle neither the promise nor the callback (see below).
+            const settle = (mapApi, error) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(mapApi);
+                }
+                if (callback) {
+                    try {
+                        // second arg is extra context for callers that check for it
+                        // (e.g. ixmaps.js's MapBuilder); legacy callers ignore it.
+                        callback(mapApi, error);
+                    } catch (callbackError) {
+                        console.error("ixmaps.embed(): error in callback:", callbackError);
+                    }
+                }
+            };
+
+            if (!target) {
+                // Fall back to auto-creating the missing container (same convention
+                // as the internal #ixmap div below) so the map still renders instead
+                // of hard-failing — but warn loudly, since this usually means the
+                // page forgot <div id="..."></div> and should be fixed.
+                //
+                // The created div gets a RANDOMIZED id rather than szTargetDiv verbatim:
+                // nothing above awaits before this point, so two calls that both forgot
+                // their div and both target the same (missing) id — a plausible copy-paste
+                // mistake — would otherwise both see `target` as null and both create an
+                // element with the same id. szTargetDiv is reassigned so every downstream
+                // lookup (loadResources/loadResource, below) stays consistent automatically.
+                var szOriginalTargetDiv = szTargetDiv;
+                do {
+                    szTargetDiv = szOriginalTargetDiv + "-" + Math.random().toString(36).slice(2, 8);
+                } while (document.getElementById(szTargetDiv));
+
+                console.warn(
+                    'ixmaps.embed()/ixmaps.Map(): target element "#' + szOriginalTargetDiv + '" not found in the document — ' +
+                    'creating "#' + szTargetDiv + '" automatically. Add <div id="' + szOriginalTargetDiv + '"></div> to the page to avoid this warning.'
+                );
+                target = document.createElement('div');
+                target.id = szTargetDiv;
+                target.style.width = opt.width || '100%';
+                target.style.height = opt.height || '100%';
+                document.body.appendChild(target);
+            }
+
             try {
                 // Call the function with the list of file URLs and types
-                loadResources(fileUrls, szTargetDiv, __load_map, opt, callback || ((mapApi) => {
-                    resolve(mapApi);
-                }));
+                loadResources(fileUrls, szTargetDiv, __load_map, opt, settle);
             } catch (error) {
-                reject(error);
+                settle(null, error);
             }
         });
     }

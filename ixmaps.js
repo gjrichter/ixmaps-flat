@@ -378,9 +378,13 @@ ixmaps.MapBuilder = function (div, options, callback) {
         }
         
         try {
-            _realMapFunction(div, options, function(map) {
+            // _realMapFunction (ixmaps.embed) also returns a Promise that settles
+            // in lockstep with the callback below. Errors are already reported via
+            // the callback -> self._onError; silence this one so it doesn't also
+            // surface as a duplicate "Uncaught (in promise)" console warning.
+            var mapPromise = _realMapFunction(div, options, function(map, error) {
                 if (!map) {
-                    self._onError(new Error("Map initialization returned null/undefined"), 'initialization');
+                    self._onError(error || new Error("Map initialization returned null/undefined"), 'initialization');
                     return;
                 }
                 
@@ -404,6 +408,9 @@ ixmaps.MapBuilder = function (div, options, callback) {
                 // Resolve every pending .then()/.catch() subscriber (Bug B).
                 self._resolveSubscribers(map);
             });
+            if (mapPromise && typeof mapPromise.catch === 'function') {
+                mapPromise.catch(function() {});
+            }
         } catch (mapError) {
             self._onError(mapError, 'Map creation');
         }
