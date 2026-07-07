@@ -4841,7 +4841,11 @@ $Log: maptheme.js,v $
 					mapTheme.fRealize = true;
 				}
 				if (__isdef(styleObj.markclasses)) {
-					mapTheme.markedClassesA = this.toArray(styleObj.markclasses);
+					// toArray("") returns [""] (not []) - drop empty entries so "markclasses:" (reset/"tutti")
+					// doesn't fall through to markClass("") below, which mismarks class 0 via loose "" >= 0
+					mapTheme.markedClassesA = this.toArray(styleObj.markclasses).filter(function (item) {
+						return String(item).length > 0;
+					});
 					mapTheme.markedClasses = [];
 					// markClass() leaves fUnmarkEnable false so later unmarkClass() would no-op; allow full reset (e.g. markclasses:[])
 					mapTheme.fUnmarkEnable = true;
