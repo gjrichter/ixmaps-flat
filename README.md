@@ -1,8 +1,10 @@
-# ixMaps Framework
+# iXMaps Framework
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gjrichter/ixmaps-flat)
 
-**ixMaps** is a JavaScript framework for creating interactive, data-driven web maps with sophisticated visualization capabilities. It combines SVG-based cartography with Leaflet/OpenStreetMap base maps to enable powerful geospatial data visualizations including choropleth maps, bubble charts, pie charts, and bar charts. The framework supports 15+ data formats (CSV, JSON, GeoJSON, Parquet, GeoPackage, etc.) and features an AI-assisted chat interface for intuitive map creation. With its fluent API and browser-based architecture, ixMaps allows both developers and non-technical users to create sophisticated interactive maps without server infrastructure.
+**iXMaps** is a JavaScript framework for creating interactive, data-driven web maps with sophisticated visualization capabilities. It combines SVG-based cartography with Leaflet/OpenStreetMap base maps to enable powerful geospatial data visualizations including choropleth maps, bubble charts, pie charts, and bar charts. The framework supports 15+ data formats (CSV, JSON, GeoJSON, Parquet, GeoPackage, etc.) and features an AI-assisted chat interface for intuitive map creation. With its fluent API and browser-based architecture, iXMaps allows both developers and non-technical users to create sophisticated interactive maps without server infrastructure.
+
+Canonical documentation: [www.ixmaps.com/docs/](https://www.ixmaps.com/docs/)
 
 ## Key Features
 
@@ -31,7 +33,7 @@ Script:
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Simple ixMaps Example</title>
+    <title>Simple iXMaps Example</title>
     <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@1/ixmaps.js"></script>
     <style>
         body { margin: 0; padding: 0; }
@@ -111,7 +113,7 @@ myMap.layer(layer2);
 
 ### CDN
 
-Include ixMaps in your HTML from the CDN:
+Include iXMaps in your HTML from the CDN:
 
 ```html
 <script src="https://cdn.jsdelivr.net/gh/gjrichter/ixmaps-flat@1/ixmaps.js"></script>
@@ -215,7 +217,7 @@ Just point your assistant at the skill (e.g. share the raw `SKILL.md` URL) and a
 
 ## Documentation
 
-- [ixMaps Introduction](ixmaps_introduction.md) - Basic framework documentation
+- [iXMaps Introduction](ixmaps_introduction.md) - Basic framework documentation
 - [Chat Application Guide](ixmaps_chat_app.md) - AI-assisted map creation
 - [DeepWiki](https://deepwiki.com/gjrichter/ixmaps-flat) - if you want to dive into the framework (a generous contribute of Andrea Borruso) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gjrichter/ixmaps-flat)
 
