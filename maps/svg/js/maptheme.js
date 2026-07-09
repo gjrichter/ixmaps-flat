@@ -4524,7 +4524,9 @@ $Log: maptheme.js,v $
 							styleObj.type.match(/POW2/) ||
 							styleObj.type.match(/POW3/) ||
 							styleObj.type.match(/LOG/) ||
-							styleObj.type.match(/QUANTILE/)
+							styleObj.type.match(/QUANTILE/) ||
+							styleObj.type.match(/NATURAL/) ||
+							styleObj.type.match(/HEADTAIL/)
 						)) {
 						mapTheme.szOldRanges = mapTheme.szRanges ? mapTheme.szRanges : mapTheme.szOldRanges;
 						mapTheme.szRanges = null;
@@ -7900,6 +7902,91 @@ $Log: maptheme.js,v $
 			valuesA.push(this.itemA[a].nValuesA[0]);
 		}
 		return stats.headTail(valuesA);
+	};
+
+	/**
+	 * Jenks natural breaks (Fisher-Jenks optimal 1D clustering).
+	 * Minimises within-class variance / maximises between-class variance.
+	 * Classic dynamic-programming implementation, O(n^2 * nParts).
+	 * @param {number} nParts number of classes
+	 * @return {Array<number>} nParts+1 breakpoints (min ... max)
+	 */
+	MapTheme.prototype.getNaturalBreaks = function (nParts) {
+
+		var valuesA = [];
+		for (var a in this.itemA) {
+			valuesA.push(this.itemA[a].nValuesA[0]);
+		}
+		valuesA.sort(function (a, b) { return a - b; });
+
+		var n = valuesA.length;
+		if (n <= nParts) {
+			// not enough distinct items to fill every class — identity breaks
+			var identityBreaks = [valuesA[0] || 0];
+			for (var i = 0; i < n; i++) {
+				identityBreaks.push(valuesA[i]);
+			}
+			while (identityBreaks.length < nParts + 1) {
+				identityBreaks.push(identityBreaks[identityBreaks.length - 1]);
+			}
+			return identityBreaks;
+		}
+
+		// lower-class-limit / variance-combination matrices
+		var mat1 = [], mat2 = [], i, j;
+		for (i = 0; i <= n; i++) {
+			mat1.push([]);
+			mat2.push([]);
+			for (j = 0; j <= nParts; j++) {
+				mat1[i].push(0);
+				mat2[i].push(0);
+			}
+		}
+		for (i = 1; i <= nParts; i++) {
+			mat1[1][i] = 1;
+			mat2[1][i] = 0;
+			for (j = 2; j <= n; j++) {
+				mat2[j][i] = Infinity;
+			}
+		}
+
+		var v = 0;
+		for (var l = 2; l <= n; l++) {
+			var s1 = 0, s2 = 0, w = 0;
+			for (var m = 1; m <= l; m++) {
+				var i3 = l - m + 1;
+				var val = valuesA[i3 - 1];
+				s2 += val * val;
+				s1 += val;
+				w++;
+				v = s2 - (s1 * s1) / w;
+				var i4 = i3 - 1;
+				if (i4 !== 0) {
+					for (j = 2; j <= nParts; j++) {
+						if (mat2[l][j] >= (v + mat2[i4][j - 1])) {
+							mat1[l][j] = i3;
+							mat2[l][j] = v + mat2[i4][j - 1];
+						}
+					}
+				}
+			}
+			mat1[l][1] = 1;
+			mat2[l][1] = v;
+		}
+
+		// backtrack the optimal break indices
+		var k = n;
+		var breaks = [];
+		breaks[nParts] = valuesA[n - 1];
+		breaks[0] = valuesA[0];
+		var countNum = nParts;
+		while (countNum > 1) {
+			var id = mat1[k][countNum] - 2;
+			breaks[countNum - 1] = valuesA[id];
+			k = mat1[k][countNum] - 1;
+			countNum--;
+		}
+		return breaks;
 	};
 
 	/**
@@ -12489,6 +12576,14 @@ $Log: maptheme.js,v $
 
 			if (this.szFlag.match(/HEADTAIL/)) {
 				var breaks = this.getHeadTail();
+				for (i = 0; i < this.partsA.length; i++) {
+					this.partsA[i].min = breaks[i];
+					this.partsA[i].max = breaks[i + 1] - 0.000001;
+				}
+				this.partsA[this.partsA.length - 1].max = nMax;
+			}
+			if (this.szFlag.match(/NATURAL/)) {
+				var breaks = this.getNaturalBreaks(nParts);
 				for (i = 0; i < this.partsA.length; i++) {
 					this.partsA[i].min = breaks[i];
 					this.partsA[i].max = breaks[i + 1] - 0.000001;
