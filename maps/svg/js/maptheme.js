@@ -8032,7 +8032,7 @@ $Log: maptheme.js,v $
 					imageHeight + '',
 				'x': -map.Scale.mapCenter.x / map.Zoom.nZoomX - width / 2,
 				'y': -map.Scale.mapCenter.y / map.Zoom.nZoomY - height / 2,
-				'style': 'width:' + width + ';height:' + height + '' + ";opacity:" + (this.nOpacity || 0.8) + ";pointer-events:none;",
+				'style': 'width:' + width + ';height:' + height + '' + ";opacity:" + (this.fillOpacity || this.nOpacity || 0.8) + ";pointer-events:none;",
 				'onload': 'map.Themes.getTheme("' + this.szId + '").cleanWMS();'
 			});
 
@@ -8539,6 +8539,16 @@ $Log: maptheme.js,v $
 
 		// FEATURE-only themes skip redraw here; FEATURE|CHOROPLETH must repaint (e.g. after fillopacity change)
 		if (this.szFlag.match(/FEATURE/) && !this.szFlag.match(/CHOROPLETH/)) {
+			return;
+		}
+
+		// GR 10.07.2026 WMS|IMAGE themes have no shape nodes for makeVisible()/paintMap() below
+		// to act on (those are unset for this theme type) — a runtime style change (e.g.
+		// fillopacity via changeThemeStyle) reaches here via fRedraw after unpaintMap() clears
+		// the raster image, so re-realize() to rebuild it with the new style instead of falling
+		// through to the no-op generic vector-shape path.
+		if (this.szFlag.match(/WMS/)) {
+			this.realize();
 			return;
 		}
 
@@ -13436,8 +13446,8 @@ $Log: maptheme.js,v $
 		if (this.szFlag.match(/CHART/)) {
 			if (this.chartGroup) {
 
-				// GR 29.04.2014 clear chart objects hosted by an other theme; if own chart group is empty  
-				// 
+				// GR 29.04.2014 clear chart objects hosted by an other theme; if own chart group is empty
+				//
 				if ((this.chartGroup.childNodes.length === 0) && this.itemA) {
 					var chartGroup = null;
 					for (var a in this.itemA) {
@@ -13456,6 +13466,17 @@ $Log: maptheme.js,v $
 				//var szId = this.chartGroup.getAttributeNS(null, "id");
 				//map.Dom.removeElementById(szId);
 				//this.chartGroup = null;
+			}
+			return;
+		}
+		// GR 10.07.2026 WMS|IMAGE themes never populate paintedShapeNodesA (their realize()
+		// takes an early-return branch that only ever touches chartGroup) — falling through
+		// to the generic paintedShapeNodesA loop below throws "Cannot read properties of
+		// undefined (reading 'length')". Clear the raster image the same way clearWMS() does
+		// and bail out, mirroring the FEATURE/CHART early returns above.
+		if (this.szFlag.match(/WMS/)) {
+			if (this.chartGroup) {
+				this.clearWMS();
 			}
 			return;
 		}
