@@ -31,7 +31,7 @@
 // This is the global object that will be used to access the ixmaps API
 
 var ixmaps = {
-    version: "1.0.8",
+    version: "1.0.9",
     JSON_Schema: "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json"
 };
 
