@@ -4460,7 +4460,7 @@ $Log: maptheme.js,v $
 	 * <br>
 	 * <strong>Samples:</strong>
 	 * <br> map.Api.changeThemeStyle("type:CHOROPLETH|EQUIDISTANT;classes:10;colorscheme:spectrum,pastel;overviewchart:PIE|3D"); 
-	 * <br> map.Api.changeThemeStyle("type:CHART|BUBBLE|SURFACE|VALUES"); 
+	 * <br> map.Api.changeThemeStyle("type:CHART|BUBBLE|VALUES");
 	 * <br> map.Api.changeThemeStyle("type:CHART|PIE|DONUT|3D|VOLUME");
 	 * <br><br>
 	 * <strong>Hints:</strong>
@@ -5530,7 +5530,7 @@ $Log: maptheme.js,v $
 			szId = szId.substr(0, szId.length - 6);
 		}
 
-		if (mapTheme.szFlag.match(/CHOROPLETH/) && mapTheme.szFlag.match(/DOMINANT|COMPOSE/)) {
+		if (mapTheme.szFlag.match(/CHOROPLETH/) && mapTheme.szFlag.match(/DOMINANT|COMPOSECOLOR/)) {
 
 			// a) charts for CHOROPLETH themes that show dominant values; show the original values of the item 
 			// ================================================================================================
@@ -8262,7 +8262,7 @@ $Log: maptheme.js,v $
 
 		this.timeLoading = new Date() - x;
 
-		if (((this.timeLoading > 1000) || this.szFlag.match(/VERBOSE/)) && !this.szFlag.match(/SILENT/)) {
+		if ((this.timeLoading > 1000) || this.szFlag.match(/VERBOSE/)) {
 			executeWithMessage(() => map.Themes.executeContinue(), this.szFlag.match(/AGGREGATE/) ? "aggregating" : "parsing data");
 		} else {
 			map.Themes.executeContinue();
@@ -8307,7 +8307,7 @@ $Log: maptheme.js,v $
 
 		this.timeAggregating = new Date() - x;
 		//this.fDraw = true;
-		if ((this.timeLoading > 1000 || this.szFlag.match(/VERBOSE/)) && !this.szFlag.match(/SILENT/)) {
+		if (this.timeLoading > 1000 || this.szFlag.match(/VERBOSE/)) {
 			executeWithMessage(() => map.Themes.executeContinue(), "drawing");
 		} else {
 			map.Themes.executeContinue();
@@ -13985,7 +13985,7 @@ $Log: maptheme.js,v $
 
 		if ((map.Themes.enableSubThemes) &&
 			//(this.szFields.match(/\|/)) &&
-			(this.szFlag.match(/DOMINANT|COMPOSE/) && !this.szFlag.match(/CHART/))) {
+			(this.szFlag.match(/DOMINANT|COMPOSECOLOR/) && !this.szFlag.match(/CHART/))) {
 			if (this.szFlag.match(/SUBTHEME/)) {
 				return;
 			}
@@ -18959,9 +18959,6 @@ $Log: maptheme.js,v $
 								} else {
 									this.chart.szLineColor = cColor.textColor;
 								}
-								if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-									nSize = map.Scale.normalX(2 + 5 * (i + 1) / this.partsA.length);
-								}
 								// value attributes are defined in child nodes
 								//chartGroup.setAttributeNS(szMapNs, "value", "seechilds");
 								nClass = i;
@@ -19138,7 +19135,7 @@ $Log: maptheme.js,v $
 
 		// !! here we make deviation charts for chloroplethe themes
 		// --------------------------------------------------------
-		if (szFlag.match(/DOMINANT|COMPOSE/) && !szFlag.match(/CHART/)) {
+		if (szFlag.match(/DOMINANT|COMPOSECOLOR/) && !szFlag.match(/CHART/)) {
 			if (szFlag.match(/PERCENTOFMEAN/)) {
 				szFlag = "BAR|OFFSETMEAN|POINTER|XAXIS" + "|VALUES|ZOOM";
 			} else if (szFlag.match(/PERCENTOFMEDIAN/)) {
@@ -19263,9 +19260,6 @@ $Log: maptheme.js,v $
 					} else {
 						szLineColor = cColor.lowColor;
 					}
-					if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-						nRadius = map.Scale.normalX(2 + 5 * (i + 1) / this.partsA.length);
-					}
 					// value attributes are defined in child nodes
 					//chartGroup.setAttributeNS(szMapNs, "value", "seechilds");
 					fDoDraw = true;
@@ -19360,9 +19354,6 @@ $Log: maptheme.js,v $
 											szLineColor = "none";
 										} else {
 											szLineColor = cColor.lowColor;
-										}
-										if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-											nRadius = map.Scale.normalX(2 + 5 * (i + 1) / this.partsA.length);
 										}
 										// value attributes are defined in child nodes
 										//chartGroup.setAttributeNS(szMapNs, "value", "seechilds");
@@ -20344,9 +20335,6 @@ $Log: maptheme.js,v $
 				} else {
 					szLineColor = cColor.lowColor;
 				}
-				if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-					nRadius = map.Scale.normalX(2 + 5 * (i + 1) / this.partsA.length);
-				}
 				// value attributes are defined in child nodes
 				//chartGroup.setAttributeNS(szMapNs, "value", "seechilds");
 				fDoDraw = true;
@@ -20440,9 +20428,6 @@ $Log: maptheme.js,v $
 										szLineColor = "none";
 									} else {
 										szLineColor = cColor.lowColor;
-									}
-									if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-										nRadius = map.Scale.normalX(2 + 5 * (i + 1) / this.partsA.length);
 									}
 									// value attributes are defined in child nodes
 									//chartGroup.setAttributeNS(szMapNs, "value", "seechilds");
@@ -21543,9 +21528,6 @@ $Log: maptheme.js,v $
 										szColor = this.colorScheme[ii];
 										var cColor = __maptheme_getChartColors(szColor);
 										szLineColor = cColor.textColor;
-										if (szFlag.match(/RANGE/) && !szFlag.match(/RANGES/)) {
-											nRadius = map.Scale.normalX(2 + 5 * (ii + 1) / this.partsA.length);
-										}
 										nClass = ii;
 										break;
 									} else
@@ -25577,6 +25559,8 @@ $Log: maptheme.js,v $
 				, "CHART|PIE|DONUT|STARBURST|3D|VOLUME"
 			);
 		}
+		// GR note: szChartTypeListSingleValue_old is superseded by szChartTypeListSingleValue below
+		// and is never read by the live chart-type picker; kept only for reference.
 		if (typeof (szChartTypeListSingleValue_old) == "undefined") {
 			var szChartTypeListSingleValue_old = new Array(
 				"CHART|BAR"
@@ -25591,10 +25575,10 @@ $Log: maptheme.js,v $
 				, "CHART|BAR|HORZ|RIGHT|UP|VALUES|3D"
 				, "CHART|BAR|POINTER"
 				, "CHART|BAR|POINTER|VALUES"
-				, "CHART|BUBBLE|SURFACE"
-				, "CHART|BUBBLE|SURFACE|VALUES"
-				, "CHART|SQUARE|SURFACE"
-				, "CHART|SQUARE|SURFACE|VALUES"
+				, "CHART|BUBBLE"
+				, "CHART|BUBBLE|VALUES"
+				, "CHART|SQUARE"
+				, "CHART|SQUARE|VALUES"
 			);
 		}
 		if (typeof (szChartTypeListSingleValue) == "undefined") {
