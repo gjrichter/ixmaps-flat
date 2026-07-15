@@ -9038,7 +9038,7 @@ $Log: maptheme.js,v $
 		// -----------------------------------------------
 		this.__fExact = (this.szFlag.match(/CATEGORICAL/));
 		this.__fMax = (this.szFlag.match(/\bMAX\b/));
-		this.__fMin = (this.szFlag.match(/\bMin\b/));
+		this.__fMin = (this.szFlag.match(/\bMIN\b/));
 		this.__fFirst = (this.szFlag.match(/\bFIRST\b/));
 		this.__fLast = (this.szFlag.match(/\bLAST\b/));
 		this.__fDifference = (this.szFlag.match(/DIFFERENCE/));
@@ -10588,7 +10588,7 @@ $Log: maptheme.js,v $
 					} else if (this.__fExact) {
 						const n = nValuesA[0] - 1;
 						if (!isNaN(n)) {
-							item.nValuesA[n] = this.__fMax ? Math.max(item.nValuesA[n] || 0, nValueSize) : (item.nValuesA[n] || 0) + nValueSize;
+							item.nValuesA[n] = this.__fMax ? Math.max(item.nValuesA[n] || 0, nValueSize) : this.__fMin ? Math.min(item.nValuesA[n] || 0, nValueSize) : (item.nValuesA[n] || 0) + nValueSize;
 							item.nCountA[n] = (item.nCountA[n] || 0) + 1;
 							nSize = nValueSize;
 						} else {
@@ -10601,13 +10601,15 @@ $Log: maptheme.js,v $
 							const znv = nZeroNotValueA && nZeroNotValueA[k];
 							if (this.__fMax) {
 								item.nValuesA[k] = Math.max(item.nValuesA[k] || 0, value);
+							} else if (this.__fMin) {
+								item.nValuesA[k] = Math.min(item.nValuesA[k] || 0, value);
 							} else {
 								item.nValuesA[k] = (item.nValuesA[k] || 0) + value;
 							}
 							if (this.fZeroExcludesInAggregation && this.szFlag.match(/MEAN/) && item.nCountA && !this.__fExact && !znv) {
 								item.nCountA[k] = (item.nCountA[k] || 0) + 1;
 							}
-							item.nValue100A[k] = this.__fMax ? Math.max(item.nValue100A[k], nValue100A[k]) : item.nValue100A[k] + nValue100A[k];
+							item.nValue100A[k] = this.__fMax ? Math.max(item.nValue100A[k], nValue100A[k]) : this.__fMin ? Math.min(item.nValue100A[k], nValue100A[k]) : item.nValue100A[k] + nValue100A[k];
 							nSize = Math.max(nSize, value);
 						}
 					}
@@ -10615,6 +10617,12 @@ $Log: maptheme.js,v $
 					if (this.__fMax) {
 						item.nSize = Math.max(item.nSize, nValueSize || (this.objTheme.nSizeFieldIndex ? 0 : nSize));
 						item.nAlpha = Math.max(item.nAlpha, nAlphaValue || 1);
+						item.ptPosA = [ptOrigPos];
+						item.szTitle = szTitle;
+						item.dbIndexA.push(j);
+					} else if (this.__fMin) {
+						item.nSize = Math.min(item.nSize, nValueSize || (this.objTheme.nSizeFieldIndex ? 0 : nSize));
+						item.nAlpha = Math.min(item.nAlpha, nAlphaValue || 1);
 						item.ptPosA = [ptOrigPos];
 						item.szTitle = szTitle;
 						item.dbIndexA.push(j);

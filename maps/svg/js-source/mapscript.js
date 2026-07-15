@@ -922,7 +922,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "1.0.2";
+    var thisversion = "1.0.3";
     map = new ixMap();
     map.version = thisversion;
     // and make global
