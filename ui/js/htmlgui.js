@@ -451,8 +451,14 @@ $Log: htmlgui.js,v $
 
 			ixmaps.loadingMap = szUrl;
 			szUrl = szUrl || "maps/svg/maps/generic/mercator.svg";
-			if (szUrl.match("../../")) {
-				szUrl = szUrl.split("../../")[1];
+			// GR: was szUrl.match("../../") - a bare string passed to .match() is compiled as a
+			// RegExp where "." is a wildcard, so it false-matches any "XX/YY/" substring (e.g. the
+			// jsDelivr CDN host "...delivr.net/gh/..." contains "et/gh/"). .split() on the same bare
+			// string is a LITERAL search, so the two disagreed and szUrl.split(...)[1] came back
+			// undefined for absolute URLs. Use the literal-prefix check already used correctly
+			// elsewhere in this file (see loadProject's map.map.startsWith("../../") handling).
+			if (szUrl.indexOf("../../") === 0) {
+				szUrl = szUrl.substring("../../".length);
 			}
 			var svgUrlToLoad = szUrl.match("http") ? szUrl : ixmaps.szResourceBase + szUrl;
 			var svgDiv = this.svgDiv;
