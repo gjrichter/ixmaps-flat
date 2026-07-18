@@ -294,15 +294,32 @@ window.ixmaps = window.ixmaps || {};
 			// look in all CHOROPLETH themes for the a corrisponding one
 			//
 			var themes = ixmaps.getThemes();
+			var szLayerName = szId.split(":")[0];
+			var foundThemeObj = null;
+			// Prefer a CHOROPLETH theme over a FEATURES base sharing the same layer
+			// name. Both match the broader regex below; since the FEATURE base is
+			// always defined first (standard base+overlay pattern - see the create-ixmap
+			// skill's Multi-Layer Join Pattern), without this preference pass it always
+			// wins, and {{theme.item.title}}/{{theme.item.data}} silently resolve against
+			// the title-less FEATURE item instead of the actually-clicked CHOROPLETH item.
 			for (var i in themes) {
-				if (themes[i].szThemes == szId.split(":")[0] && themes[i].szFlag.match(/CHOROPLETH|FEATURES/)) {
-					themeObj = themes[i];
+				if (themes[i].szThemes == szLayerName && themes[i].szFlag.match(/CHOROPLETH/)) {
+					foundThemeObj = themes[i];
 					break;
 				}
 			}
+			if (!foundThemeObj) {
+				for (var i in themes) {
+					if (themes[i].szThemes == szLayerName && themes[i].szFlag.match(/CHOROPLETH|FEATURES/)) {
+						foundThemeObj = themes[i];
+						break;
+					}
+				}
+			}
+			themeObj = foundThemeObj;
 			if (!themeObj) {
 				if (typeof console !== "undefined" && console.warn) {
-					console.warn("tooltip_mustache: no theme found for id", szId.split(":")[0]);
+					console.warn("tooltip_mustache: no theme found for id", szLayerName);
 				}
 				return false;
 			}
