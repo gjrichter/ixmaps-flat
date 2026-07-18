@@ -1939,7 +1939,7 @@
          * 
          * **Color Configuration:**
          * @param {string|Array<string>} [styleObj.colorscheme] - Color scheme:
-         *   - String: "none" (no color), or named scheme like "tableau10", "viridis"
+         *   - String: "none" (no color), or named scheme like "tableau10", "viridis", "plasma", "magma"
          *   - Array: [numberOfClasses, startColor, endColor, ...additionalColors]
          *     Example: ["5", "#FFFDD8", "#B5284B"] or ["#ce420a", "#85c9d6"]
          * 

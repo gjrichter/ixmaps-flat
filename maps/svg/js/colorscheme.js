@@ -195,6 +195,21 @@ $Log: colorscheme.js,v $
             cc1 == "Tableau20") {
             return _circ_createPaletteColorScheme("tableau20", nSteps, Number(cc2));
         }
+        if (cc1 == "viridis" ||
+            cc1 == "VIRIDIS" ||
+            cc1 == "Viridis") {
+            return _circ_createSequentialPaletteColorScheme("viridis", nSteps);
+        }
+        if (cc1 == "plasma" ||
+            cc1 == "PLASMA" ||
+            cc1 == "Plasma") {
+            return _circ_createSequentialPaletteColorScheme("plasma", nSteps);
+        }
+        if (cc1 == "magma" ||
+            cc1 == "MAGMA" ||
+            cc1 == "Magma") {
+            return _circ_createSequentialPaletteColorScheme("magma", nSteps);
+        }
         nSteps = Number(nSteps);
 
         if (nSteps < 2) {
@@ -1175,6 +1190,78 @@ $Log: colorscheme.js,v $
             }
             return xA;
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // sequential (perceptually uniform) colormaps
+    // 32 stops resampled from the original matplotlib/BIDS viridis, plasma and
+    // magma data (https://github.com/BIDS/colormap), evenly spaced over the
+    // full 0..1 range of each colormap
+    // ---------------------------------------------------------------------------
+
+    var __viridisColors = [
+        '#440154', '#470D60', '#48186A', '#482475', '#472E7C', '#453882', '#424186', '#3E4C8A',
+        '#3A548C', '#365D8D', '#32658E', '#2E6D8E', '#2B758E', '#287D8E', '#25848E', '#228C8D',
+        '#1F948C', '#1E9C89', '#20A386', '#25AB82', '#2EB37C', '#3ABA76', '#48C16E', '#58C765',
+        '#69CD5B', '#7FD34E', '#93D741', '#A8DB34', '#BDDF26', '#D5E21A', '#EAE51A', '#FDE725'
+    ];
+
+    var __plasmaColors = [
+        '#0D0887', '#220690', '#310597', '#41049D', '#4E02A2', '#5B01A5', '#6700A8', '#7501A8',
+        '#8104A7', '#8D0BA5', '#9814A0', '#A21D9A', '#AD2793', '#B6308B', '#BF3984', '#C7427C',
+        '#CF4C74', '#D6556D', '#DD5E66', '#E3685F', '#E97257', '#EF7C51', '#F3874A', '#F79143',
+        '#FA9C3C', '#FCA934', '#FDB52E', '#FDC229', '#FCCE25', '#F9DD25', '#F5EB27', '#F0F921'
+    ];
+
+    var __magmaColors = [
+        '#000004', '#030312', '#0A0822', '#140E36', '#1E1149', '#2A115C', '#38106C', '#471078',
+        '#54137D', '#601880', '#6D1D81', '#792282', '#882781', '#942C80', '#A1307E', '#AE347B',
+        '#BD3977', '#CA3E72', '#D6456C', '#E24D66', '#EC5860', '#F3655C', '#F8745C', '#FB835F',
+        '#FD9266', '#FEA36F', '#FEB27A', '#FEC185', '#FECF92', '#FDE0A1', '#FCEEB0', '#FCFDBF'
+    ];
+
+    var __sequentialPaletteA = [];
+    __sequentialPaletteA["viridis"] = __viridisColors;
+    __sequentialPaletteA["plasma"] = __plasmaColors;
+    __sequentialPaletteA["magma"] = __magmaColors;
+
+    /**
+     * linear RGB interpolation between two hex colors
+     * @param cc1 the start hex color
+     * @param cc2 the end hex color
+     * @param nFrac the interpolation fraction (0..1)
+     */
+    function _circ_lerpHexColor(cc1, cc2, nFrac) {
+        var hh = "0123456789abcdef";
+        var rr = Math.round(parseInt(cc1.substr(1, 2), 16) + (parseInt(cc2.substr(1, 2), 16) - parseInt(cc1.substr(1, 2), 16)) * nFrac);
+        var gg = Math.round(parseInt(cc1.substr(3, 2), 16) + (parseInt(cc2.substr(3, 2), 16) - parseInt(cc1.substr(3, 2), 16)) * nFrac);
+        var bb = Math.round(parseInt(cc1.substr(5, 2), 16) + (parseInt(cc2.substr(5, 2), 16) - parseInt(cc1.substr(5, 2), 16)) * nFrac);
+        var ss = "#";
+        ss += hh.charAt(Math.floor(rr / 16)) + hh.charAt(rr % 16);
+        ss += hh.charAt(Math.floor(gg / 16)) + hh.charAt(gg % 16);
+        ss += hh.charAt(Math.floor(bb / 16)) + hh.charAt(bb % 16);
+        return ss;
+    }
+
+    /**
+     * resample a sequential (perceptually uniform) colormap to exactly nColors
+     * stops, evenly spaced across its full range, linearly interpolating
+     * between the stored anchor stops
+     * @param szPalette the colormap name ("viridis" | "plasma" | "magma")
+     * @param nColors the number of stops to generate
+     */
+    function _circ_createSequentialPaletteColorScheme(szPalette, nColors) {
+        var stops = __sequentialPaletteA[szPalette];
+        nColors = Math.max(1, Number(nColors) || 1);
+        var xA = [];
+        for (var i = 0; i < nColors; i++) {
+            var t = (nColors < 2) ? 0 : i / (nColors - 1);
+            var nPos = t * (stops.length - 1);
+            var i0 = Math.floor(nPos);
+            var i1 = Math.min(stops.length - 1, i0 + 1);
+            xA.push(_circ_lerpHexColor(stops[i0], stops[i1], nPos - i0));
+        }
+        return xA;
     }
 
     // ---------------------------------------------------------------------------

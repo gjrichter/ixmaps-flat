@@ -159,6 +159,11 @@
 		colorSchemesA['tableau10']	= "tableau10,,,";
 		colorSchemesA['tableau20']	= "tableau20,,,";
 
+		colorSchemesA['filler6']	= "none,none,none,none";
+		colorSchemesA['viridis']	= "viridis,,,";
+		colorSchemesA['plasma']	= "plasma,,,";
+		colorSchemesA['magma']		= "magma,,,";
+
 	__getThemeColorDef = function(szColor){
 		return colorSchemesA[szColor];
 	};
