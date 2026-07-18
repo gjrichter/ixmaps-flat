@@ -8574,6 +8574,11 @@ $Log: mapscript.js,v $
     window.__scaleStyleString = __scaleStyleString;
     window.__scaleLineStyleString = __scaleLineStyleString;
     window.__scaleTextStyleString = __scaleTextStyleString;
+    // GR: restored - needed by mapscript2.js's polygon measurement tool
+    // (MapTool.redraw, "polygon" case) to compute/display the drawn area;
+    // left commented out above since 2026-03-24, silently breaking that feature
+    window.__doGetPolygonSurface = __doGetPolygonSurface;
+    window.__doGetPolygonCenter = __doGetPolygonCenter;
 
 
 
