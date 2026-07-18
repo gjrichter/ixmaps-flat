@@ -15956,6 +15956,80 @@ $Log: maptheme.js,v $
 		}
 	};
 
+	// Earth's mean (authalic) radius in meters - the standard constant for spherical
+	// area formulas (same value used by e.g. Turf.js's area()). Deliberately NOT the
+	// WGS84 equatorial radius (6378137m) used elsewhere for UTM projection - using
+	// the equatorial radius here would systematically overestimate area away from
+	// the equator, since the Earth is slightly oblate.
+	var __nEarthRadius = 6371008.8;
+	var __nMapthemeDeg2rad = Math.PI / 180.0;
+
+	/**
+	 * signed geodesic area of one GeoJSON ring ([lon,lat] pairs), in square meters,
+	 * via the spherical-excess formula (Chamberlain & Duquette). Positive for a
+	 * counter-clockwise (outer) ring, negative for clockwise (hole) per the GeoJSON
+	 * right-hand-rule winding convention - so summing signed ring areas nets out
+	 * holes automatically, the same trick the planar shoelace formula relies on.
+	 * Antimeridian-safe: unwraps any >180 deg longitude jump between consecutive
+	 * vertices before accumulating, so a ring crossing the dateline (Russia, Fiji,
+	 * Alaska, ...) doesn't blow up into a nonsense area.
+	 * @param coordinatesA one ring: array of [lon, lat] pairs
+	 */
+	function __getGeodesicRingArea(coordinatesA) {
+		var nSum = 0;
+		var n = coordinatesA.length;
+		if (n < 3) {
+			return 0;
+		}
+		for (var i = 0; i < n; i++) {
+			var p1 = coordinatesA[i];
+			var p2 = coordinatesA[(i + 1) % n];
+			var nLon1 = p1[0] * __nMapthemeDeg2rad, nLat1 = p1[1] * __nMapthemeDeg2rad;
+			var nLon2 = p2[0] * __nMapthemeDeg2rad, nLat2 = p2[1] * __nMapthemeDeg2rad;
+			var dLon = nLon2 - nLon1;
+			if (dLon > Math.PI) {
+				dLon -= 2 * Math.PI;
+			} else if (dLon < -Math.PI) {
+				dLon += 2 * Math.PI;
+			}
+			nSum += dLon * (2 + Math.sin(nLat1) + Math.sin(nLat2));
+		}
+		return nSum * __nEarthRadius * __nEarthRadius / 2;
+	}
+
+	/**
+	 * geodesic surface area (square meters) of a full GeoJSON Polygon or
+	 * MultiPolygon coordinate structure - sums every ring (all parts for a
+	 * MultiPolygon), correctly netting out holes via signed ring areas, then
+	 * takes the absolute value of the total.
+	 *
+	 * Used as the automatic fallback for density-related features (DENSITY,
+	 * alphafield100:"$density$") when the FEATURE layer providing the geometry
+	 * has no explicit size/area field bound via .binding({size:...}) - see
+	 * getNodeArea() below, which reads whichever value ends up in the shape's
+	 * "area" SVG attribute (set at draw time in chartMap()'s Polygon/MultiPolygon
+	 * branches) without caring whether it came from bound data or this fallback.
+	 *
+	 * @param szType "Polygon" or "MultiPolygon"
+	 * @param coordinates the GeoJSON geometry's own .coordinates value
+	 */
+	function __getGeodesicGeometryArea(szType, coordinates) {
+		var nArea = 0;
+		var r, p;
+		if (szType == "Polygon") {
+			for (r in coordinates) {
+				nArea += __getGeodesicRingArea(coordinates[r]);
+			}
+		} else if (szType == "MultiPolygon") {
+			for (p in coordinates) {
+				for (r in coordinates[p]) {
+					nArea += __getGeodesicRingArea(coordinates[p][r]);
+				}
+			}
+		}
+		return Math.abs(nArea);
+	}
+
 	/**
 	 * create charts of one theme on the map
 	 * is called several times with a item index to start or continue
@@ -17593,7 +17667,10 @@ $Log: maptheme.js,v $
 					if (d.length > 0 && count > 0) {
 						var shape = map.Dom.newShape('path', shapeGroup, d, "");
 						shapeGroup.setAttributeNS(szMapNs, "center", "x:" + x / count + ",y:" + y / count);
-						shapeGroup.setAttributeNS(szMapNs, "area", this.itemA[a].nSize);
+						// GR: if no size field is bound, fall back to a computed geodesic
+						// area instead of the meaningless default (nSize == 1) - see
+						// __getGeodesicGeometryArea() and getNodeArea() below.
+						shapeGroup.setAttributeNS(szMapNs, "area", this.szSizeField ? this.itemA[a].nSize : __getGeodesicGeometryArea("Polygon", json.coordinates));
 						shapeGroup.setAttributeNS(null, "style", "fill:" + this.chart.szColor + ";");
 					}
 				}
@@ -17673,7 +17750,10 @@ $Log: maptheme.js,v $
 					for (p in count) {
 						if (count[p] > pp) {
 							shapeGroup.setAttributeNS(szMapNs, "center", "x:" + x[p] / count[p] + ",y:" + y[p] / count[p]);
-							shapeGroup.setAttributeNS(szMapNs, "area", this.itemA[a].nSize);
+							// GR: if no size field is bound, fall back to a computed geodesic
+							// area (summed across all parts) instead of the meaningless
+							// default (nSize == 1) - see __getGeodesicGeometryArea() below.
+							shapeGroup.setAttributeNS(szMapNs, "area", this.szSizeField ? this.itemA[a].nSize : __getGeodesicGeometryArea("MultiPolygon", json.coordinates));
 							pp = count[p];
 						}
 					}
