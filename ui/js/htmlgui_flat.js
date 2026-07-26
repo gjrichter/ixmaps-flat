@@ -1812,7 +1812,11 @@
             }
             if (this.def.data.type && this.def.data.type.match(/geojson|topojson/i)) {
                 this.def.style.lookupfield = "geometry";
-                this.def.style.type = "FEATURES|NOLEGEND";
+                // GR 26.07.2026 only apply the default type if .type() hasn't already set one -
+                // otherwise this clobbers modifiers like |SILENT set before .data() is called
+                if (!this.def.style.type) {
+                    this.def.style.type = "FEATURES|NOLEGEND";
+                }
             }
             return this;
         },
