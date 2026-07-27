@@ -401,7 +401,13 @@ ixmaps.data = ixmaps.data || {};
 	// ===========================================
 
 	ixmaps.data.showFacets = function (szFilter, szDiv, facetsA) {
-		
+
+		// GR 27.07.2026 declared here (not inside the try block below) so the catch
+		// handler's own debug logging can read it - it's a `let` inside try{}, which
+		// is a separate block scope from catch{} and was throwing its own
+		// "currentFacetIndex is not defined" ReferenceError, masking the real error
+		let currentFacetIndex = -1;
+
 		try {
 			__szFilter = szFilter;
 			__szDiv = szDiv;
@@ -486,8 +492,8 @@ ixmaps.data = ixmaps.data || {};
 		ixmaps.data.facetsCurrentA = facetsA;
 		
 		// loop over facets array and create HTML to show the facets
+		// (currentFacetIndex itself is declared above, outside the try block)
 		//
-		let currentFacetIndex = -1;
 		for (let i = 0; i < facetsA.length; i++) {
 			currentFacetIndex = i;
 
@@ -759,7 +765,7 @@ ixmaps.data = ixmaps.data || {};
 
 				for (let ii = 0; ii < facetsA[i].values.length; ii++) {
 					
-					if (facetsA[i].values[ii].length && (facetsA[i].values[ii] != " ")) {
+					if (facetsA[i].values[ii] && facetsA[i].values[ii].length && (facetsA[i].values[ii] != " ")) {
 
 					// make the facet filter 
 					const szQuery = `WHERE "${facetsA[i].id}" = "${facetsA[i].values[ii]}"`;
