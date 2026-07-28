@@ -182,6 +182,15 @@ $Log: htmlgui.js,v $
 			return ixmaps.api() || ixmaps;
 		}
 
+		// GR 26.07.2026 legacy callers (e.g. facet.js) pass a fixed sentinel div id
+		// (conventionally "map") that never exists as a real DOM element on modern
+		// single-map "flat" embed pages - if that div isn't actually in the DOM and a
+		// map already exists, treat it like the no-arg lookup above instead of trying
+		// to create a new map inside a nonexistent div (which throws on mapDiv.parentNode)
+		if (ixmaps.szGmapDiv && szMapDiv && !document.getElementById(szMapDiv)) {
+			return ixmaps.api() || ixmaps;
+		}
+
 		window.console.log("*** htmlgui version: " + ixmaps.version);
 
 		if (!ixmaps.hasSVG()) {

@@ -1733,7 +1733,25 @@ $Log: maptheme.js,v $
 				mapTheme.szFeatureLower = styleObj.featurelower;
 				mapTheme.nFeatureLower = __scanScaleValue(mapTheme.szFeatureLower);
 			}
-			// GR 24.01.2018 define scaledependency for shadow 
+			// GR 26.07.2026 layerupper/layerlower as a universal alias for non-WMS themes.
+			// WMS themes already have their own dedicated gate (nLayerUpper/nLayerLower,
+			// used in realize()'s WMS branch) - for every other theme type that gate is
+			// never consumed, so alias it into nChartUpper/nChartLower instead, which
+			// chartMap() and realize() already honor for ANY theme type (CHART, SYMBOL,
+			// BUBBLE, and even FEATURE|CHOROPLETH - confirmed). This lets callers use one
+			// property name ("layerupper") regardless of theme type. An explicit
+			// chartupper/chartlower always wins if both are given.
+			if (!(styleObj.type && styleObj.type.match(/WMS/))) {
+				if (__isdef(styleObj.layerupper) && !__isdef(styleObj.chartupper)) {
+					mapTheme.szChartUpper = styleObj.layerupper;
+					mapTheme.nChartUpper = __scanScaleValue(mapTheme.szChartUpper);
+				}
+				if (__isdef(styleObj.layerlower) && !__isdef(styleObj.chartlower)) {
+					mapTheme.szChartLower = styleObj.layerlower;
+					mapTheme.nChartLower = __scanScaleValue(mapTheme.szChartLower);
+				}
+			}
+			// GR 24.01.2018 define scaledependency for shadow
 			if (__isdef(styleObj.shadowupper)) {
 				mapTheme.szShadowUpper = styleObj.shadowupper;
 				mapTheme.nShadowUpper = __scanScaleValue(mapTheme.szShadowUpper);
