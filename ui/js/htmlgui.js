@@ -1461,6 +1461,16 @@ $Log: htmlgui.js,v $
 				if ((typeof (i) == "string") && (i.match(/\bsilent\b/i))) {
 					this.fSilent = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
 				} else
+				if ((typeof (i) == "string") && (i.match(/loadsilent/i))) {
+					// GR: dedicated flag - loadsilent suppresses only the "loading data ..." message
+					// (showLoadingArray, ~line 3412+7), independently of "silent" (suppresses everything,
+					// cascades to worksilent+loadsilent at the map level, see htmlgui_onMapReady ~line 2562)
+					// and "worksilent" (renderer/execute messages only, map.fExecuteSilent). Previously
+					// loadsilent had no dedicated check here at all - only the broad "silent" flag could
+					// suppress this message.
+					this.fLoadSilent = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
+					szFeatures += String(i + ":" + opt[i] + ";");
+				} else
 					if ((typeof (i) == "string") && (i.match(/syncMap/i))) {
 						this.fSyncMap = ((typeof (opt[i]) == "string") ? (opt[i] == "true") : opt[i]);
 					} else
@@ -3409,7 +3419,7 @@ $Log: htmlgui.js,v $
 			options.theme.coTableExt = options.ext;
 		}
 
-		if (!ixmaps.fSilent) {
+		if (!ixmaps.fSilent && !ixmaps.fLoadSilent) {
 			ixmaps.showLoadingArray(["loading data ...", " ... "]);
 		}
 
