@@ -1733,6 +1733,7 @@
             lookupfield: "geometry"
         };
         this.def.field = "$item$";
+        this.fTypeSet = false;
     };
     ixmaps.themeConstruct.prototype = {
         /**
@@ -1814,7 +1815,7 @@
                 this.def.style.lookupfield = "geometry";
                 // GR 26.07.2026 only apply the default type if .type() hasn't already set one -
                 // otherwise this clobbers modifiers like |SILENT set before .data() is called
-                if (!this.def.style.type) {
+                if (!this.fTypeSet) {
                     this.def.style.type = "FEATURES|NOLEGEND";
                 }
             }
@@ -1934,6 +1935,7 @@
          */
         type: function (szType) {
             this.def.style.type = szType;
+            this.fTypeSet = true;
             return this;
         },
         /**
