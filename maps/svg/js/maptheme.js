@@ -996,6 +996,9 @@ $Log: maptheme.js,v $
 	 * @type array of string
 	 */
 	ixMap.Themes.prototype.toArray = function (obj) {
+		if (typeof obj === 'function') {
+			return [obj];
+		}
 		if (this.isObject(obj)) {
 			var array = [];
 			for (var i in obj) {
@@ -12297,6 +12300,43 @@ $Log: maptheme.js,v $
 		}
 		// --------------------------------------------------------------------
 
+		// literal function passed directly as colorscheme — called once with the whole theme,
+		// same contract as the string/name-lookup form below
+		// -------------------------------------------------------------------
+		if (this.colorScheme && typeof this.colorScheme[0] === 'function') {
+			try {
+				this.colorScheme[0](this);
+			} catch (e) { }
+		}
+
+		// custom per-value color function: colorscheme: ["byvalue", function(value){ return color; }]
+		// only meaningful for categorical / colorfield-bound themes, which have a fixed,
+		// known list of distinct values to iterate
+		// -------------------------------------------------------------------
+		if (this.colorScheme && this.colorScheme[0] === 'byvalue' && typeof this.colorScheme[1] === 'function') {
+			var fnByValue = this.colorScheme[1];
+			try {
+				var newSchemeA = [];
+				if (this.szColorField) {
+					for (var a in this.colorFieldA) {
+						newSchemeA.push(fnByValue(a));
+					}
+				} else {
+					var myValuesA = this.szValuesA || this.szLabelA || [];
+					for (var i = 0; i < myValuesA.length; i++) {
+						newSchemeA.push(fnByValue(myValuesA[i]));
+					}
+				}
+				if (newSchemeA.length) {
+					this.colorScheme = newSchemeA;
+				} else {
+					this.colorScheme = this.defaultColorScheme;
+				}
+			} catch (e) {
+				this.colorScheme = this.defaultColorScheme;
+			}
+		}
+
 		// GR 03/02/2024 user defined color function as function name in theme ?
 		try {
 			// Use safe property access instead of eval
@@ -12335,7 +12375,7 @@ $Log: maptheme.js,v $
 			}
 		} catch (e) { }
 
-		if (this.colorScheme[0] && (this.colorScheme[0]).match(/function||\=\>/)) {
+		if (typeof this.colorScheme[0] === 'string' && this.colorScheme[0].match(/function||\=\>/)) {
 			try {
 				// Indirect eval returns the function value (strict-mode safe; no var inside eval)
 				var src = this.colorScheme[0];
