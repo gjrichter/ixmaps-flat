@@ -1822,7 +1822,7 @@
             return this;
         },
         process: function (szProcess) {
-            this.def.data.process = szProcess;
+            this.def.data.process = typeof szProcess === 'function' ? szProcess.toString() : szProcess;
             return this;
         },
         query: function (szQuery) {

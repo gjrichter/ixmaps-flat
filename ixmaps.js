@@ -995,7 +995,7 @@ ixmaps.themeConstruct.prototype = {
      * @returns {ixmaps.themeConstruct} Returns self for chaining
      */
     process: function (szProcess) {
-        this.def.data.process = szProcess;
+        this.def.data.process = typeof szProcess === 'function' ? szProcess.toString() : szProcess;
         return this;
     },
     /**
