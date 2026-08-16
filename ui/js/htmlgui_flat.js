@@ -66,7 +66,7 @@
 (function (window, document, undefined) {
 
     var ixmaps = window.ixmaps || {}
-    ixmaps.version = ixmaps.version || "1.0.23";
+    ixmaps.version = ixmaps.version || "1.0.24";
     ixmaps.JSON_Schema = ixmaps.JSON_Schem || "https://gjrichter.github.io/ixmaps/schema/ixmaps/v1.json";
 
     /**
