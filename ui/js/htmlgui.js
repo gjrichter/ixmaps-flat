@@ -1726,6 +1726,29 @@ $Log: htmlgui.js,v $
 			}
 		}
 
+		// GR 07.01.2022 new: user defined a data processing function given by string
+		//
+		// GR 15.08.2026 moved BEFORE the dbtableObj block below: for object-
+		// injected data, Data.object(...) resolves synchronously, so
+		// setExternalData() (and its call into ixmaps.<name>.process) used to run
+		// to completion before this registration ever executed — the handler
+		// just didn't exist yet. Url-loaded data isn't affected either way,
+		// since it always resolves later (network fetch), well after newTheme()
+		// (and this registration) has already returned.
+		if (theme.style["dbtableProcess"]) {
+			try {
+				// Same tolerance as colorscheme: accept a literal function here too,
+				// not just a pre-stringified one (string concatenation below would
+				// coerce it either way, but this makes the contract explicit).
+				var __process = theme.style["dbtableProcess"];
+				__process = (typeof __process === 'function') ? __process.toString() : __process;
+				eval("ixmaps." + theme.style["dbtable"] + " = ixmaps." + theme.style["dbtable"] + " || {}");
+				eval("ixmaps." + theme.style["dbtable"] + ".process = " + __process);
+			} catch (e) {
+				ixmaps.error("data.process - function not valid: '" + e, 2000);
+			}
+		}
+
 		// GR 25.01.2022 new: user defined data given by object
 		if (theme.style["dbtableObj"]) {
 			ixmaps.setExternalData(
@@ -1733,16 +1756,6 @@ $Log: htmlgui.js,v $
 				{ type: theme.style["dbtableType"], name: theme.style["dbtable"] });
 			theme.style["dbtableObj"] = null;
 			theme.style["dbtableType"] = null;
-		}
-
-		// GR 07.01.2022 new: user defined a data processing function given by string
-		if (theme.style["dbtableProcess"]) {
-			try {
-				eval("ixmaps." + theme.style["dbtable"] + " = ixmaps." + theme.style["dbtable"] + " || {}");
-				eval("ixmaps." + theme.style["dbtable"] + ".process = " + theme.style["dbtableProcess"]);
-			} catch (e) {
-				ixmaps.error("data.process - function not valid: '" + e, 2000);
-			}
 		}
 		if (theme.style["dbtableQuery"]) {
 			try {
@@ -3741,6 +3754,23 @@ $Log: htmlgui.js,v $
 				}
 				return;
 			}
+
+			// GR 15.08.2026 apply a registered process() handler here too — this
+			// path (object-injected data) previously never called it, unlike the
+			// url-loaded path above, which is the only reason .data({obj:...,
+			// process:...}) silently did nothing. Same fallback chain as above.
+			try {
+				eval("data = ixmaps." + opt.name + ".process(data,opt) || data");
+			} catch (e) {
+				try {
+					eval("data = ixmaps.parentApi." + opt.name + ".process(data,opt) || data");
+				} catch (e) {
+					try {
+						eval("data = ixmaps.parentApi.parentApi." + opt.name + ".process(data,opt) || data");
+					} catch (e) { }
+				}
+			}
+
 			ixmaps.showLoadingArrayStop();
 			ixmaps.hideLoading();
 			ixmaps.embeddedSVG.window.map.Api.setThemeExternalData(null, data, opt.name);

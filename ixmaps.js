@@ -944,7 +944,10 @@ ixmaps.themeConstruct.prototype = {
                     this.def.data.szType = szType;
                 } else {
                     for (var i in dataObj) {
-                        this.def.data[i] = dataObj[i];
+                        // Same tolerance as the dedicated .process() method: accept a
+                        // literal function here too, not just a pre-stringified one.
+                        this.def.data[i] = (i === 'process' && typeof dataObj[i] === 'function')
+                            ? dataObj[i].toString() : dataObj[i];
                     }
                     // Support "data" as alias for "obj" (inline GeoJSON/array)
                     if (dataObj.data !== undefined) {
