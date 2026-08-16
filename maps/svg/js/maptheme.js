@@ -4058,14 +4058,20 @@ $Log: maptheme.js,v $
 
 			mapTheme.fMarkEnable = true;
 			mapTheme.fUnmarkEnable = false;
-			if (this.markTimeout) {
-				clearTimeout(this.markTimeout);
+			// GR 16.08.2026 same shared-timeout bug as setTimeFrame above: these
+			// lived on `this` (the shared Themes manager), so calling markClass
+			// for one theme could cancel another theme's still-pending mark or
+			// unmark. Keyed per mapTheme instead - the intentional mark<->unmark
+			// cross-cancellation for the SAME theme (this toggle's whole point)
+			// is unchanged.
+			if (mapTheme.markTimeout) {
+				clearTimeout(mapTheme.markTimeout);
 			}
-			if (this.unmarkTimeout) {
-				clearTimeout(this.unmarkTimeout);
+			if (mapTheme.unmarkTimeout) {
+				clearTimeout(mapTheme.unmarkTimeout);
 			}
 			displayMessage("...", 500, true);
-			this.markTimeout = setTimeout(function () {
+			mapTheme.markTimeout = setTimeout(function () {
 				map.Themes.doMarkClass(szId, szClass, szStep);
 			}, 50);
 		}
@@ -4081,7 +4087,8 @@ $Log: maptheme.js,v $
 		if (mapTheme && mapTheme.isVisible && !mapTheme.showInfoMore) {
 
 			displayMessage("...", 500, true);
-			this.unmarkTimeout = setTimeout(function () {
+			// GR 16.08.2026 per-theme, see markClass above
+			mapTheme.unmarkTimeout = setTimeout(function () {
 				map.Themes.doUnmarkClass(szId, szClass);
 			}, 50);
 			mapTheme.fUnmarkEnable = true;
@@ -4212,14 +4219,24 @@ $Log: maptheme.js,v $
 		if (mapTheme && mapTheme.isVisible && !mapTheme.showInfoMore) {
 			mapTheme.fMarkEnable = true;
 			mapTheme.fUnmarkEnable = false;
-			if (this.markTimeout) {
-				clearTimeout(this.markTimeout);
+			// GR 16.08.2026 own per-theme timeout, not the shared this.markTimeout /
+			// this.unmarkTimeout markClass/unmarkClass use above - filtering items
+			// is unrelated to mark/unmark, reusing their variable (even scoped
+			// per-theme) would let an unrelated filterItems() call silently cancel
+			// a still-pending markClass(), or vice versa.
+			//
+			// this.opt was the same bug in a nastier form: not just a dropped
+			// call, but silently WRONG data. doFilterItemsGo (500ms later) reads
+			// this.opt back - shared on the Themes manager, so a second
+			// filterItems() for a DIFFERENT theme landing inside that window
+			// overwrote it before the first theme's own doFilterItemsGo ever read
+			// it, applying the wrong theme's opt. Stored per-theme instead
+			// (mapTheme.filterOpt), read back at the matching spot below.
+			if (mapTheme.filterItemsTimeout) {
+				clearTimeout(mapTheme.filterItemsTimeout);
 			}
-			if (this.unmarkTimeout) {
-				clearTimeout(this.unmarkTimeout);
-			}
-			this.opt = opt;
-			this.markTimeout = setTimeout(function () {
+			mapTheme.filterOpt = opt;
+			mapTheme.filterItemsTimeout = setTimeout(function () {
 				map.Themes.doFilterItems(szId, szFilter);
 			}, 500);
 		}
@@ -4243,7 +4260,8 @@ $Log: maptheme.js,v $
 		clearMessage();
 		var mapTheme = this.getTheme(szId ? (szId) : null);
 		if (mapTheme) {
-			mapTheme.filterItems(szFilter, this.opt);
+			// GR 16.08.2026 mapTheme.filterOpt, not this.opt - see filterItems above
+			mapTheme.filterItems(szFilter, mapTheme.filterOpt);
 			this.activeTheme = mapTheme;
 		}
 	};
