@@ -4362,14 +4362,22 @@ $Log: maptheme.js,v $
 		var mapTheme = this.getTheme(szId);
 		if (mapTheme && mapTheme.isVisible && !mapTheme.showInfoMore) {
 
-			if (this.markTimeout) {
-				clearTimeout(this.markTimeout);
+			// GR 16.08.2026 debounce timer moved from the shared Themes manager
+			// (`this.markTimeout`) to the per-theme mapTheme object. Calling
+			// setTimeFrame for several different theme ids back-to-back (the
+			// obvious way to drive one time-filter UI across multiple themes)
+			// used to clobber the same this.markTimeout each time via
+			// clearTimeout(), silently dropping every call but the last one -
+			// no error, the earlier themes' shapes just never got toggled.
+			// Keying the timeout per mapTheme still debounces rapid repeated
+			// calls for the SAME theme (the original intent) without colliding
+			// across different ones. (this.unmarkTimeout was also cleared here
+			// before, cross-cancelling an unrelated pending unmarkClass() call
+			// on any theme - dropped, since it has nothing to do with time frames.)
+			if (mapTheme.setTimeFrameTimeout) {
+				clearTimeout(mapTheme.setTimeFrameTimeout);
 			}
-			if (this.unmarkTimeout) {
-				clearTimeout(this.unmarkTimeout);
-			}
-			//displayMessage("...", 1000, true);
-			this.markTimeout = setTimeout(function () {
+			mapTheme.setTimeFrameTimeout = setTimeout(function () {
 				map.Themes.doSetTimeFrame(szId, nUMin, nUMax);
 			}, 1);
 		}
