@@ -2302,6 +2302,24 @@ $Log: maptheme.js,v $
 			/** all ranges defined or generated */
 			mapTheme.szExactA = null;
 
+			// GR 17.08.2026 szLabelA was never reset here, only szExactA/szValuesA -
+			// so a CATEGORICAL theme with data-derived (not user-defined) labels kept
+			// its stale label array across the refresh while szExactA/colorScheme got
+			// rebuilt from the newly fetched data. If the new data has a different
+			// count or order of distinct values (e.g. panning to an area with a
+			// different set of categories), index i in the fresh colorScheme no
+			// longer names the same category as the stale szLabelA[i] - colors get
+			// reassigned to the wrong category, or a custom colorscheme callback
+			// indexing szLabelA by position throws once i exceeds the old array's
+			// length, silently truncating the remaining color assignments.
+			// szOrigLabelA is only set when style.label was explicitly configured
+			// (see MapTheme ctor / changeThemeStyle) - null there means the current
+			// szLabelA was auto-generated from data, so it's safe (and necessary) to
+			// clear it too; explicit user-defined labels must persist across refresh.
+			if (!mapTheme.szOrigLabelA) {
+				mapTheme.szLabelA = null;
+			}
+
 			// reload data
 			mapTheme.fRealize = true;
 			// but keep existing charts, don't make them twice !
