@@ -2302,24 +2302,6 @@ $Log: maptheme.js,v $
 			/** all ranges defined or generated */
 			mapTheme.szExactA = null;
 
-			// GR 17.08.2026 szLabelA was never reset here, only szExactA/szValuesA -
-			// so a CATEGORICAL theme with data-derived (not user-defined) labels kept
-			// its stale label array across the refresh while szExactA/colorScheme got
-			// rebuilt from the newly fetched data. If the new data has a different
-			// count or order of distinct values (e.g. panning to an area with a
-			// different set of categories), index i in the fresh colorScheme no
-			// longer names the same category as the stale szLabelA[i] - colors get
-			// reassigned to the wrong category, or a custom colorscheme callback
-			// indexing szLabelA by position throws once i exceeds the old array's
-			// length, silently truncating the remaining color assignments.
-			// szOrigLabelA is only set when style.label was explicitly configured
-			// (see MapTheme ctor / changeThemeStyle) - null there means the current
-			// szLabelA was auto-generated from data, so it's safe (and necessary) to
-			// clear it too; explicit user-defined labels must persist across refresh.
-			if (!mapTheme.szOrigLabelA) {
-				mapTheme.szLabelA = null;
-			}
-
 			// reload data
 			mapTheme.fRealize = true;
 			// but keep existing charts, don't make them twice !
@@ -12358,12 +12340,36 @@ $Log: maptheme.js,v $
 		_TRACE("== MapTheme.distributeValues()");
 
 		// GR 25.04.2011 CATEGORICAL must have ranges !
-		if (this.szFlag.match(/CATEGORICAL/) && (!this.szExactA || !this.szExactA.length)) {
-			this.szExactA = this.szExactA || [];
+		// GR 17.08.2026 this used to be gated on "only if szExactA is completely
+		// empty" - but refreshTheme() nulls szExactA on every refresh while
+		// nStringToValueA (the persistent value/index map) survives, and
+		// getStringValueIndex()'s normal per-item path only pushes a NEW entry
+		// into szExactA for values it has never seen before in this theme's
+		// lifetime. A refresh whose data mixes some genuinely-new values with
+		// some already-known-but-still-present ones therefore leaves szExactA
+		// non-empty (containing only the new ones) - the "only if empty" guard
+		// then skips this whole reconciliation, so the already-known-but-
+		// present categories are silently missing from szExactA/colorScheme for
+		// that refresh. Confirmed live: colorScheme collapsed from 76 resolved
+		// colors to 1, rendering almost everything with no valid color. Always
+		// rebuilding from the full nStringToValueA snapshot (instead of only
+		// when empty) is safe: on a first draw the two are identical anyway
+		// (both built by the same incremental process), so this is redundant-
+		// but-harmless there, and authoritative everywhere else.
+		if (this.szFlag.match(/CATEGORICAL/)) {
+			this.szExactA = [];
 			// create ranges from value/index array
 			if (this.nStringToValueA) {
 				for (a in this.nStringToValueA) {
 					this.szExactA.push(this.nStringToValueA[a]);
+					// szLabelA is backfilled the same way, at the same index, in the
+					// same pass - never overwriting an existing (possibly user/
+					// explicitly ordered) entry - see MapTheme ctor / changeThemeStyle
+					// for where szOrigLabelA gets set only on an explicit style.label.
+					if (!this.szOrigLabelA) {
+						this.szLabelA = this.szLabelA || [];
+						this.szLabelA[this.nStringToValueA[a] - 1] = this.szLabelA[this.nStringToValueA[a] - 1] || a;
+					}
 				}
 				_TRACE("values: " + this.szExactA + " (generated)");
 			}
