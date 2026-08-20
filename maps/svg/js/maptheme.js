@@ -9818,7 +9818,10 @@ $Log: maptheme.js,v $
 				!(this.szFlag.match(/PIE/) ||
 					this.szFlag.match(/BAR/) ||
 					this.szFlag.match(/SEQUENCE/) ||
-					this.szFlag.match(/PLOT/) ||
+					// GR: word-boundary so "PLOTXY" (a separate, scatter-position chart
+					// type that must keep one item per aggregated entity) doesn't match
+					// the standalone "PLOT" (line/timeseries) chart type here.
+					this.szFlag.match(/\bPLOT\b/) ||
 					this.szFlag.match(/DOMINANT/) ||
 					this.szFlag.match(/COMPOSECOLOR/) ||
 					this.szFlag.match(/\bUSER\b/) ||
@@ -10614,6 +10617,14 @@ $Log: maptheme.js,v $
 						ptPos2: ptPos2,
 						ptPosA: [ptOrigPos]
 					};
+					// GR: seed x/y (PLOTXY value-position, not the geographic ptPos
+					// anchor) + accumulators, so a merge (below) computes a mean and
+					// min/max across every record folded into this aggregate item,
+					// instead of every merged record's x/y being silently dropped.
+					if (this.szXField || this.szYField) {
+						item.nX = nX; item.nXSum = nX; item.nXMin = nX; item.nXMax = nX;
+						item.nY = nY; item.nYSum = nY; item.nYMin = nY; item.nYMax = nY;
+					}
 
 					this.nCount++;
 
@@ -10679,6 +10690,21 @@ $Log: maptheme.js,v $
 						item.ptPosA.push(ptOrigPos);
 						item.nCount++;
 						item.dbIndexA.push(j);
+
+						// GR: average the PLOTXY value-position (mean_price / mean_spread_pct
+						// style xfield/yfield, NOT the geographic ptPos anchor) across every
+						// record folded into this aggregate item, and track min/max so a
+						// BOX/whisker can show the spread.
+						if (this.szXField || this.szYField) {
+							item.nXSum += nX;
+							item.nXMin = Math.min(item.nXMin, nX);
+							item.nXMax = Math.max(item.nXMax, nX);
+							item.nYSum += nY;
+							item.nYMin = Math.min(item.nYMin, nY);
+							item.nYMax = Math.max(item.nYMax, nY);
+							item.nX = item.nXSum / item.nCount;
+							item.nY = item.nYSum / item.nCount;
+						}
 
 						if (!szTitle || szTitle !== item.szTitle) {
 							item.szTitle = this.szAggregation + " of " + item.nCount + " items";
@@ -11585,6 +11611,13 @@ $Log: maptheme.js,v $
 							tItem.dbIndexA = tItem.dbIndexA || [];
 							tItem.nSize = (tItem.nSize || 1);
 							tItem.nAlpha = (tItem.nAlpha || 1);
+							// GR: seed x/y accumulators so a merge (below) computes a mean
+							// + min/max instead of silently keeping only this first item's
+							// position (PLOTXY-style themes only - szXField/szYField bound).
+							if (this.szXField || this.szYField) {
+								tItem.nXSum = tItem.nX; tItem.nXMin = tItem.nX; tItem.nXMax = tItem.nX;
+								tItem.nYSum = tItem.nY; tItem.nYMin = tItem.nY; tItem.nYMax = tItem.nY;
+							}
 						} else {
 							tItem.nCount += 1;
 							for (var v = 0; v < itemA[a].nValue100A.length; v++) {
@@ -11593,7 +11626,19 @@ $Log: maptheme.js,v $
 							tItem.nSize += (itemX[a].nSize || 1);
 							tItem.nAlpha += (itemX[a].nAlpha || 1);
 							tItem.szValue = String(tItem.nSize);
-							if (nGridWidthMap && !this.szAggregationField && (!tItem.szTitle || (tItem.nCount > 3))) {
+							// GR: average the x/y position across all merged entities (e.g.
+							// the same product from multiple regions merged by the screen
+							// grid), and track min/max so a BOX/whisker can show the spread.
+							if (this.szXField || this.szYField) {
+								tItem.nXSum += itemX[a].nX;
+								tItem.nXMin = Math.min(tItem.nXMin, itemX[a].nX);
+								tItem.nXMax = Math.max(tItem.nXMax, itemX[a].nX);
+								tItem.nYSum += itemX[a].nY;
+								tItem.nYMin = Math.min(tItem.nYMin, itemX[a].nY);
+								tItem.nYMax = Math.max(tItem.nYMax, itemX[a].nY);
+								tItem.nX = tItem.nXSum / tItem.nCount;
+								tItem.nY = tItem.nYSum / tItem.nCount;
+							} else if (nGridWidthMap && !this.szAggregationField && (!tItem.szTitle || (tItem.nCount > 3))) {
 								//tItem.szTitle = (this.formatValue(tItem.nCount, 0) + " " + map.Dictionary.getLocalText("items aggregated"));
 								tItem.szTitle = "(" + tItem.nCount + ")";
 							}
@@ -11740,7 +11785,10 @@ $Log: maptheme.js,v $
 			(this.szFlag.match(/PIE/) ||
 				this.szFlag.match(/BAR/) ||
 				this.szFlag.match(/SEQUENCE/) ||
-				this.szFlag.match(/PLOT/) ||
+				// GR: word-boundary so "PLOTXY" doesn't match the standalone "PLOT"
+				// chart type here — PLOTXY needs one dot per aggregated entity, not
+				// one combined multi-part item per topic (see __fMultiParts above).
+				this.szFlag.match(/\bPLOT\b/) ||
 				this.szFlag.match(/DOMINANT/) ||
 				this.szFlag.match(/\bUSER\b/) ||
 				this.szFlag.match(/WAFFLE/))
@@ -12168,12 +12216,36 @@ $Log: maptheme.js,v $
 
 
 		// GR 25.04.2011 CATEGORICAL must have ranges !
-		if (this.szFlag.match(/CATEGORICAL/) && (!this.szExactA || !this.szExactA.length)) {
-			this.szExactA = this.szExactA || [];
+		// GR 17.08.2026 this used to be gated on "only if szExactA is completely
+		// empty" - but refreshTheme() nulls szExactA on every refresh while
+		// nStringToValueA (the persistent value/index map) survives, and
+		// getStringValueIndex()'s normal per-item path only pushes a NEW entry
+		// into szExactA for values it has never seen before in this theme's
+		// lifetime. A refresh whose data mixes some genuinely-new values with
+		// some already-known-but-still-present ones therefore leaves szExactA
+		// non-empty (containing only the new ones) - the "only if empty" guard
+		// then skips this whole reconciliation, so the already-known-but-
+		// present categories are silently missing from szExactA/colorScheme for
+		// that refresh. Confirmed live: colorScheme collapsed from 76 resolved
+		// colors to 1, rendering almost everything with no valid color. Always
+		// rebuilding from the full nStringToValueA snapshot (instead of only
+		// when empty) is safe: on a first draw the two are identical anyway
+		// (both built by the same incremental process), so this is redundant-
+		// but-harmless there, and authoritative everywhere else.
+		if (this.szFlag.match(/CATEGORICAL/)) {
+			this.szExactA = [];
 			// create ranges from value/index array
 			if (this.nStringToValueA) {
 				for (a in this.nStringToValueA) {
 					this.szExactA.push(this.nStringToValueA[a]);
+					// szLabelA is backfilled the same way, at the same index, in the
+					// same pass - never overwriting an existing (possibly user/
+					// explicitly ordered) entry - see MapTheme ctor / changeThemeStyle
+					// for where szOrigLabelA gets set only on an explicit style.label.
+					if (!this.szOrigLabelA) {
+						this.szLabelA = this.szLabelA || [];
+						this.szLabelA[this.nStringToValueA[a] - 1] = this.szLabelA[this.nStringToValueA[a] - 1] || a;
+					}
 				}
 			}
 		}
@@ -22002,11 +22074,22 @@ $Log: maptheme.js,v $
 											map.Dom.newShape('line', gridGroup, 0, 0, this.nChartWidth + 100, 0, "stroke:#888888;stroke-width:" + map.Scale.normalX(0.3) + ";");
 											map.Dom.newShape('line', gridGroup, 0, 0, 0, -this.nChartHeight - 100, "stroke:#888888;stroke-width:" + map.Scale.normalX(0.3) + ";");
 
-											map.Dom.newText(gridGroup, 10, 80, "font-family:arial;font-size:80px;text-anchor:start;fill:#444444;stroke:none;pointer-events:none;", String(this.nMinX));
-											map.Dom.newText(gridGroup, this.nChartWidth + 100, 80, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", String(this.nMaxX));
+											// GR: interior graph-paper gridlines - PLOTXY's BOX+GRID previously only
+											// drew the two boundary axis lines with nothing filling the box itself.
+											var nGridDivisions = 4;
+											var szGridLineStyle = "stroke:#888888;stroke-opacity:0.45;stroke-width:" + map.Scale.normalX(0.25) + ";stroke-dasharray:" + map.Scale.normalX(3) + " " + map.Scale.normalX(3) + ";";
+											for (var nGridDiv = 1; nGridDiv < nGridDivisions; nGridDiv++) {
+												var nGridX = (this.nChartWidth + 100) * nGridDiv / nGridDivisions;
+												var nGridY = -(this.nChartHeight + 100) * nGridDiv / nGridDivisions;
+												map.Dom.newShape('line', gridGroup, nGridX, 0, nGridX, -this.nChartHeight - 100, szGridLineStyle);
+												map.Dom.newShape('line', gridGroup, 0, nGridY, this.nChartWidth + 100, nGridY, szGridLineStyle);
+											}
 
-											map.Dom.newText(gridGroup, -10, 10, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", String(this.nMinY));
-											map.Dom.newText(gridGroup, -10, -this.nChartHeight - 100 + 80, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", String(this.nMaxY));
+											map.Dom.newText(gridGroup, 10, 80, "font-family:arial;font-size:80px;text-anchor:start;fill:#444444;stroke:none;pointer-events:none;", __formatValue(this.nMinX, 1, "BLANK"));
+											map.Dom.newText(gridGroup, this.nChartWidth + 100, 80, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", __formatValue(this.nMaxX, 1, "BLANK"));
+
+											map.Dom.newText(gridGroup, -10, 10, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", __formatValue(this.nMinY, 1, "BLANK"));
+											map.Dom.newText(gridGroup, -10, -this.nChartHeight - 100 + 80, "font-family:arial;font-size:80px;text-anchor:end;fill:#444444;stroke:none;pointer-events:none;", __formatValue(this.nMaxY, 1, "BLANK"));
 										}
 									}
 									/**
