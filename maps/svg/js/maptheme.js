@@ -18166,12 +18166,22 @@ $Log: maptheme.js,v $
 			if (ptNull && ptOff && ptOff.x !== undefined && ptOff.y !== undefined && shapeGroup) {
 
 				// GR 05.03.2017 place plots to the center of the plot box
-				// GR: word-boundary - this recenters a PLOT (line-chart) box using
-				// nGridSize/nAutoScale values computed for THAT chart type; PLOTXY
-				// has its own, different chart-size/position math and must not also
-				// match here via the bare "PLOT" substring, or its group origin gets
-				// shifted by a leftover/unrelated nGridSize value per item.
-				if (this.szFlag.match(/\bPLOT\b/) && this.nGridSize && this.nAutoScale) {
+				// GR: this recenters a corner-anchored chart box (content drawn from
+				// local (0,0) outward) so it's centered on ptOff instead of offset
+				// by a full box width/height. PLOTXY also draws corner-anchored
+				// (0..nChartWidth+100, 0..-(nChartHeight+100), see drawChart's
+				// PLOTXY branch) and sets this.nGridSize=this.nChartWidth,
+				// this.nAutoScale=1 (constant, not per-item - see the /PLOTXY/
+				// block above), so it needs the same centering shift; without it
+				// PLOTXY's grid cells sit a half-cell off from PLOT|LINES cells
+				// at the same gridwidthpx.
+				if (this.szFlag.match(/PLOTXY/) && this.nAutoScale) {
+					// GR: PLOTXY's own content span is nChartWidth+100 / nChartHeight+100
+					// (see drawChart's PLOTXY axis-frame block above), not nGridSize alone -
+					// use the exact span per axis instead of reusing nGridSize for both.
+					ptNull.x += (this.nChartWidth + 100) / 2 / this.nAutoScale * nAutoScale;
+					ptNull.y -= (this.nChartHeight + 100) / 2 / this.nAutoScale * nAutoScale;
+				} else if (this.szFlag.match(/\bPLOT\b/) && this.nGridSize && this.nAutoScale) {
 					ptNull.x += this.nGridSize / 2 / this.nAutoScale * nAutoScale;
 					ptNull.y -= this.nGridSize / 2 / this.nAutoScale * nAutoScale;
 				}
