@@ -10624,6 +10624,18 @@ $Log: maptheme.js,v $
 					if (this.szXField || this.szYField) {
 						item.nX = nX; item.nXSum = nX; item.nXMin = nX; item.nXMax = nX;
 						item.nY = nY; item.nYSum = nY; item.nYMin = nY; item.nYMax = nY;
+						// GR: override szSelectionId with the shared grid-cell identity
+						// (ptPos) instead of the arbitrary "whichever record created
+						// this merge bucket first" region name. szSelectionId drives
+						// the :chart/:chart:box/:chartgroup DOM ids used to co-locate
+						// every entity merged into this grid cell into ONE shared
+						// chart+box - keying it by an arbitrary per-record name let
+						// different products in the SAME cell scatter across several
+						// separate, independently-auto-sized boxes instead of sharing
+						// the one box the grid-center resolution already correctly
+						// computed (visible as wildly different box sizes/positions
+						// for what should be one merged cell).
+						item.szSelectionId = String(ptPos.x) + "," + String(ptPos.y);
 					}
 
 					this.nCount++;
@@ -16565,8 +16577,13 @@ $Log: maptheme.js,v $
 		this.nXLen = (this.nMaxA.length / (this.nGridX || 1));
 
 		// GR 30.11.2016 calcolate scale to fit PLOT into grid
-		// 
-		if (this.szFlag.match(/PLOT/) && (this.szFlag.match(/GRIDSIZE/) || this.szFlag.match(/AUTOSIZE/))) {
+		// GR: word-boundary - "PLOTXY" has its own chart-size calc a few lines
+		// down (gated on /PLOTXY/) and must not also fall into this one, which
+		// mutates this.nAutoScale/this.nScale per-item for the (different) "PLOT"
+		// line-chart auto-fit-overlapping-curves case - PLOTXY inheriting that
+		// per-item mutation is what made box size drift between items instead of
+		// staying constant across the whole grid.
+		if (this.szFlag.match(/\bPLOT\b/) && (this.szFlag.match(/GRIDSIZE/) || this.szFlag.match(/AUTOSIZE/))) {
 			var nRadius = 0;
 			var nDynScale = map.Layer.nDynamicObjectScale;
 			var nAutoSize = this.szFlag.match(/GAP/) ? 1.2 : 1;
@@ -18149,7 +18166,12 @@ $Log: maptheme.js,v $
 			if (ptNull && ptOff && ptOff.x !== undefined && ptOff.y !== undefined && shapeGroup) {
 
 				// GR 05.03.2017 place plots to the center of the plot box
-				if (this.szFlag.match(/PLOT/) && this.nGridSize && this.nAutoScale) {
+				// GR: word-boundary - this recenters a PLOT (line-chart) box using
+				// nGridSize/nAutoScale values computed for THAT chart type; PLOTXY
+				// has its own, different chart-size/position math and must not also
+				// match here via the bare "PLOT" substring, or its group origin gets
+				// shifted by a leftover/unrelated nGridSize value per item.
+				if (this.szFlag.match(/\bPLOT\b/) && this.nGridSize && this.nAutoScale) {
 					ptNull.x += this.nGridSize / 2 / this.nAutoScale * nAutoScale;
 					ptNull.y -= this.nGridSize / 2 / this.nAutoScale * nAutoScale;
 				}
@@ -22056,8 +22078,17 @@ $Log: maptheme.js,v $
 								var nScale = map.Scale.normalX(nChartSize) / (nMaxValue - nMinValue) * (this.nGridX || (nPartsA.length - 1)) * (this.nRangeScale || 1);
 
 								if (!fPlotInit) {
-									var szGridId = this.szId + ":" + this.itemA[a].szSelectionId + ":chartgrid";
-									var gridGroup = null; //map.SVGDocument.getElementById(szGridId);
+									// GR: keyed by ptPos (the item's actual drawn position), not
+									// szSelectionId - for an AGGREGATE-merged PLOTXY item,
+									// szSelectionId is just whichever raw record happened to
+									// create the merge bucket first, and can differ across items
+									// that share the exact same true screen position. Keying by
+									// szSelectionId (with the lookup below disabled) let several
+									// separate DOM groups fight over the same visual cell, each
+									// drawing its own duplicate axis frame + box on top of the
+									// others.
+									var szGridId = this.szId + ":" + this.itemA[a].ptPos.x + "," + this.itemA[a].ptPos.y + ":chartgrid";
+									var gridGroup = map.SVGDocument.getElementById(szGridId);
 									if (!gridGroup || szFlag.match(/ZOOM/)) {
 										shapeOnTopGroup = shapeOnTopGroup || map.Dom.newGroup(chartGroup, this.szId + ":" + a + ":chartontop");
 										var gridGroup = map.Dom.newGroup(shapeOnTopGroup, szGridId);
