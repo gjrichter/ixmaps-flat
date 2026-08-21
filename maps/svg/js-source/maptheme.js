@@ -10684,7 +10684,14 @@ $Log: maptheme.js,v $
 			// 
 			if (this.szAggregationField) {
 				var szAgId = __mpap_decode_utf8(String(this.objTheme.dbRecords[j][this.objTheme.nAggregationFieldIndex]));
-				szId = szThemeLayer + "::" + szAgId;
+				// GR: mirrors the position-branch's __fMultiParts/nValue suffix below -
+				// without it, every entity sharing the same aggregation value (e.g.
+				// every product across every category, for a given region) merges
+				// into ONE item, keeping only the first record's color and pooling
+				// every entity's x/y into one meaningless average (visible as only
+				// one category's dots showing, and per-product spread collapsing to
+				// a single averaged point instead of "one point per product").
+				szId = szThemeLayer + "::" + szAgId + (this.__fMultiParts ? ("," + String(nValue)) : "");
 				if (this.szTitleField == "$aggregation$") {
 					szTitle = szAgId;
 				}
