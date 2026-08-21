@@ -22087,29 +22087,29 @@ $Log: maptheme.js,v $
 								// calculate PLOT scale
 								var nScale = map.Scale.normalX(nChartSize) / (nMaxValue - nMinValue) * (this.nGridX || (nPartsA.length - 1)) * (this.nRangeScale || 1);
 
-								if (!fPlotInit) {
-									// GR: keyed by ptPos (the item's actual drawn position), not
-									// szSelectionId - for an AGGREGATE-merged PLOTXY item,
-									// szSelectionId is just whichever raw record happened to
-									// create the merge bucket first, and can differ across items
-									// that share the exact same true screen position. Keying by
-									// szSelectionId (with the lookup below disabled) let several
-									// separate DOM groups fight over the same visual cell, each
-									// drawing its own duplicate axis frame + box on top of the
-									// others.
-									var szGridId = this.szId + ":" + this.itemA[a].ptPos.x + "," + this.itemA[a].ptPos.y + ":chartgrid";
-									var gridGroup = map.SVGDocument.getElementById(szGridId);
-									if (!gridGroup || szFlag.match(/ZOOM/)) {
-										shapeOnTopGroup = shapeOnTopGroup || map.Dom.newGroup(chartGroup, this.szId + ":" + a + ":chartontop");
-										var gridGroup = map.Dom.newGroup(shapeOnTopGroup, szGridId);
-									}
-								}
-
 								//topGroup = map.Dom.newGroup(shapeOnTopGroup, "");
 
 								if (szFlag.match(/PLOTXY/)) {
 									if (!fPlotInit) {
 										fPlotInit = true;
+										// GR: keyed by ptPos (the item's actual drawn position), not
+										// szSelectionId - for an AGGREGATE-merged PLOTXY item,
+										// szSelectionId is just whichever raw record happened to
+										// create the merge bucket first, and can differ across items
+										// that share the exact same true screen position. Keying by
+										// szSelectionId (with the lookup below disabled) let several
+										// separate DOM groups fight over the same visual cell, each
+										// drawing its own duplicate axis frame + box on top of the
+										// others.
+										// Scoped to PLOTXY only - this.itemA[a].ptPos is only
+										// guaranteed set for AGGREGATE-routed items; reading it
+										// unconditionally here crashed plain PLOT|LINES themes.
+										var szGridId = this.szId + ":" + this.itemA[a].ptPos.x + "," + this.itemA[a].ptPos.y + ":chartgrid";
+										var gridGroup = map.SVGDocument.getElementById(szGridId);
+										if (!gridGroup || szFlag.match(/ZOOM/)) {
+											shapeOnTopGroup = shapeOnTopGroup || map.Dom.newGroup(chartGroup, this.szId + ":" + a + ":chartontop");
+											gridGroup = map.Dom.newGroup(shapeOnTopGroup, szGridId);
+										}
 										if (szFlag.match(/BOX/) && szFlag.match(/\bGRID\b/) && !gridGroup.childNodes.length) {
 
 											map.Dom.newShape('line', gridGroup, 0, 0, this.nChartWidth + 100, 0, "stroke:#888888;stroke-width:" + map.Scale.normalX(0.3) + ";");
