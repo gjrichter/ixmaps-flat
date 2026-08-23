@@ -1392,7 +1392,7 @@ $Log: maptheme.js,v $
 				mapTheme.szSymbolsA = this.toArray(styleObj.symbols);
 			}
 			if (__isdef(styleObj.values)) {
-				mapTheme.szValuesA = this.toArray(styleObj.values);
+				mapTheme.szValuesA = mapTheme.szOrigValuesA = this.toArray(styleObj.values);
 				// GR 07.10.2014 if theme has flag CATEGORICAL, then szValues defines the value sequence
 				if (styleObj.type.match(/CATEGORICAL/) && mapTheme.szValuesA.length) {
 					// push all values into the value/index array
@@ -2285,7 +2285,14 @@ $Log: maptheme.js,v $
 			mapTheme.initValues();
 
 			/** all exact values (string allowed) defined or generated */
-			mapTheme.szValuesA = null;
+			// GR 23.08.2026 used to unconditionally null this, dropping any
+			// explicit style.values pinning on every refresh (e.g. every pan of
+			// a live-query layer) - reopening getStringValueIndex()'s auto-
+			// discovery guard and letting category->color assignment drift
+			// across reloads. Restore the explicitly-declared snapshot instead;
+			// themes without explicit values keep the previous null/rediscover
+			// behavior unchanged (szOrigValuesA is only ever set from style.values).
+			mapTheme.szValuesA = mapTheme.szOrigValuesA ? mapTheme.szOrigValuesA.slice(0) : null;
 
 			/** all ranges generated */
 			if (!mapTheme.szFlag.match(/RANGES/)) {
@@ -3242,7 +3249,15 @@ $Log: maptheme.js,v $
 					continue;
 				}
 				this.themesA[i].fEnableProgressBar = true;
-				this.themesA[i].redraw(false);
+				// GR 23.08.2026 tag this call as actualize-triggered (pure zoom/pan,
+				// same data, nothing newly out-of-bounds to reveal) so
+				// MapTheme.prototype.redraw() can tell it apart from a genuine
+				// fRedraw style-change (e.g. fillopacity) and skip the full
+				// reclassify+repaint for FEATURE|CHOROPLETH live-query themes -
+				// see the comment there for why that full repaint is unnecessary
+				// (and was the source of several confirmed transient-state bugs)
+				// for this trigger specifically.
+				this.themesA[i].redraw(false, "actualize");
 				continue;
 			}
 			if (this.themesA[i].fToFront) {
@@ -7581,6 +7596,8 @@ $Log: maptheme.js,v $
 
 		/** all exact values (string allowed) defined or generated */
 		this.szValuesA = null;
+		/** exact values as explicitly given in style.values - survives refreshTheme() */
+		this.szOrigValuesA = null;
 		/** all ranges defined or generated */
 		this.szRangesA = null;
 		/** all ranges defined or generated */
@@ -8581,11 +8598,21 @@ $Log: maptheme.js,v $
 	 * redraw the map theme
 	 * @param fEnable if true, get the theme into forground  
 	 */
-	MapTheme.prototype.redraw = function (fEnable) {
+	MapTheme.prototype.redraw = function (fEnable, szReason) {
 
 
 		// FEATURE-only themes skip redraw here; FEATURE|CHOROPLETH must repaint (e.g. after fillopacity change)
-		if (this.szFlag.match(/FEATURE/) && !this.szFlag.match(/CHOROPLETH/)) {
+		// GR 23.08.2026 ...but only for a genuine style-change (fRedraw). An
+		// "actualize" call (execute()'s fActualize branch: pure zoom/pan, same
+		// bounds, same already-loaded live-query data) has nothing newly
+		// out-of-bounds to reveal for a FEATURE theme - every item in itemA was
+		// already fully loaded and painted. Falling through to the full
+		// paintMap() reset below for that trigger was pure unnecessary risk:
+		// it re-runs full classification on already-correct items and was the
+		// confirmed source of several transient-state bugs (colors flashing
+		// wrong mid-pan/zoom with no data change). Skip it like a pure-FEATURE
+		// theme would, but still repaint for the real fRedraw case below.
+		if (this.szFlag.match(/FEATURE/) && (!this.szFlag.match(/CHOROPLETH/) || szReason === "actualize")) {
 			return;
 		}
 
@@ -12256,7 +12283,6 @@ $Log: maptheme.js,v $
 			// create ranges from value/index array
 			if (this.nStringToValueA) {
 				for (a in this.nStringToValueA) {
-					this.szExactA.push(this.nStringToValueA[a]);
 					// szLabelA is backfilled the same way, at the same index, in the
 					// same pass - never overwriting an existing (possibly user/
 					// explicitly ordered) entry - see MapTheme ctor / changeThemeStyle
@@ -12265,6 +12291,23 @@ $Log: maptheme.js,v $
 						this.szLabelA = this.szLabelA || [];
 						this.szLabelA[this.nStringToValueA[a] - 1] = this.szLabelA[this.nStringToValueA[a] - 1] || a;
 					}
+				}
+				// GR 23.08.2026 szExactA must stay class-index-aligned ([1,2,...,n])
+				// since paintMap zips it positionally against colorScheme/szLabelA
+				// (both always indexed by class-index-1) to build partsA. This used
+				// to push nStringToValueA[a] while iterating "for a in
+				// nStringToValueA" - for numeric-looking discovered values (e.g.
+				// maxspeed "10","30","50") that iterates in ascending VALUE order,
+				// not class-index order, silently misaligning colorScheme[i] with
+				// the wrong bucket whenever discovery order differs from
+				// ascending-value order. Confirmed live: Speed limits layer painted
+				// streets with a neighboring speed class's color after a pan
+				// discovered a new value (szExactA came out as [2,1,3] while
+				// colorScheme/szLabelA stayed [1,2,3]-aligned). The identity
+				// sequence below is always correctly aligned, regardless of what
+				// the raw category values look like or the order they were seen in.
+				for (var __n = 1; __n < this.nStringToValue; __n++) {
+					this.szExactA.push(__n);
 				}
 			}
 		}
@@ -13394,9 +13437,19 @@ $Log: maptheme.js,v $
 						nValue = this.itemA[a].nValuesA[0];
 					}
 					for (i = 0; i < this.partsA.length; i++) {
-						if (nValue < this.partsA[i].max) {
+						// GR 23.08.2026 was missing the lower-bound check that every
+						// other bucket-scan in this file already has (see e.g. lines
+						// ~16572, 17250, 17976, 18000, 19643, 20717: "(nValue >=
+						// partsA[i].min) && (nValue < partsA[i].max)"). Without it, any
+						// value below the first bucket's min (e.g. class "0" - OSM
+						// barrier ways with no LTS rating, alongside real classes
+						// "1".."4") falsely matched bucket 0 purely because it's less
+						// than bucket 0's max, stealing that class's color. Confirmed
+						// live: 102 barrier-way items with nValue=0 all painted as LTS1
+						// blue instead of falling through to the (now-safe) no-data path.
+						if ((nValue >= this.partsA[i].min) && (nValue < this.partsA[i].max)) {
 
-							// colorize 
+							// colorize
 							this.itemA[a].nValue = nValue;
 							this.itemA[a].szColor = this.partsA[i].color;
 							this.itemA[a].nClass = i;
@@ -13518,7 +13571,18 @@ $Log: maptheme.js,v $
 					}
 				}
 
-			if (!xFound) {
+			// GR 23.08.2026 (typeof nValue === "undefined" || isNaN(nValue)) means
+			// this item hasn't been (re)classified yet in this pass - not that it
+			// genuinely has no data. Confirmed live: a zoom-only change (same
+			// bounds, no new query) synchronously triggers actualizeActiveTheme ->
+			// a full paintMap() pass whose nValue reads undefined for items whose
+			// value hasn't been reloaded yet, permanently overwriting their
+			// already-correct color with the "no value" white placeholder below
+			// instead of just leaving their last-known-good style alone. A
+			// genuinely out-of-range real number (actual no-data case for numeric
+			// CHOROPLETH binning) still falls through to the white placeholder as
+			// before - only the undefined/NaN "not resolved yet" case is skipped.
+			if (!xFound && !(typeof nValue === "undefined" || isNaN(nValue))) {
 				//_TRACE('no value: ' + a + ', ' + this.itemA[a].nValuesA[0] + ', ' + nValue);
 				this.itemA[a].szColor = this.szNoDataColor ? this.szNoDataColor : "white";
 				tilesNodesA = this.getItemNodes(a);
@@ -13832,7 +13896,20 @@ $Log: maptheme.js,v $
 				}
 			} else {
 				// No saved style and not CHOROPLETH - remove style attribute (fallback to original behavior)
-				shapeNode.removeAttributeNS(null, "style");
+				// GR 23.08.2026 this branch was missed by the GR 15.11.2025 line-type
+				// fix above (the other two branches already special-case "line" to
+				// set stroke:none instead of stripping the attribute). An
+				// unclassified line (already stroke:none, no save-style) hits
+				// exactly this branch during a pan-triggered clear/redraw cycle -
+				// removeAttributeNS then exposes the document's default/ambient
+				// stroke rendering instead of staying invisible. Confirmed live:
+				// not-yet-classified Speed limits lines flashed white on every
+				// pan start, reverting to invisible once painting completed.
+				if (this.szShapeType == "line") {
+					shapeNode.setAttributeNS(null, "style", "stroke:none;");
+				} else {
+					shapeNode.removeAttributeNS(null, "style");
+				}
 			}
 		}
 
@@ -17005,7 +17082,16 @@ $Log: maptheme.js,v $
 				// if part of a theme, set the color
 				// ----------------------------------
 				if (this.szFlag.match(/CATEGORICAL/)) {
-					this.chart.szColor = this.colorScheme[this.itemA[a].nValuesA[0] - 1];
+					// GR 23.08.2026 colorScheme[nValuesA[0]-1] is undefined whenever
+					// this item hasn't been classified yet at the moment this per-item
+					// group setup runs (confirmed live during a pan-triggered repaint:
+					// nValuesA[0] reads as undefined here, so colorScheme[NaN] ->
+					// undefined). Every downstream consumer of this.chart.szColor
+					// (the stroke:/fill: style writes below, at ~17293, 17831, 17903,
+					// 17990) stringifies it unguarded into the DOM as the literal
+					// invalid "stroke:undefined"/"fill:undefined" - fixing it once
+					// here at the source covers all of them.
+					this.chart.szColor = this.colorScheme[this.itemA[a].nValuesA[0] - 1] || "none";
 				} else
 					if (this.partsA.length > 1) {
 						this.chart.szColor = this.szNoDataColor ? this.szNoDataColor : "white";
