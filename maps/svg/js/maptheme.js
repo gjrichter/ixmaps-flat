@@ -10753,7 +10753,7 @@ $Log: maptheme.js,v $
 						}
 
 						if (!szTitle || szTitle !== item.szTitle) {
-							item.szTitle = this.szAggregation + " of " + item.nCount + " items";
+							item.szTitle = this.szAggregation + " of " + item.nCount;
 						}
 					}
 				}
