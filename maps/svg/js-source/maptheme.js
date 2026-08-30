@@ -20696,8 +20696,17 @@ $Log: maptheme.js,v $
 
 			// GR 26.06.2006 bubbles with colorscheme (classes)
 			if (szFlag.match(/CATEGORICAL/)) {
-				nClass = nValue - 1;
-				szColor = this.colorScheme[nClass] || this.colorScheme[0];
+				// GR 30.08.2026 an explicit colorfield (style.colorfield) resolves
+				// nClass/szColor per item earlier (see distributeValues), independently
+				// of the value driving THIS chart's size/class — prefer that resolved
+				// pair when present, same pattern already used by CHART|SYMBOL below
+				if (a && this.itemA[a] && (typeof this.itemA[a].nClass != "undefined") && this.szColorField) {
+					nClass = this.itemA[a].nClass;
+					szColor = this.itemA[a].szColor || this.colorScheme[nClass] || this.colorScheme[0];
+				} else {
+					nClass = nValue - 1;
+					szColor = this.colorScheme[nClass] || this.colorScheme[0];
+				}
 
 				var cColor = __maptheme_getChartColors(szColor);
 				szTextColor = cColor.textColor;
@@ -20810,7 +20819,9 @@ $Log: maptheme.js,v $
 					}
 				}
 
-			if (this.itemA[a]) {
+			// GR 30.08.2026 don't clobber a colorfield-resolved color/class with the
+			// value-derived one just computed above (see the CATEGORICAL branch)
+			if (this.itemA[a] && !this.szColorField) {
 				this.itemA[a].szColor = szColor;
 			}
 
