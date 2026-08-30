@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iXmaps Demo - Interactive Map Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        #header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        #header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        #container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 700px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #info-panel {
+            background: white;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        #info-panel h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 5px;
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .controls button:hover {
+            background: #2980b9;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px 50px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .feature-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+
+        .feature-item strong {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>iXmaps Framework Demo</h1>
+        <p>Interactive Web Mapping with Data Visualization</p>
+    </div>
+
+    <div id="container">
+        <div id="map-container">
+            <div id="loading">
+                <div class="spinner"></div>
+                <div>Loading map and data...</div>
+            </div>
+            <iframe id="map"
+                    style="width: 100%; height: 100%; border: none;"
+                    src="maps/svg/maps/generic/mercator.svg">
+            </iframe>
+        </div>
+
+        <div id="info-panel">
+            <h2>About This Demo</h2>
+            <p>
+                This demonstration showcases the <strong>iXmaps Framework</strong>, a powerful JavaScript library
+                for creating interactive web maps with advanced data visualization capabilities.
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <strong>🗺️ Interactive Maps</strong><br>
+                    Pan, zoom, and explore SVG-based maps
+                </div>
+                <div class="feature-item">
+                    <strong>📊 Data Visualization</strong><br>
+                    Choropleth maps, bubble charts, and more
+                </div>
+                <div class="feature-item">
+                    <strong>📈 Real-time Updates</strong><br>
+                    Support for live data feeds
+                </div>
+                <div class="feature-item">
+                    <strong>🎨 Customizable Themes</strong><br>
+                    Multiple color schemes and styles
+                </div>
+            </div>
+
+            <div class="controls">
+                <h3 style="margin-top: 0;">Quick Actions</h3>
+                <button onclick="createChoroplethMap()">Create Choropleth Map</button>
+                <button onclick="createBubbleChart()">Create Bubble Chart</button>
+                <button onclick="loadSampleData()">Load Sample Data</button>
+                <button onclick="resetMap()">Reset View</button>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: #e8f4f8; border-radius: 5px;">
+                <strong>💡 Tip:</strong> This demo uses the Mercator projection world map.
+                The framework supports multiple projections including Winkel Tripel, Equal Earth,
+                Orthographic, and Lambert Azimuthal Equal Area.
+            </div>
+        </div>
+    </div>
+
+    <!-- Load iXmaps Libraries -->
+    <script src="data.js/data.js"></script>
+    <script src="ui/js/htmlgui_flat.js"></script>
+    <script src="ixmaps.js"></script>
+
+    <script>
+        // Wait for map to load
+        window.addEventListener('load', function() {
+            console.log('iXmaps Demo initialized');
+
+            // Hide loading indicator after a short delay
+            setTimeout(function() {
+                document.getElementById('loading').classList.add('hidden');
+            }, 1500);
+
+            // Try to initialize the map API
+            try {
+                var mapFrame = document.getElementById('map');
+                if (mapFrame && mapFrame.contentWindow) {
+                    console.log('Map frame loaded successfully');
+                }
+            } catch(e) {
+                console.log('Map initialization:', e.message);
+            }
+        });
+
+        // Sample function to create a choropleth map
+        function createChoroplethMap() {
+            alert('Choropleth map functionality would visualize data by regions using color scales.\n\n' +
+                  'The framework supports:\n' +
+                  '• Multiple color schemes (YlOrRd, Blues, Greens, etc.)\n' +
+                  '• Automatic classification\n' +
+                  '• Interactive tooltips\n' +
+                  '• Legend generation');
+        }
+
+        // Sample function to create bubble charts
+        function createBubbleChart() {
+            alert('Bubble chart functionality would display proportional circles on the map.\n\n' +
+                  'Features include:\n' +
+                  '• Size scaling based on data values\n' +
+                  '• Color coding\n' +
+                  '• Interactive selection\n' +
+                  '• Multi-series support');
+        }
+
+        // Sample function to load data
+        function loadSampleData() {
+            alert('Sample data loading demonstration.\n\n' +
+                  'The framework supports:\n' +
+                  '• CSV, JSON, GeoJSON, KML, RSS\n' +
+                  '• JSONstat, TopoJSON formats\n' +
+                  '• Real-time data feeds\n' +
+                  '• Data transformation (filtering, pivoting, aggregation)\n\n' +
+                  'Available sample: filtro_tot_comuni.csv (Italian demographic data)');
+        }
+
+        // Sample function to reset map view
+        function resetMap() {
+            try {
+                var mapFrame = document.getElementById('map');
+                if (mapFrame && mapFrame.contentWindow) {
+                    mapFrame.contentWindow.location.reload();
+                    document.getElementById('loading').classList.remove('hidden');
+                    setTimeout(function() {
+                        document.getElementById('loading').classList.add('hidden');
+                    }, 1500);
+                }
+            } catch(e) {
+                alert('Map reset: ' + e.message);
+            }
+        }
+
+        // Example of loading data with Data.js (commented out - for reference)
+        /*
+        Data.feed({
+            source: "data.js/filtro_tot_comuni.csv",
+            type: "csv"
+        }).load(function(data) {
+            console.log('Data loaded successfully');
+            console.log('Records:', data.table.length);
+
+            // Create a visualization
+            if (typeof ixmaps !== 'undefined' && ixmaps.doCreateChart) {
+                ixmaps.doCreateChart(
+                    "demo_theme",           // theme ID
+                    "OBS_VALUE",           // data field
+                    null,                  // normalization field
+                    "choropleth",          // chart type
+                    "YlOrRd",             // color scheme
+                    7                      // number of classes
+                );
+            }
+        });
+        */
+    </script>
+</body>
+</html>
