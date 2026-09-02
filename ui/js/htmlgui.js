@@ -1541,7 +1541,14 @@ $Log: htmlgui.js,v $
 		}
 		// clone opt to not destroy the original
 		// method found on stackoverflow.org
-		ixmaps.tempTheme = JSON.parse(JSON.stringify(theme));
+		// BigInt-safe: DuckDB/GeoParquet sources can hand back integer columns as native BigInt
+		// (e.g. large ID/code columns) in the resolved feature data attached to theme.data/style —
+		// JSON.stringify has no default BigInt handling and throws unconditionally otherwise,
+		// breaking theme creation for the whole dataset over a single BigInt-valued field anywhere
+		// in it. Coerce to Number, matching how the tooltip renderer already handles BigInt cells.
+		ixmaps.tempTheme = JSON.parse(JSON.stringify(theme, function (key, value) {
+			return typeof value === "bigint" ? Number(value) : value;
+		}));
 
 		// to clear, call clearAll() and give time by setTimeout 
 		if (fClear) {
