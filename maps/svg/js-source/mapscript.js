@@ -434,7 +434,18 @@ $Log: mapscript.js,v $
                     this.fNotify = szAttA[1] == "false" ? false : szAttA[1];
                     break;
                 case "fastpan":
-                    this.fPanToolByViewer = szAttA[1] == "false" ? false : szAttA[1];
+                    // GR: "fastpan" is documented above as "hide map tools while panning", which is
+                    // what fPanHideTools's name (and its own constructor default) says it should
+                    // control -- this previously wrote to fPanToolByViewer instead, an unrelated flag
+                    // that decides which pan-delta implementation onMouseMove's "pan" case uses
+                    // (doPanMapByViewer, needed for correct orthographic/Albers/Lambert panning, vs.
+                    // the older Mercator-only doPanMap). That mismatch meant any project SVG setting
+                    // fastpan:false for its documented, intended purpose silently also lost correct
+                    // background-pan behavior in non-Mercator projections, with no relation to hiding
+                    // tools at all (fPanHideTools has no readers, so "fastpan" wasn't doing its
+                    // documented job anyway on this path). Decoupled: fPanToolByViewer now simply
+                    // stays at its constructor default (true) regardless of "fastpan".
+                    this.fPanHideTools = szAttA[1] == "false" ? false : szAttA[1];
                     break;
                 case "fullscreen":
                     this.fScaleToFullscreen = szAttA[1] == "false" ? false : szAttA[1];
@@ -922,7 +933,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "1.0.17";
+    var thisversion = "1.0.18";
     map = new ixMap();
     map.version = thisversion;
     // and make global
