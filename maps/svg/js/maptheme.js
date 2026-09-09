@@ -1139,7 +1139,14 @@ $Log: maptheme.js,v $
 		}
 
 		// make unique identifier to toggle themes
-		var szIdStr = JSON.stringify(themeObj);
+		// BigInt-safe: a jsondb-sourced theme (.data({obj:table,...})) embeds the live table's raw
+		// row data directly in themeObj — if any column is a DuckDB/GeoParquet BigInt, plain
+		// JSON.stringify throws unconditionally, breaking theme creation. szIdStr is only ever
+		// used as a dedup lookup key (via isTheme()), never parsed back, so coercing to Number
+		// here is safe — same fix as ixmaps.newTheme in ui/js/htmlgui.js.
+		var szIdStr = JSON.stringify(themeObj, function (key, value) {
+			return typeof value === "bigint" ? Number(value) : value;
+		});
 
 		// if identique theme exists
 		if (this.isTheme(szIdStr)) {

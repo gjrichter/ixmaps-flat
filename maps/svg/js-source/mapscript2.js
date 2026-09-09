@@ -1660,10 +1660,33 @@ $Log: mapscript2.js,v $
      */
     ixMap.Zoom.prototype.doPanMapByViewer = function (nDeltaX, nDeltaY) {
 
-        var newX = map.SVGRootElement.currentTranslate.x + nDeltaX;
-        var newY = map.SVGRootElement.currentTranslate.y + nDeltaY;
-        map.SVGRootElement.currentTranslate.x = newX;
-        map.SVGRootElement.currentTranslate.y = newY;
+        // GR: drive the underlying HTML map (Leaflet) directly by pixel delta,
+        // and let its own 'move'/'moveend' events reactively reposition the SVG
+        // (htmlgui_panSVG/htmlgui_synchronizeSVG -> doCenterMapToGeoBounds),
+        // exactly like "pan" mode already does. This replaces an earlier approach
+        // that shifted the SVG locally via currentTranslate and then computed a
+        // target lat/lng to push to Leaflet -- that computation only made sense
+        // for Mercator (gated accordingly) and could never animate a rotating
+        // orthographic globe; doCenterMapToGeoBounds already handles orthographic/
+        // Albers/Lambert natively, so there's no projection-specific math needed
+        // here at all, and no HiDPI currentTranslate quirk to compensate for either.
+        //
+        // nDeltaX/nDeltaY are the TOTAL offset since this pan gesture started, not
+        // an incremental per-tick delta -- MapTool.onMouseMove's "pan" case (viewer
+        // branch) deliberately never updates mouseStartPosition (see its comment:
+        // "the SVG is shifted by the viewer"), unlike the non-viewer doPanMap path.
+        // panBy() is relative/incremental though, so convert here by tracking the
+        // last total we saw (reset in MapTool.prototype.beginPan for each new drag)
+        // -- otherwise each tick's still-growing total gets applied on top of the
+        // previous tick's already-applied total, compounding every tick.
+        var incX = nDeltaX - (this._lastPanByViewerX || 0);
+        var incY = nDeltaY - (this._lastPanByViewerY || 0);
+        this._lastPanByViewerX = nDeltaX;
+        this._lastPanByViewerY = nDeltaY;
+
+        try {
+            map.HTMLWindow.ixmaps.htmlgui_panMapBy(incX, incY);
+        } catch (e) {}
     };
     /**
      * check if new zoom within zoom limit 
@@ -5916,6 +5939,19 @@ $Log: mapscript2.js,v $
         if (!evt || !evt.target || map.fInitializing) {
             return;
         }
+        // GR: a 2nd (or later) finger landing means a pinch gesture is starting;
+        // abort whatever single-touch state the 1st finger may have armed, and
+        // hand the rest of the gesture to the underlying HTML map (same mechanism
+        // "pan" mode relies on) so it can pinch-zoom natively
+        if (evt.touches && evt.touches.length > 1) {
+            this.fMouseDown = false;
+            this.triggerMoveForPan = false;
+            map.mouseObject = null;
+            try {
+                map.HTMLWindow.ixmaps.do_multiTouchStart();
+            } catch (e) {}
+            return;
+        }
         var objNode = this.resolveInstance(evt.target);
 
         if (evt.button == 2) {
@@ -6068,7 +6104,11 @@ $Log: mapscript2.js,v $
                         szId.match(/checked/) ||
                         szId.match(/unchecked/)
                     )) {
-                    if (map.szMapToolType == "idle" || (szId == "mapbackground:eventrect")) {
+                    // GR: while a button/finger is down we are mid-drag, not idle-hovering;
+                    // don't let this early return swallow the mousemove tick that arms
+                    // fMouseDownMoved below, or "allow pan within info" can never start
+                    // a pan that begins on bare map background instead of a plotted item
+                    if (!this.fMouseDown && (map.szMapToolType == "idle" || (szId == "mapbackground:eventrect"))) {
                         setTimeout("map.HTMLWindow.ixmaps.htmlgui_onSVGPointerIdle()", 1000);
                         return;
                     }
@@ -8447,7 +8487,23 @@ $Log: mapscript2.js,v $
      * @param evt the actual event
      */
     MapTool.prototype.beginPan = function (evt) {
-        map.fFroozeDynamicContent = true;
+        // GR: only freeze dynamic content (theme/tile actualization, see
+        // doCenterMapToArea's doDefaultZoom call) for the non-viewer pan path
+        // (doPanMap), which shifts the SVG locally and would be expensive to
+        // recompute on every tick. The "by viewer" path (doPanMapByViewer)
+        // drives Leaflet directly and lets Leaflet's own move events reactively
+        // resync through that same doCenterMapToArea/doDefaultZoom chain --
+        // exactly what native "pan" mode (a plain Leaflet drag, which never
+        // goes through MapTool/beginPan at all) already does live, unfrozen.
+        // So don't freeze here either; actualization can happen live during
+        // the drag, matching "pan" mode's existing behavior and cost profile.
+        if (map.fPDFEmbed || !map.fPanToolByViewer) {
+            map.fFroozeDynamicContent = true;
+        }
+        // GR: see doPanMapByViewer -- reset its total-since-drag-start tracker
+        // for this new gesture
+        map.Zoom._lastPanByViewerX = 0;
+        map.Zoom._lastPanByViewerY = 0;
     };
     /**
      * end panning: hide the toolsGroup, ...
