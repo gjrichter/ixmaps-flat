@@ -1034,6 +1034,22 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		}
 	}
 
+	// GR: pans by a raw pixel offset instead of a computed lat/lng -- unlike
+	// htmlMap_setCenter, this needs no geo-coordinate math on the caller's side,
+	// so it works identically regardless of the SVG overlay's own projection
+	// (Mercator, orthographic, Albers, Lambert, ...). dx/dy here mean "shift the
+	// visible content by this much" (matching a raw mouse-drag delta) -- negated
+	// because Leaflet's own panBy(x,y) instead moves the map's *center* by x,y,
+	// which shifts content the opposite way (verified empirically).
+	htmlMap_panBy = function (dx, dy) {
+		if (!LMap) {
+			return;
+		}
+		LMap.panBy([-dx, -dy], {
+			animate: false
+		});
+	}
+
 	htmlMap_flyTo = function (ptLatLon, zoom) {
 		LMap.flyTo([ptLatLon.lat, ptLatLon.lng], zoom);
 	}

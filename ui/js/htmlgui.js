@@ -395,6 +395,10 @@ $Log: htmlgui.js,v $
 			this.gmapDiv.setAttribute("ondblclick", "ixmaps.do_mapclick(event);");
 			this.gmapDiv.setAttribute("onKeyDown", "ixmaps.do_keydown(event,1);");
 			this.gmapDiv.setAttribute("onKeyUp", "ixmaps.do_keyup(event,1);");
+			// GR: restores the SVG overlay's pointer-events once a pinch gesture
+			// handed off to this (Leaflet) map ends; see ixmaps.do_multiTouchStart
+			this.gmapDiv.setAttribute("ontouchend", "ixmaps.do_multiTouchEnd(event);");
+			this.gmapDiv.setAttribute("ontouchcancel", "ixmaps.do_multiTouchEnd(event);");
 
 			$(this.gmapDiv).css({
 				'pointer-events': 'all',
@@ -421,7 +425,7 @@ $Log: htmlgui.js,v $
 			this.svgDiv.setAttribute("onmouseup", "ixmaps.do_svgtriggerevent();");
 			this.svgDiv.setAttribute("onmouseout", "ixmaps.do_svgtriggerevent();");
 			this.svgDiv.setAttribute("onmousemove", "ixmaps.do_svgtriggerevent();");
-			//this.svgDiv.setAttribute("onmousewheel", "ixmaps.do_wheelEvent();");
+			this.svgDiv.setAttribute("onwheel", "ixmaps.do_wheelEvent(event);");
 			this.svgDiv.setAttribute("onKeyDown", "ixmaps.do_keydown(event,2);");
 			this.svgDiv.setAttribute("onKeyUp", "ixmaps.do_keyup(event,2);");
 

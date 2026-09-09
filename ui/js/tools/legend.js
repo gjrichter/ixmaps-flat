@@ -2362,7 +2362,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     // Opacity slider for choropleth / Chart size slider for chart (at legend bottom)
                     var firstChoropleth = choroplethThemes.length > 0 ? choroplethThemes[0] : null;
                     var firstChart = chartThemes.length > 0 ? chartThemes[0] : null;
-                    if (firstChoropleth) {
+                    if (ixmaps.legendTools && firstChoropleth) {
                         var cThemeObj = firstChoropleth.layer.themeObj;
                         var cThemeId = firstChoropleth.layer.szId;
                         var fillOpacityVal = 90;
@@ -2376,7 +2376,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                         szHtml += "<input type='range' min='0' max='100' value='" + fillOpacityVal + "' class='slider' id='legendOpacitySlider' data-theme-id='" + cThemeId.replace(/'/g, "&#39;") + "' style='width:50%;margin-top:0.4em'>";
                         szHtml += "</div>";
                     }
-                    if (firstChart) {
+                    if (ixmaps.legendTools && firstChart) {
                         var sThemeObj = firstChart.layer.themeObj;
                         var sThemeId = firstChart.layer.szId;
                         var isVectorChart = sThemeObj.szFlag && sThemeObj.szFlag.match(/\bVECTOR\b/);
@@ -2460,9 +2460,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     szHtml += "<div style='height:0.4em'></div>";
                 }
                 
-                // if theme is CLIP, make clip frame slider 
+                // if theme is CLIP, make clip frame slider
                 // ---------------------------------------------------------------
-                if (themeObj.szFlag && themeObj.szFlag.match(/\bCLIP\b/)){
+                if (ixmaps.legendTools && themeObj.szFlag && themeObj.szFlag.match(/\bCLIP\b/)){
                     var clipFrames = themeObj.nClipFrames;
                     var actualFrame = themeObj.nActualFrame;
                     var szFrameText = themeObj.szXaxisA && themeObj.szXaxisA[themeObj.nActualFrame];
@@ -2482,9 +2482,9 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     szHtml += "</div>";
                 }
                 
-                // if time field is defined, make time slider 
+                // if time field is defined, make time slider
                 // ---------------------------------------------------------------
-                if (themeObj.szTimeField) {
+                if (ixmaps.legendTools && themeObj.szTimeField) {
                     var timeSliderId = "timeRange_" + theme.szId.replace(/[^a-zA-Z0-9]/g, '_');
                     var uMin = 10000000000000;
                     var uMax = -100000000000000;
@@ -2547,7 +2547,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 // Opacity slider (choropleth) or Chart size slider (chart) per theme
                 var isChoroplethTheme = themeObj.szFlag && themeObj.szFlag.match(/\bCHOROPLETH\b/);
                 var isChartTheme = themeObj.szFlag && themeObj.szFlag.match(/\bCHART\b|\bBUBBLE\b|\bDOT\b/);
-                if (isChoroplethTheme) {
+                if (ixmaps.legendTools && isChoroplethTheme) {
                     var fillOpacityValT = 90;
                     try {
                         var defT = themeObj.def && themeObj.def();
@@ -2561,7 +2561,7 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                     szHtml += "<input type='range' min='0' max='100' value='"+fillOpacityValT+"' class='slider' id='"+opacitySliderId+"' data-theme-id='"+theme.szId.replace(/'/g, "&#39;")+"' style='width:50%;margin-top:0.4em'>";
                     szHtml += "</div>";
                 }
-                if (isChartTheme) {
+                if (ixmaps.legendTools && isChartTheme) {
                     var isVectorTheme = themeObj.szFlag && themeObj.szFlag.match(/\bVECTOR\b/);
                     var scaleValT = 100;
                     try {
@@ -2615,11 +2615,13 @@ window.ixmaps.legend = window.ixmaps.legend || {};
                 "</a>" +
                 "<div id='map-legend-content'>" + szHtml + "</div>";
             
-            szLegendPane += "<a href='javascript:__toggleLegendPane(0);'>" +
-                "<div id='legend-type-switch-bottom' style='display:none'>" +
-                "<i id='map-legend-pane-switch' class='icon shareIcon blackHover icon-arrow-down2' title='close' style='color:#888;pointer-events:none;' tabindex='-1'></i>" +
-                "</div>" +
-                "</a>";
+            if (ixmaps.legendClose) {
+                szLegendPane += "<a href='javascript:__toggleLegendPane(0);'>" +
+                    "<div id='legend-type-switch-bottom' style='display:none'>" +
+                    "<i id='map-legend-pane-switch' class='icon shareIcon blackHover icon-arrow-down2' title='close' style='color:#888;pointer-events:none;' tabindex='-1'></i>" +
+                    "</div>" +
+                    "</a>";
+            }
 
             if ( $("#map-legend").attr("data-align") == "left" ){
                 $("#map-legend").append(szHtml);
@@ -3658,7 +3660,14 @@ window.ixmaps.legend = window.ixmaps.legend || {};
 		if (window.innerWidth < 500){
 			ixmaps.legend.hide();
 		}else{
-			$("#map-legend").slideDown();
+			// GR: legendAnimation:false (see __load_map in htmlgui_flat.js) skips the slide
+			// animation -- this runs on every legend content redraw, not just the first show,
+			// so with animation on it visibly slides on every theme/filter update too.
+			if (ixmaps.legendAnimation === false) {
+				$("#map-legend").show();
+			} else {
+				$("#map-legend").slideDown();
+			}
 			ixmaps.legend.show();
 		}
    };

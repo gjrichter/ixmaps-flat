@@ -334,14 +334,20 @@ $Log: htmlgui_sync.js,v $
 	 * @return void
 	 * @private
 	 */
+	// GR: remembers the pointer-events state the current tool mode wants, so a
+	// temporary gesture hand-off (see do_multiTouchStart/End below) can restore
+	// exactly that state afterwards instead of guessing
+	var __lastSVGActivateFlag = true;
+
 	var __activateSVGElements = function (flag) {
 
 		if (!fEnableSwitchEvents) {
 			return;
 		}
+		__lastSVGActivateFlag = flag;
 		$("#svgmapdiv").css("pointer-events", (flag ? "all" : "none"));
 
-		// GR 04.06.2014 new, for chrome on android 
+		// GR 04.06.2014 new, for chrome on android
 		ixmaps.switchAndroidEventPane(!flag);
 
 		if (!flag) {
@@ -421,7 +427,84 @@ $Log: htmlgui_sync.js,v $
 	};
 
 	/**
-	 **	enable/disable SVG mouse events 
+	 * pan the underlying HTML map (Leaflet) by a raw pixel offset, then let its
+	 * own 'move'/'moveend' events reactively reposition the SVG (htmlgui_panSVG /
+	 * htmlgui_synchronizeSVG -> doCenterMapToGeoBounds), the same mechanism "pan"
+	 * mode already relies on. Unlike computing a target lat/lng from the SVG's
+	 * own shifted position, this needs no projection-specific geo math on our
+	 * side, so it works for orthographic/Albers/Lambert too, not just Mercator
+	 * @param {number} dx pixels to pan by (matches raw mouse delta)
+	 * @param {number} dy pixels to pan by (matches raw mouse delta)
+	 * @return void
+	 */
+	ixmaps.htmlgui_panMapBy = function (dx, dy) {
+		if (!ixmaps.htmlMap) {
+			return;
+		}
+		try {
+			htmlMap_panBy(dx, dy);
+		} catch (e) {}
+	};
+
+	/**
+	 * forward a wheel event that landed on the SVG overlay to the underlying
+	 * HTML map (Leaflet); needed because in "info"/"clickinfo" mode #svgmapdiv
+	 * has pointer-events:all and therefore intercepts wheel events that would
+	 * otherwise reach Leaflet's own scrollWheelZoom handler on #gmap directly
+	 * @param {WheelEvent} evt the original wheel event
+	 * @return void
+	 */
+	ixmaps.do_wheelEvent = function (evt) {
+		if (!ixmaps.htmlMap || !ixmaps.gmapDiv || !evt) {
+			return;
+		}
+		evt.preventDefault();
+		ixmaps.gmapDiv.dispatchEvent(new WheelEvent('wheel', {
+			deltaX: evt.deltaX,
+			deltaY: evt.deltaY,
+			deltaZ: evt.deltaZ,
+			deltaMode: evt.deltaMode,
+			clientX: evt.clientX,
+			clientY: evt.clientY,
+			screenX: evt.screenX,
+			screenY: evt.screenY,
+			ctrlKey: evt.ctrlKey,
+			shiftKey: evt.shiftKey,
+			altKey: evt.altKey,
+			metaKey: evt.metaKey,
+			bubbles: true,
+			cancelable: true,
+			view: window
+		}));
+	};
+
+	/**
+	 * a 2nd (or later) touch point has landed while the SVG overlay owned
+	 * pointer events (info/clickinfo mode) -- hand the rest of the pinch
+	 * gesture to the underlying HTML map by stepping the SVG out of hit
+	 * testing, the same mechanism "pan" mode already relies on for native
+	 * Leaflet reactivity
+	 * @return void
+	 */
+	ixmaps.do_multiTouchStart = function () {
+		$("#svgmapdiv").css("pointer-events", "none");
+	};
+
+	/**
+	 * restore the SVG overlay's pointer-events state (matching the current
+	 * tool mode) once every finger has lifted, ending a hand-off gesture
+	 * @param {TouchEvent} [evt] the touchend/touchcancel event, if available
+	 * @return void
+	 */
+	ixmaps.do_multiTouchEnd = function (evt) {
+		if (evt && evt.touches && evt.touches.length > 0) {
+			return;
+		}
+		$("#svgmapdiv").css("pointer-events", (__lastSVGActivateFlag ? "all" : "none"));
+	};
+
+	/**
+	 **	enable/disable SVG mouse events
 	 **/
 
 	/**
@@ -712,6 +795,14 @@ $Log: htmlgui_sync.js,v $
 
 	ixmaps.htmlgui_synchronizeSVG = function (fPanOnly) {
 
+		// GR: same guard as htmlgui_panSVG -- if this call is a direct, synchronous
+		// reaction to a Leaflet 'move'/'moveend' event that WE just caused (see
+		// fInSVGSync in mapscript2.js's doPanMapByViewer/doDefaultZoom), scheduling
+		// a resync here would fight the pan we're already doing every tick
+		if (ixmaps.fInSVGSync) {
+			return;
+		}
+
 		if (fPanOnly) {
 			// avoid to frequent syncs
 			// privileges dragging of the html map over SVG sync
@@ -828,76 +919,85 @@ $Log: htmlgui_sync.js,v $
 		*/
 		ixmaps.fInSVGSync = true;
 
-		// Check if projection is orthographic (or albers/lambert) - these projections need special zoom handling
-		var szProjection = null;
+		// GR: everything until the reset below runs inside try/finally so a thrown
+		// error (e.g. from the unguarded _TRACE call right after a runtime
+		// projection switch, when ixmaps.tmp or the embedded window can be
+		// transiently stale) can never skip the reset and leave fInSVGSync stuck
+		// true forever -- which would permanently block every future reactive
+		// Leaflet->SVG sync (htmlgui_panSVG/htmlgui_synchronizeSVG's guards on
+		// this same flag), not just this one call.
 		try {
-			if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
-			    ixmaps.embeddedSVG.window.map.Scale && ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
-				szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
-			}
-		} catch (e) {}
-		var isOrthographic = szProjection && szProjection.match(/orthographic/i);
-		
-		// set SVG map bounds
-		if (fPanOnly) {
-			//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
-
-		} else {
-			
-			ixmaps.embeddedSVG.window._TRACE("==== >>> sync <<< === "+ixmaps.tmp.inZoom);
-			// Check if this is a zoom event
-			var isZoomEvent = !fPanOnly || (ixmaps.tmp && ixmaps.tmp.inZoom);
-			
-			// For orthographic projections, never calculate zoom from bounds (even on zoom events)
-			// Instead, convert Leaflet zoom level directly to SVG zoom scale
-			if (isOrthographic && isZoomEvent) {
-				// Convert Leaflet zoom to SVG zoom scale using exponential relationship
-				// Leaflet zoom is exponential: each level doubles the scale (2^zoom)
-				// For orthographic, we use exponential scaling to maintain consistent panning speed
-				// Formula: svgZoomScale = baseScale * 2^(zoom - referenceZoom)
-				// This ensures panning feels consistent across zoom levels
-				var leafletZoom = htmlMap_getZoom();
-				var referenceZoom = 2.0;  // Reference zoom level
-				var baseScale = 5.0;     // Scale at reference zoom level (reduced to make map smaller)
-				var svgZoomScale = baseScale * Math.pow(2, leafletZoom - referenceZoom);
-				// Ensure minimum zoom scale
-				if (svgZoomScale < 1.0) {
-					svgZoomScale = 1.0;
+			// Check if projection is orthographic (or albers/lambert) - these projections need special zoom handling
+			var szProjection = null;
+			try {
+				if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map &&
+				    ixmaps.embeddedSVG.window.map.Scale && ixmaps.embeddedSVG.window.map.Scale.szMapProjection) {
+					szProjection = ixmaps.embeddedSVG.window.map.Scale.szMapProjection;
 				}
-				// Set center first
+			} catch (e) {}
+			var isOrthographic = szProjection && szProjection.match(/orthographic/i);
+
+			// set SVG map bounds
+			if (fPanOnly) {
 				//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
-				// Then set zoom directly
-				try {
-					if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map && 
-					    ixmaps.embeddedSVG.window.map.Zoom) {
-						ixmaps.embeddedSVG.window.map.Zoom.setNewZoom(svgZoomScale);
-					}
-				} catch (e) {
-					console.error("Error setting SVG zoom for orthographic:", e);
-				}
+
 			} else {
-				// For other projections or pan events, use normal bounds calculation
-				// For non-Mercator projections, skip zoom calculation on pan events (moveend), but allow it on zoom events
-				var fSkipZoomForNonMercator = !isZoomEvent;
-				setBoundsLatLon(
-					arrayPtLatLon[0].lat,
-					arrayPtLatLon[0].lng,
-					arrayPtLatLon[1].lat,
-					arrayPtLatLon[1].lng,
-					fSkipZoomForNonMercator);
+
+				try { ixmaps.embeddedSVG.window._TRACE("==== >>> sync <<< === "+ixmaps.tmp.inZoom); } catch (e) {}
+				// Check if this is a zoom event
+				var isZoomEvent = !fPanOnly || (ixmaps.tmp && ixmaps.tmp.inZoom);
+
+				// For orthographic projections, never calculate zoom from bounds (even on zoom events)
+				// Instead, convert Leaflet zoom level directly to SVG zoom scale
+				if (isOrthographic && isZoomEvent) {
+					// Convert Leaflet zoom to SVG zoom scale using exponential relationship
+					// Leaflet zoom is exponential: each level doubles the scale (2^zoom)
+					// For orthographic, we use exponential scaling to maintain consistent panning speed
+					// Formula: svgZoomScale = baseScale * 2^(zoom - referenceZoom)
+					// This ensures panning feels consistent across zoom levels
+					var leafletZoom = htmlMap_getZoom();
+					var referenceZoom = 2.0;  // Reference zoom level
+					var baseScale = 5.0;     // Scale at reference zoom level (reduced to make map smaller)
+					var svgZoomScale = baseScale * Math.pow(2, leafletZoom - referenceZoom);
+					// Ensure minimum zoom scale
+					if (svgZoomScale < 1.0) {
+						svgZoomScale = 1.0;
+					}
+					// Set center first
+					//setCenterLatLon(ptLatLon.lat, ptLatLon.lng);
+					// Then set zoom directly
+					try {
+						if (ixmaps.embeddedSVG && ixmaps.embeddedSVG.window && ixmaps.embeddedSVG.window.map &&
+						    ixmaps.embeddedSVG.window.map.Zoom) {
+							ixmaps.embeddedSVG.window.map.Zoom.setNewZoom(svgZoomScale);
+						}
+					} catch (e) {
+						console.error("Error setting SVG zoom for orthographic:", e);
+					}
+				} else {
+					// For other projections or pan events, use normal bounds calculation
+					// For non-Mercator projections, skip zoom calculation on pan events (moveend), but allow it on zoom events
+					var fSkipZoomForNonMercator = !isZoomEvent;
+					setBoundsLatLon(
+						arrayPtLatLon[0].lat,
+						arrayPtLatLon[0].lng,
+						arrayPtLatLon[1].lat,
+						arrayPtLatLon[1].lng,
+						fSkipZoomForNonMercator);
+				}
+
+				// GR 11.04.2013 same problem, part of the solution
+				// try to set the center explicitly
+
+				setBoundsLatLonSilent(
+					ptLatLon.lat,
+					ptLatLon.lng,
+					ptLatLon.lat,
+					ptLatLon.lng);
 			}
-
-			// GR 11.04.2013 same problem, part of the solution
-			// try to set the center explicitly
-			
-			setBoundsLatLonSilent(
-				ptLatLon.lat,
-				ptLatLon.lng,
-				ptLatLon.lat,
-				ptLatLon.lng);
+		} finally {
+			ixmaps.fInSVGSync = false;
 		}
-
-		ixmaps.fInSVGSync = false;
 
 		try {
 			ixmaps.embeddedSVG.window._TRACE("htmlgui: request to adapt SVG map");
@@ -958,6 +1058,12 @@ $Log: htmlgui_sync.js,v $
 
 	ixmaps.htmlgui_synchronizeSVGWithDelay = function (fPanOnly, nDelay) {
 
+		// GR: same guard as htmlgui_panSVG/htmlgui_synchronizeSVG -- don't schedule
+		// a resync in reaction to a Leaflet move WE just caused ourselves
+		if (ixmaps.fInSVGSync) {
+			return;
+		}
+
 		// avoid to frequent syncs and sync only after 150 ms;
 		// privileges dragging of the html map over SVG sync
 		//
@@ -987,6 +1093,15 @@ $Log: htmlgui_sync.js,v $
 	};
 
 	ixmaps.htmlgui_panSVG = function () {
+
+		// GR: when the SVG itself drove this Leaflet move (see doPanMapByViewer /
+		// doDefaultZoom in mapscript2.js, which set fInSVGSync around their own
+		// htmlMap_setCenter call), don't react to Leaflet's resulting 'move' event
+		// by re-centering the SVG again -- that double-applies the same pan on
+		// top of itself every tick and runs away ("amplified"/"destructive")
+		if (ixmaps.fInSVGSync) {
+			return;
+		}
 
 		fPan = true;
 

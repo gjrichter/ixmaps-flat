@@ -795,6 +795,17 @@
         if (opt.legendBackground != null && opt.legendBackground !== "") {
             ixmaps.legendBackground = opt.legendBackground;
         }
+        // Legend panel slide animation (jQuery slideDown) on every legend redraw -- not just
+        // the initial show, see __switchLegendPanes in tools/legend.js. Defaults to true
+        // (existing behavior); pass legendAnimation:false to make legend updates instant.
+        ixmaps.legendAnimation = !(opt.legendAnimation === false || opt.legendAnimation === "false");
+        // Interactive legend controls (opacity/scale/CLIP-frame/time sliders), see
+        // htmlgui_onDrawTheme in tools/legend.js. Defaults to true (existing behavior);
+        // pass legendTools:false to remove them.
+        ixmaps.legendTools = !(opt.legendTools === false || opt.legendTools === "false");
+        // Legend close button (bottom arrow icon), see htmlgui_onDrawTheme in tools/legend.js.
+        // Defaults to true (existing behavior); pass legendClose:false to remove it.
+        ixmaps.legendClose = !(opt.legendClose === false || opt.legendClose === "false");
         if (ixmaps.applyForceDarkUiOption) {
             ixmaps.applyForceDarkUiOption(opt);
         }
