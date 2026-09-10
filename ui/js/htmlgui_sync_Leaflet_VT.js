@@ -90,9 +90,12 @@ $Log: htmlgui_sync_Leaflet.js,v $
 		} else {
 			layerName = 'Tiles';
 		}
+		// a style given as a URL (e.g. a third-party MapLibre style like OpenFreeMap's)
+		// is passed through as-is; a bare name is resolved against MapTiler's own styles
+		var styleValue = (typeof style === "string" && style.indexOf("http") === 0) ? style : eval("L.MaptilerStyle." + style);
 		ixmaps.layers[layerName] = L.maptilerLayer({
 			apiKey: 'D7iiyfgsNSCVtHuGghVu',
-			style: eval("L.MaptilerStyle." + style), // optional
+			style: styleValue, // optional
 			attribution: options.attribution
 		});
 	};
@@ -820,20 +823,31 @@ $Log: htmlgui_sync_Leaflet.js,v $
 			subdomains: ['a', 'b', 'c', 'd']
 		});
 
-		/** CartoDB */
+		/** OpenFreeMap (replaces CartoDB Positron/Dark matter; old CartoDB names kept as aliases so existing projects keep resolving) */
 
-		__addTileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", {
+		__addVectorTileLayer("https://tiles.openfreemap.org/styles/positron", {
+			name: "OpenFreeMap - Positron",
+			myname: "OpenFreeMap - Positron",
+			attribution: "<a href='https://openfreemap.org' target='_blank'>OpenFreeMap</a> &copy; <a href='https://www.openmaptiles.org/' target='_blank'>OpenMapTiles</a> Data from <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>"
+		});
+		__addVectorTileLayer("https://tiles.openfreemap.org/styles/positron", {
 			name: "CartoDB - Positron",
 			myname: "CartoDB - Positron",
-			attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='https://cartodb.com/attributions'>CartoDB</a></a>",
-			subdomains: ['a', 'b', 'c', 'd']
+			attribution: "<a href='https://openfreemap.org' target='_blank'>OpenFreeMap</a> &copy; <a href='https://www.openmaptiles.org/' target='_blank'>OpenMapTiles</a> Data from <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>"
 		});
-		__addTileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
+		__addVectorTileLayer("https://tiles.openfreemap.org/styles/dark", {
+			name: "OpenFreeMap - Dark",
+			myname: "OpenFreeMap - Dark",
+			attribution: "<a href='https://openfreemap.org' target='_blank'>OpenFreeMap</a> &copy; <a href='https://www.openmaptiles.org/' target='_blank'>OpenMapTiles</a> Data from <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>"
+		});
+		__addVectorTileLayer("https://tiles.openfreemap.org/styles/dark", {
 			name: "CartoDB - Dark matter",
 			myname: "CartoDB - Dark matter",
-			attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, &copy; <a href='https://cartodb.com/attributions'>CartoDB</a></a>",
-			subdomains: ['a', 'b', 'c', 'd']
+			attribution: "<a href='https://openfreemap.org' target='_blank'>OpenFreeMap</a> &copy; <a href='https://www.openmaptiles.org/' target='_blank'>OpenMapTiles</a> Data from <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a>"
 		});
+
+		/** CartoDB */
+
 		__addTileLayer("https://demographics.virginia.edu/DotMap/tiles4/{z}/{x}/{y}.png", {
 			name: "RaceDotMap",
 			myname: "RaceDotMap",

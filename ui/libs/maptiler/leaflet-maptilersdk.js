@@ -38,17 +38,8 @@
           this._initContainer();
         }
 
-        // Adding MapTiler logo + link
-        const maptilerLink = document.createElement("a");
-        maptilerLink.href = "https://www.maptiler.com";
-        maptilerLink.style = "position:absolute; left:10px; bottom:2px; z-index:999;";
-        const maptilerLogo = document.createElement("img");
-        maptilerLogo.src = "https://api.maptiler.com/resources/logo.svg";
-        maptilerLogo.alt = "MapTiler logo";
-        maptilerLogo.width = "100";
-        maptilerLogo.height = "30";
-        maptilerLink.appendChild(maptilerLogo);
-        map.getContainer().appendChild(maptilerLink);
+        // No logo is added here — every provider is credited as text in the attribution
+        // control instead (see below and the CSS rule hiding the SDK's own logo control).
 
         const paneName = this.getPaneName();
         map.getPane(paneName).appendChild(this._container);
@@ -62,8 +53,18 @@
           L.DomEvent.on(map._proxy, L.DomUtil.TRANSITION_END, this._transitionEnd, this);
         }
 
-        // Adding MapTiler attribution
-        map.attributionControl.addAttribution("\u003ca href=\"https://www.maptiler.com/copyright/\" target=\"_blank\"\u003e\u0026copy; MapTiler\u003c/a\u003e \u003ca href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\"\u003e\u0026copy; OpenStreetMap contributors\u003c/a\u003e");
+        // Adding attribution: MapTiler's own for a MapTiler style, the caller-supplied one otherwise
+        map.attributionControl.addAttribution(this._usesMaptilerStyle()
+          ? "\u003ca href=\"https://www.maptiler.com/copyright/\" target=\"_blank\"\u003e\u0026copy; MapTiler\u003c/a\u003e \u003ca href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\"\u003e\u0026copy; OpenStreetMap contributors\u003c/a\u003e"
+          : (this.options.attribution || ""));
+      },
+
+
+      // true when options.style is a MapTiler style (a MapStyleVariant object, or an api.maptiler.com URL);
+      // false for a third-party style URL (e.g. OpenFreeMap), which should not carry MapTiler branding
+      _usesMaptilerStyle: function () {
+        const style = this.options.style;
+        return !(typeof style === "string" && style.indexOf("https://api.maptiler.com/maps/") !== 0);
       },
 
 

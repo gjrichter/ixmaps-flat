@@ -94,4 +94,10 @@
 			max-height: 90vh !important;
 		}
 
+		/* Vector basemap providers (MapTiler, and any style loaded through it) are credited
+		   as text in the attribution control only — never show their logo control. */
+		.maplibregl-ctrl-logo {
+			display: none !important;
+		}
+
 
