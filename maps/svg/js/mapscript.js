@@ -927,7 +927,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "1.0.18";
+    var thisversion = "1.0.19";
     map = new ixMap();
     map.version = thisversion;
     // and make global
@@ -2627,9 +2627,19 @@ $Log: mapscript.js,v $
             this._calculateLambertAzimuthalConstants();
         }
 
+        // GR: lat0/lon0 must be returned at FULL precision. They are not just a debug
+        // readout: doCenterMapToGeoBounds stores them in map.Scale.lastLambertParams and
+        // feeds them to doCenterMapToGeoPosition to align the projection origin with the
+        // container centre, while the geometry itself is projected from the exact
+        // this.nLambertLat0/nLambertLon0 set above. Rounding to 0.1 degrees here made
+        // those two disagree by up to +/-0.05 degrees, and the sign of that disagreement
+        // flipped every time the true centre crossed a 0.1-degree boundary -- during a
+        // drag that is a continuous small back-and-forth tremor plus a jump at each
+        // boundary, invisible at low zoom but growing linearly with zoom (a fixed angular
+        // error covers more screen pixels the further you zoom in).
         const result = {
-            lat0: Math.round(this.nLambertLat0 * 10) / 10,
-            lon0: Math.round(this.nLambertLon0 * 10) / 10
+            lat0: this.nLambertLat0,
+            lon0: this.nLambertLon0
         };
 
         if (this._lambertConstants) {
@@ -2718,9 +2728,15 @@ $Log: mapscript.js,v $
         // Note: Orthographic projection doesn't require pre-calculated constants
         // like Lambert Azimuthal, as it's a simpler azimuthal projection
 
+        // GR: full precision, for the same reason as calculateLambertAzimuthalParameters
+        // above -- a 0.1-degree rounding here is invisible today only because nothing
+        // positions from this return value (doCenterMapToGeoBounds' recentre step covers
+        // lambert/albers only), which made it a trap for whoever wires orthographic into
+        // that block next. Note updateOrthographicParameters' [0,0]-sentinel guard has
+        // tolerances calibrated against the old rounded values; they were adjusted to match.
         const result = {
-            lat0: Math.round(this.nOrthographicLat0 * 10) / 10,
-            lon0: Math.round(this.nOrthographicLon0 * 10) / 10
+            lat0: this.nOrthographicLat0,
+            lon0: this.nOrthographicLon0
         };
 
         console.debug('calculateOrthographicParameters: result', result);
@@ -2862,11 +2878,12 @@ $Log: mapscript.js,v $
             console.warn('calculateAlbersParametersFromBounds: standard parallels too close, adjusting', { lat1, lat2 });
             // Use sphere approximation as fallback if parallels are too close
             const n = (Math.sin(phi1) + Math.sin(phi2)) / 2;
+            // GR: full precision -- see the note in the main branch below.
             const result = {
-                lat1: Math.round(lat1 * 10) / 10,
-                lat2: Math.round(lat2 * 10) / 10,
-                lat0: Math.round(centerLat * 10) / 10,
-                lon0: Math.round(centerLng * 10) / 10,
+                lat1: lat1,
+                lat2: lat2,
+                lat0: centerLat,
+                lon0: centerLng,
                 _n: Math.round(n * 10000) / 10000
             };
             this.nAlbersLat1 = result.lat1;
@@ -2890,12 +2907,17 @@ $Log: mapscript.js,v $
         }
         
         const n = (m1 * m1 - m2 * m2) / qDiff;
-        
+
+        // GR: these must be full precision. Unlike the Lambert case, the rounded values
+        // were also written into this.nAlbers* below and so fed _calculateAlbersConstants(),
+        // quantising the projection itself to 0.1-degree steps -- panning moved the map in
+        // visible discrete jumps rather than continuously, and lat1/lat2 quantisation made
+        // the cone constant step as well. Keep _n rounded: it is diagnostic only.
         const result = {
-            lat1: Math.round(lat1 * 10) / 10,
-            lat2: Math.round(lat2 * 10) / 10,
-            lat0: Math.round(centerLat * 10) / 10,
-            lon0: Math.round(centerLng * 10) / 10,
+            lat1: lat1,
+            lat2: lat2,
+            lat0: centerLat,
+            lon0: centerLng,
             _n: Math.round(n * 10000) / 10000
         };
 

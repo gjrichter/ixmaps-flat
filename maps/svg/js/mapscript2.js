@@ -1052,10 +1052,49 @@ $Log: mapscript2.js,v $
         } else if (szProjection.match(/lambert/i)) {
             projectionType = 'lambert';
         }
-        
+
+        // GR: Lambert/Albers recompute projection parameters AND trigger a full theme
+        // geometry rebuild (fRealize + async Themes.execute()) on every call below. Pan
+        // delivers this call once per raw pointermove (can be 100+/sec); running the full
+        // rebuild synchronously for each one queues overlapping async rebuilds that race
+        // each other mid-flight -- visible as trembling during the drag, with a periodic
+        // snap once one rebuild finally completes uninterrupted (the snap distance grows
+        // with zoom because the same rebuild lag covers more screen pixels). Orthographic's
+        // recenter stays cheap and synchronous below. Coalesce Lambert/Albers to at most
+        // one rebuild per animation frame, using the most recent bounds at fire time.
+        if (projectionType === 'lambert' || projectionType === 'albers') {
+            this._pendingAdaptiveCenterBounds = [latSW, lonSW, latNE, lonNE];
+            if (!this._adaptiveCenterRafScheduled) {
+                this._adaptiveCenterRafScheduled = true;
+                var self = this;
+                requestAnimationFrame(function () {
+                    self._adaptiveCenterRafScheduled = false;
+                    var b = self._pendingAdaptiveCenterBounds;
+                    self._centerAdaptiveProjection(projectionType, b[0], b[1], b[2], b[3]);
+                });
+            }
+            return;
+        }
+
         if (projectionType) {
+            this._centerAdaptiveProjection(projectionType, latSW, lonSW, latNE, lonNE);
+            return;
+        }
+
+        this.fExternalZoom = false;
+        var ptSW = map.Scale.getMapCoordinateOfLatLon(latSW, lonSW);
+        var ptNE = map.Scale.getMapCoordinateOfLatLon(latNE, lonNE);
+        if (ptSW && ptNE) {
+            this.doCenterMapToEnvelope(ptSW.x, ptNE.x, ptSW.y, ptNE.y);
+        } else {
+            displayMessage("missing projection ! lat/lon could not be resolved", 1000);
+        }
+    };
+
+    ixMap.Zoom.prototype._centerAdaptiveProjection = function (projectionType, latSW, lonSW, latNE, lonNE) {
+        {
             var result = null;
-            
+
             // Albers projection needs bounds-based calculation (uses actual bounds for standard parallels)
             // Lambert and Orthographic use center + zoom
             if (projectionType === 'albers') {
@@ -1063,22 +1102,17 @@ $Log: mapscript2.js,v $
                 if (map.Scale && typeof map.Scale.calculateAlbersParametersFromBounds === 'function') {
                     var newParams = map.Scale.calculateAlbersParametersFromBounds(latSW, lonSW, latNE, lonNE);
                     if (newParams) {
-                        // Compare with last parameters to detect changes
-                        var lastParams = map.Scale.lastAlbersParams;
-                        var paramsChanged = false;
-                        
-                        if (!lastParams) {
-                            paramsChanged = true;
-                        } else {
-                            var THRESHOLD = 0.5;
-                            if (Math.abs(newParams.lat1 - lastParams.lat1) > THRESHOLD ||
-                                Math.abs(newParams.lat2 - lastParams.lat2) > THRESHOLD ||
-                                Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
-                                Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
-                                paramsChanged = true;
-                            }
-                        }
-                        
+                        // GR: same fix as updateLambertParameters (mapapi.js) -- the previous
+                        // tick-to-tick 0.5-degree threshold comparison against lastAlbersParams
+                        // (overwritten below on every call regardless) meant a slow, incremental
+                        // pan whose individual per-tick deltas each stay under 0.5 degrees never
+                        // set paramsChanged, so theme geometry never got marked for rebuild no
+                        // matter how far the view cumulatively drifted -- confirmed directly for
+                        // the Lambert case (5 ticks of 0.05 degrees each, changed:false every
+                        // time). updateOrthographicParameters already always considers params
+                        // changed for exactly this reason; do the same here.
+                        var paramsChanged = true;
+
                         // Store new parameters
                         map.Scale.lastAlbersParams = {
                             lat1: newParams.lat1,
@@ -1255,18 +1289,6 @@ $Log: mapscript2.js,v $
                     }
                 }
             }
-            
-            // Don't apply visual panning for adaptive projections - projection parameters handle the transformation
-            return;
-        }
-        
-        this.fExternalZoom = false;
-        var ptSW = map.Scale.getMapCoordinateOfLatLon(latSW, lonSW);
-        var ptNE = map.Scale.getMapCoordinateOfLatLon(latNE, lonNE);
-        if (ptSW && ptNE) {
-            this.doCenterMapToEnvelope(ptSW.x, ptNE.x, ptSW.y, ptNE.y);
-        } else {
-            displayMessage("missing projection ! lat/lon could not be resolved", 1000);
         }
     };
     /**

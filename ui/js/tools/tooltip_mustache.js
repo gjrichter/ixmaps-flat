@@ -57,6 +57,14 @@ window.ixmaps = window.ixmaps || {};
 
 	/** Parquet/Arrow int64 may be BigInt; isNaN(bigint) throws. */
 	function tooltipMustacheNumericCell(v) {
+		// GR 24.08.2026 isNaN("") and isNaN(null) are both false (Number("")===0),
+		// so an empty/absent OSM tag value was misclassified as numeric and
+		// formatValue(..., "BLANK") turned it into the literal string "0" - a
+		// truthy value that defeats a template's {{^field}} empty-value check.
+		// Confirmed live: an unnamed way's {{name}} rendered "0" instead of
+		// falling through to a template's fallback text.
+		if (v === null || v === undefined) return false;
+		if (typeof v === "string" && v.trim() === "") return false;
 		return typeof v === "bigint" || !isNaN(v);
 	}
 

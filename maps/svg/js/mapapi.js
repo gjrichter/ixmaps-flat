@@ -1653,22 +1653,21 @@ $Log: mapapi.js,v $
                 return null;
             }
             
-            // Compare with last parameters to detect changes
-            const lastParams = this.map.Scale.lastLambertParams;
-            let paramsChanged = false;
-            
-            if (!lastParams) {
-                // First time, consider it changed
-                paramsChanged = true;
-            } else {
-                // Check if parameters changed significantly (threshold: 0.5 degrees)
-                const THRESHOLD = 0.5;
-                if (Math.abs(newParams.lat0 - lastParams.lat0) > THRESHOLD ||
-                    Math.abs(newParams.lon0 - lastParams.lon0) > THRESHOLD) {
-                    paramsChanged = true;
-                }
-            }
-            
+            // GR: this used to compare against lastLambertParams with a fixed 0.5-degree
+            // threshold, but that comparison is tick-to-tick (lastLambertParams gets
+            // overwritten below regardless of whether a rebuild happened), not against a
+            // stable "since last rebuild" anchor -- during a slow, incremental pan (small
+            // per-tick lat/lon deltas, which is *more* likely at high zoom where a given
+            // pixel of mouse movement covers less ground) every single tick can individually
+            // stay under 0.5 degrees, so paramsChanged never becomes true and theme geometry
+            // never gets marked for rebuild, no matter how far the view cumulatively drifts --
+            // confirmed directly: 5 ticks of 0.05 degrees each (0.25 total) each reported
+            // changed:false. updateOrthographicParameters already had to work around this
+            // same class of bug ("Always consider parameters changed for panning updates
+            // (even if below threshold)... ensures smooth rotation during panning") -- apply
+            // the same fix here instead of reinventing a different one.
+            let paramsChanged = true;
+
             // Store new parameters for next comparison
             this.map.Scale.lastLambertParams = {
                 lat0: newParams.lat0,
@@ -1760,10 +1759,18 @@ $Log: mapapi.js,v $
             }
             
             // Additional validation: ensure parameters are not [0, 0] unless explicitly set
-            if (Math.abs(newParams.lat0) < 0.1 && Math.abs(newParams.lon0) < 0.1) {
+            // GR: these tolerances used to be 0.1, calibrated against the 0.1-degree-rounded
+            // values calculateOrthographicParameters returned. That return is now full
+            // precision, so the literals are restated as their exact equivalents to keep this
+            // guard's behaviour bit-identical: with rounding, "|rounded| < 0.1" was reachable
+            // only for a true |v| < 0.05, and "|rounded| > 0.1" (rounded values being
+            // multiples of 0.1, so >= 0.2) only for a true |v| >= 0.15. Leaving them at 0.1
+            // would have silently doubled the dead zone near lat/lon 0,0 in which a genuine
+            // pan update gets rejected.
+            if (Math.abs(newParams.lat0) < 0.05 && Math.abs(newParams.lon0) < 0.05) {
                 // Check if we have existing valid parameters - if so, don't overwrite with [0, 0]
                 const lastParams = this.map.Scale.lastOrthographicParams;
-                if (lastParams && (Math.abs(lastParams.lat0) > 0.1 || Math.abs(lastParams.lon0) > 0.1)) {
+                if (lastParams && (Math.abs(lastParams.lat0) >= 0.15 || Math.abs(lastParams.lon0) >= 0.15)) {
                     console.warn('updateOrthographicParameters: rejecting [0, 0] parameters when valid ones exist', { 
                         newParams, 
                         lastParams, 

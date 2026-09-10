@@ -936,6 +936,23 @@ $Log: htmlgui_sync.js,v $
 				}
 			} catch (e) {}
 			var isOrthographic = szProjection && szProjection.match(/orthographic/i);
+			// GR: Lambert/Albers are "recentering" projections -- doCenterMapToGeoBounds
+			// (called unconditionally below, via setBoundsLatLonSilent) recomputes the
+			// projection's own reference point (lat0/lon0) on every sync, unlike Mercator/
+			// EqualEarth where panning is a plain viewport shift within a fixed projection.
+			// On a zoom event these two used to run in the wrong order: the bounds-based
+			// scale below was computed by converting geo-bounds through the CURRENT (about
+			// to become stale) projection center, and only *afterward* did the unconditional
+			// recenter at the bottom of this function move that center -- silently
+			// invalidating the scale/rect just computed and applied. Symptoms: Leaflet's own
+			// zoom level updates correctly while the SVG rendering doesn't follow (the
+			// computed scale coincidentally matches the already-current one), or a degenerate
+			// sliver rect when the stale-center bounds conversion lands corners near the edge
+			// of the projection's valid disk. Orthographic never hit this because its zoom
+			// scale (just below) is computed purely from Leaflet's zoom level, independent of
+			// the projection center entirely -- recentering afterward can't invalidate it.
+			var isLambert = szProjection && szProjection.match(/lambert/i);
+			var isAlbers = szProjection && szProjection.match(/albers/i);
 
 			// set SVG map bounds
 			if (fPanOnly) {
@@ -946,6 +963,14 @@ $Log: htmlgui_sync.js,v $
 				try { ixmaps.embeddedSVG.window._TRACE("==== >>> sync <<< === "+ixmaps.tmp.inZoom); } catch (e) {}
 				// Check if this is a zoom event
 				var isZoomEvent = !fPanOnly || (ixmaps.tmp && ixmaps.tmp.inZoom);
+
+				// Recenter Lambert/Albers's own projection parameters BEFORE computing the
+				// bounds-based zoom scale below, not after (see comment above) -- the
+				// unconditional setBoundsLatLonSilent() at the bottom of this function still
+				// runs too, but is a harmless no-op by then (same center, no change detected).
+				if ((isLambert || isAlbers) && isZoomEvent) {
+					setBoundsLatLonSilent(ptLatLon.lat, ptLatLon.lng, ptLatLon.lat, ptLatLon.lng);
+				}
 
 				// For orthographic projections, never calculate zoom from bounds (even on zoom events)
 				// Instead, convert Leaflet zoom level directly to SVG zoom scale
@@ -1082,6 +1107,17 @@ $Log: htmlgui_sync.js,v $
 		}
 		if (ixmaps.panHidden) {
 			ixmaps.hideAll();
+			// GR: panHidden (set by htmlgui_panSVG below when a single sync call takes
+			// over 100ms) previously had no reset anywhere in the normal pan lifecycle --
+			// only an unrelated basemap-type-switch path, and a disabled (`if (0 && ...)`)
+			// time-based reset that was clearly intended but never finished. Left as-is,
+			// ONE slow tick permanently skips syncing on every subsequent move tick, this
+			// drag and all future ones, until the page reloads -- the SVG only catches up
+			// at each drag's moveend, perceived as the view freezing mid-drag then
+			// snapping into place on release ("jumps"). Give every new drag a fresh
+			// chance instead: if THIS drag is also slow, htmlgui_panSVG will re-trip it
+			// and hide again just for this drag, exactly as before.
+			ixmaps.panHidden = false;
 		}
 	};
 
