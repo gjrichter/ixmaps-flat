@@ -1323,6 +1323,17 @@ $Log: maptheme.js,v $
 			if (__isdef(styleObj.maxshadow)) {
 				mapTheme.nMaxShadowCharts = Number(styleObj.maxshadow);
 			}
+			// GR 19.09.2026 optional per-theme shadow blur/offset override — see nShadowBlur/Dx/Dy
+			// default comment above. Values are in real screen pixels.
+			if (__isdef(styleObj.shadowblur)) {
+				mapTheme.nShadowBlur = Number(styleObj.shadowblur);
+			}
+			if (__isdef(styleObj.shadowdx)) {
+				mapTheme.nShadowDx = Number(styleObj.shadowdx);
+			}
+			if (__isdef(styleObj.shadowdy)) {
+				mapTheme.nShadowDy = Number(styleObj.shadowdy);
+			}
 			if (__isdef(styleObj.blur)) {
 				mapTheme.nBlur = Number(styleObj.blur);
 			}
@@ -7738,6 +7749,18 @@ $Log: maptheme.js,v $
 		/** defines the max number of shadowed charts per theme **/
 		this.nMaxShadowCharts = map.Themes.nMaxShadowCharts;
 
+		/** GR 19.09.2026 shadow blur/offset, in REAL SCREEN PIXELS (like a CSS box-shadow) — divided
+		 *  by the full current screen scale (map.Scale.normalX/Y combined with
+		 *  map.Scale.getGroupScale(this.chartGroup), which captures the dynamic pan/zoom transform
+		 *  that normalX/Y alone misses) at filter-creation/update time, so the shadow renders as a
+		 *  constant on-screen size regardless of projection, embed size, initial view zoom, or
+		 *  interactive zoom/pan — a fixed absolute stdDeviation/dx/dy was imperceptible on some
+		 *  pages and too strong on others because it never accounted for any of that. Overridable
+		 *  per theme via style.shadowblur / style.shadowdx / style.shadowdy (also real pixels). **/
+		this.nShadowBlur = 3;
+		this.nShadowDx = 1.5;
+		this.nShadowDy = 2.5;
+
 		/** defines the number of shapes color changes after which the display will be updated **/
 		this.nflushPaintShape = map.Themes.nflushPaintShape;
 
@@ -12835,10 +12858,16 @@ $Log: maptheme.js,v $
 			}
 			if (this.szFlag.match(/QUANTILE/)) {
 				this.getMeanMedianQuantile();
-				var nMaxMember = Math.round(this.quantileA[0].length / nParts);
+				// GR 19.09.2026 each boundary is now recomputed independently as round(i*N/nParts)
+				// instead of i * round(N/nParts) — the old fixed-stride form computed the stride
+				// once and multiplied it, so a single rounding at that one division compounded
+				// across every boundary and drifted further from equal-count classes the less
+				// evenly N divided by nParts. This is textbook per-boundary quantile computation;
+				// confirmed by direct comparison against the old formula on real data.
+				var nQuantileN = this.quantileA[0].length;
 				for (i = 0; i < this.partsA.length; i++) {
-					this.partsA[i].min = this.quantileA[0][i * nMaxMember];
-					this.partsA[i].max = this.quantileA[0][(i + 1) * nMaxMember];
+					this.partsA[i].min = this.quantileA[0][Math.round(i * nQuantileN / nParts)];
+					this.partsA[i].max = this.quantileA[0][Math.round((i + 1) * nQuantileN / nParts)];
 				}
 				this.partsA[this.partsA.length - 1].max = nMax;
 			}
@@ -16840,7 +16869,30 @@ $Log: maptheme.js,v $
 			}
 
 			// GR 28.10.2021 make shadow for the FEATURES
+			// GR 19.09.2026 blur/offset are specified in nShadowBlur/Dx/Dy as REAL SCREEN PIXELS
+			// and converted to raw SVG filter units by dividing out the full current screen scale —
+			// map.Scale.normalX/Y alone only accounts for the static embed-width-vs-viewBox ratio;
+			// it misses the dynamic pan/zoom transform on "mapzoomandpan" (confirmed empirically:
+			// that group alone contributed a ~10x factor normalX never saw), so a normalX-only
+			// shadow renders at a different, unpredictable screen size per projection/zoom/embed
+			// width. map.Scale.getGroupScale(node) walks the full ancestor transform chain and is
+			// the missing piece — combined with normalX/Y, the result is screen-pixel-constant
+			// regardless of projection, embed size, initial view zoom, or interactive pan/zoom.
+			var shadowGroupScale = map.Scale.getGroupScale(this.chartGroup);
+			var nShadowStdDeviation = map.Scale.normalX(this.nShadowBlur) / (shadowGroupScale.x || 1);
+			var nShadowDxRaw = map.Scale.normalX(this.nShadowDx) / (shadowGroupScale.x || 1);
+			var nShadowDyRaw = map.Scale.normalY(this.nShadowDy) / (shadowGroupScale.y || 1);
 			if ((this.fShadow === true) && map.SVGDocument.getElementById(map.szShadowFilterShapeId)) {
+				var existingFilterNode = map.SVGDocument.getElementById(map.szShadowFilterShapeId);
+				var existingBlur = existingFilterNode.querySelector ? existingFilterNode.querySelector("feGaussianBlur") : null;
+				var existingOffset = existingFilterNode.querySelector ? existingFilterNode.querySelector("feOffset") : null;
+				if (existingBlur) {
+					existingBlur.setAttributeNS(null, "stdDeviation", nShadowStdDeviation);
+				}
+				if (existingOffset) {
+					existingOffset.setAttributeNS(null, "dx", nShadowDxRaw);
+					existingOffset.setAttributeNS(null, "dy", nShadowDyRaw);
+				}
 				this.chartGroup.style.setProperty("filter", "url(#" + map.szShadowFilterShapeId + ")", "");
 			} else
 				if ((this.fShadow === true)) {
@@ -16853,13 +16905,13 @@ $Log: maptheme.js,v $
 					filterNode.setAttributeNS(null, "height", "2000%");
 
 					var filter = map.Dom.newNode('feGaussianBlur', filterNode);
-					filter.setAttributeNS(null, "stdDeviation", "0.3");
+					filter.setAttributeNS(null, "stdDeviation", nShadowStdDeviation);
 					filter.setAttributeNS(null, "result", "BlurAlpha");
 
 					filter = map.Dom.newNode('feOffset', filterNode);
 					filter.setAttributeNS(null, "in", "BlurAlpha");
-					filter.setAttributeNS(null, "dx", "0.2");
-					filter.setAttributeNS(null, "dy", "0.5");
+					filter.setAttributeNS(null, "dx", nShadowDxRaw);
+					filter.setAttributeNS(null, "dy", nShadowDyRaw);
 					filter.setAttributeNS(null, "result", "OffsetBlurAlpha");
 
 					filter = map.Dom.newNode('feColorMatrix', filterNode);
