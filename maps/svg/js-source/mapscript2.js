@@ -4003,6 +4003,18 @@ $Log: mapscript2.js,v $
      */
     ixMap.Label.prototype.addCheckItemTheme = function (textNode, fScale) {
 
+        // GR 19.09.2026 skip the ":bg" background/halo twin of a label, the same way
+        // addCheckItem() and prepareCheckOverlap() already do. Without this every theme label
+        // entered the check list twice — the real text plus its halo copy at exactly the same
+        // position and size — so each label permanently and unavoidably "overlapped" itself.
+        // The overlap pass then moved one of the pair, found the conflict again on its rescan
+        // and killed one of them; which one depended on processing order, which is why labels
+        // disappeared seemingly at random even when nothing overlapped on screen.
+        if (textNode.getAttributeNS(null, "id") &&
+            textNode.getAttributeNS(null, "id").match(/:bg/)) {
+            return;
+        }
+
         if (textNode.firstChild) {
 
             // GR 04.05.2011 check if visible
@@ -4158,7 +4170,7 @@ $Log: mapscript2.js,v $
     };
     /**
      * get the boxes of the label list items to check; function goes to sleep every 25 items
-     * @param startIndex an actual startindex into the label item list; necessary for the sleeping 
+     * @param startIndex an actual startindex into the label item list; necessary for the sleeping
      */
     ixMap.Label.prototype.getBoxCheckOverlap = function (startIndex) {
         var i;
@@ -4203,6 +4215,35 @@ $Log: mapscript2.js,v $
                     }
                     // get the box
                     var bBox = map.Dom.getBox(cItem.textNode);
+
+                    // GR 19.09.2026 getBBox() returns the box in the text node's OWN coordinate
+                    // space, but the offsets added below (getMapOffset() -> getGroupOffset(), and
+                    // getTranslate()) are expressed in the coordinate space just inside
+                    // "mapzoomandpan" — getGroupOffset() composes every intermediate group's scale
+                    // into the offset and then stops there. Nothing ever applied those same
+                    // intermediate scales to the box itself, so position and size were in different
+                    // frames and the resulting box was simply wrong.
+                    //
+                    // For a chart label the intermediate groups carry a 1/zoom counter-scale (that
+                    // is what keeps a FIXSIZE label a constant size on screen), so the error factor
+                    // is the current zoom: measured 0.10081 == 1/9.9199 here. That makes the bug
+                    // zoom-dependent, which is exactly the reported symptom — boxes come out too
+                    // narrow at low zoom (overlaps missed) and too wide at high zoom (phantom
+                    // overlaps, labels killed although nothing overlaps on screen).
+                    //
+                    // Scaling the box by the same intermediate scale puts position and size in one
+                    // frame, which also happens to be the frame map.Zoom.getBox() uses — so the
+                    // stock isVisibleBox() check below starts agreeing with what is really on
+                    // screen again (verified: 6/6 labels correctly visible vs 1/6 before).
+                    // NOTE: map.Scale.getGroupScale() cannot be used here — despite its doc comment
+                    // it does NOT stop at mapzoomandpan, so the zoom factor cancels out and it
+                    // returns 1 for exactly these labels.
+                    var ptBoxScale = map.Scale.getGroupScaleInMap(cItem.textNode);
+                    bBox.x *= ptBoxScale.x;
+                    bBox.y *= ptBoxScale.y;
+                    bBox.width *= ptBoxScale.x;
+                    bBox.height *= ptBoxScale.y;
+
                     if (cItem.fScale) {
                         bBox.x *= map.Layer.nFeatureScale;
                         bBox.y *= map.Layer.nFeatureScale;

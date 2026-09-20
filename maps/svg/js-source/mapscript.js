@@ -933,7 +933,7 @@ $Log: mapscript.js,v $
     };
 
     // create instance here 
-    var thisversion = "1.0.20";
+    var thisversion = "1.0.21";
     map = new ixMap();
     map.version = thisversion;
     // and make global
@@ -4003,6 +4003,36 @@ $Log: mapscript.js,v $
             }
         }
         return new point(0, 0);
+    };
+    /**
+     * GR 19.09.2026 get the accumulated scale of the parent groups of a given node, stopping at
+     * group "mapzoomandpan" — i.e. the scale that maps the node's own coordinate space into the
+     * map coordinate space, excluding the current zoom/pan transform.
+     *
+     * This is the scale counterpart of {@link #getGroupOffset} and uses the same stop rule, so a
+     * box measured on the node (getBBox()) can be brought into the very frame getGroupOffset()
+     * returns its offsets in. {@link #getGroupScale} is deliberately NOT that: despite its own
+     * doc comment it walks the whole ancestor chain including mapzoomandpan, so for a node whose
+     * groups counter-scale by 1/zoom (a FIXSIZE chart label, for instance) the two cancel and it
+     * returns 1. Both behaviours have callers; keep them distinct.
+     * @param objNode the node to look at
+     * @return the scale as point object
+     */
+    ixMap.Scale.prototype.getGroupScaleInMap = function (objNode) {
+        var groupScale = new point(1, 1);
+        var pNode = objNode ? objNode.parentNode : null;
+        while (pNode && pNode.nodeType == 1) {
+            if (pNode == map.Zoom.zoomNode) {
+                return groupScale;
+            }
+            var ptScale = getScale(pNode);
+            if (ptScale) {
+                groupScale.x *= ptScale.x;
+                groupScale.y *= ptScale.y;
+            }
+            pNode = pNode.parentNode;
+        }
+        return groupScale;
     };
     /**
      * get the scale of a given node defined by parent groups (stops at group: mapzoomandpan)
